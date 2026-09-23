@@ -31,8 +31,8 @@ from pathlib import PurePosixPath
 from ebookerr_sdk.domain.text_encoding import declare_utf8, decode_declared
 from ebookerr_sdk.epub.document import EpubDocument
 
-from src.services.epub_normalize.counts import NormalizeCounts
-from src.services.epub_normalize.rules import FONT_EXTENSIONS, FONT_MEDIA_TYPES
+from .counts import NormalizeCounts
+from .rules import FONT_EXTENSIONS, FONT_MEDIA_TYPES
 
 logger = logging.getLogger(__name__)
 

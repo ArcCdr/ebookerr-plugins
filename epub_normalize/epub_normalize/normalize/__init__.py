@@ -6,11 +6,11 @@ policy lives in this package.
 
 from __future__ import annotations
 
-from src.services.epub_normalize.normalize import (
+from .normalize import (
     NormalizeReport,
     normalize_epub,
 )
-from src.services.epub_normalize.options import (
+from .options import (
     RULESET_VERSION,
     NormalizeOptions,
     options_signature,

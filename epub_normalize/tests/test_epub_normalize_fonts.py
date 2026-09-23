@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from ebookerr_sdk.epub.document import EpubDocument
-
 from epub_normalize.normalize.counts import NormalizeCounts
 from epub_normalize.normalize.fonts import sweep_fonts
 

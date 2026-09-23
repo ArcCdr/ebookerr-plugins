@@ -41,12 +41,12 @@ from typing import Any
 
 import tinycss2
 
-from src.services.epub_normalize.counts import NormalizeCounts
-from src.services.epub_normalize.declarations import (
+from .counts import NormalizeCounts
+from .declarations import (
     css_text,
     normalize_declarations,
 )
-from src.services.epub_normalize.options import NormalizeOptions
+from .options import NormalizeOptions
 
 
 def normalize_stylesheet(

@@ -231,7 +231,7 @@ class TestMalformedAndBroken:
             return text + "<unclosed>"
 
         monkeypatch.setattr(
-            "src.services.epub_normalize.xhtml._remove_viewport_metas",
+            "epub_normalize.normalize.xhtml._remove_viewport_metas",
             broken_remove,
         )
 

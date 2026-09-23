@@ -1,7 +1,6 @@
 """Tests for EPUB normalizer unit-conversion functions."""
 
 import pytest
-
 from epub_normalize.normalize.units import (
     is_absolute_unit,
     to_em,

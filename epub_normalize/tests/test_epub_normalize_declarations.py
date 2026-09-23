@@ -12,7 +12,6 @@ import dataclasses
 from typing import Any
 
 import tinycss2
-
 from epub_normalize.normalize.counts import NormalizeCounts
 from epub_normalize.normalize.declarations import (
     css_text,

@@ -37,13 +37,13 @@ import tinycss2
 from ebookerr_sdk.epub.errors import MalformedEpubError
 from ebookerr_sdk.epub.safe_xml import safe_fromstring
 
-from src.services.epub_normalize.counts import NormalizeCounts
-from src.services.epub_normalize.declarations import (
+from .counts import NormalizeCounts
+from .declarations import (
     css_text,
     normalize_declarations,
 )
-from src.services.epub_normalize.options import NormalizeOptions
-from src.services.epub_normalize.stylesheet import normalize_stylesheet
+from .options import NormalizeOptions
+from .stylesheet import normalize_stylesheet
 
 logger = logging.getLogger(__name__)
 

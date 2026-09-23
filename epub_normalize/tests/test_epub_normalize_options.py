@@ -10,7 +10,6 @@ import dataclasses
 import re
 
 import pytest
-
 from epub_normalize.normalize import (
     NormalizeOptions,
     options_signature,
@@ -89,7 +88,7 @@ def test_signature_depends_on_the_ruleset_version(
     baseline_sig = options_signature(NormalizeOptions())
 
     # Patch RULESET_VERSION to a different value
-    monkeypatch.setattr("src.services.epub_normalize.options.RULESET_VERSION", "2")
+    monkeypatch.setattr("epub_normalize.normalize.options.RULESET_VERSION", "2")
 
     # Re-compute signature with patched version
     new_sig = options_signature(NormalizeOptions())

@@ -29,9 +29,9 @@ from typing import Any
 
 import tinycss2
 
-from src.services.epub_normalize.counts import NormalizeCounts
-from src.services.epub_normalize.options import NormalizeOptions
-from src.services.epub_normalize.rules import (
+from .counts import NormalizeCounts
+from .options import NormalizeOptions
+from .rules import (
     ALIGNMENT_PROPERTIES,
     BOX_PROPERTIES,
     COLOR_PROPERTIES,
@@ -45,7 +45,7 @@ from src.services.epub_normalize.rules import (
     is_preserved_selector,
     is_root_selector,
 )
-from src.services.epub_normalize.units import is_absolute_unit, to_em
+from .units import is_absolute_unit, to_em
 
 
 def css_text(nodes: list[Any]) -> str:

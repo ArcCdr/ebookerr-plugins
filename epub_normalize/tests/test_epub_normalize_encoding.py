@@ -6,7 +6,6 @@ import logging
 
 from ebookerr_sdk.epub.archive import EpubArchive
 from ebookerr_sdk.epub.document import EpubDocument
-
 from epub_normalize.normalize import NormalizeOptions, normalize_epub
 
 

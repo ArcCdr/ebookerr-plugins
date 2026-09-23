@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 
 from ebookerr_sdk.epub.document import EpubDocument
-
 from epub_normalize.normalize import (
     NormalizeOptions,
     normalize_epub,

@@ -26,7 +26,6 @@ from pathlib import Path
 import pytest
 import tinycss2
 from ebookerr_sdk.epub.document import EpubDocument
-
 from epub_normalize.normalize import (
     NormalizeOptions,
     normalize_epub,

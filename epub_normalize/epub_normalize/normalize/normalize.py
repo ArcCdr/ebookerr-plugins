@@ -45,9 +45,9 @@ from ebookerr_sdk.epub.document import EpubDocument
 from ebookerr_sdk.epub.errors import ItemNotFoundError
 from ebookerr_sdk.epub.opf import ManifestItem
 
-from src.services.epub_normalize.counts import NormalizeCounts
-from src.services.epub_normalize.fonts import sweep_fonts
-from src.services.epub_normalize.markers import (
+from .counts import NormalizeCounts
+from .fonts import sweep_fonts
+from .markers import (
     read_css_marker,
     read_xhtml_marker,
     stamp_css,
@@ -55,9 +55,9 @@ from src.services.epub_normalize.markers import (
     strip_css_marker,
     strip_xhtml_marker,
 )
-from src.services.epub_normalize.options import NormalizeOptions, options_signature
-from src.services.epub_normalize.stylesheet import normalize_stylesheet
-from src.services.epub_normalize.xhtml import normalize_xhtml
+from .options import NormalizeOptions, options_signature
+from .stylesheet import normalize_stylesheet
+from .xhtml import normalize_xhtml
 
 logger = logging.getLogger(__name__)
 

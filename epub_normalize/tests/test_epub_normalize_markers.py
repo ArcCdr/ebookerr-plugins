@@ -1,7 +1,6 @@
 """Tests for EPUB normalize per-file idempotency markers."""
 
 import pytest
-
 from epub_normalize.normalize.markers import (
     read_css_marker,
     read_xhtml_marker,

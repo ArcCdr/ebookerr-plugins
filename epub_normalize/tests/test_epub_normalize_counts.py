@@ -3,7 +3,6 @@
 from dataclasses import fields
 
 import pytest
-
 from epub_normalize.normalize.counts import NormalizeCounts
 
 

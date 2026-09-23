@@ -10,7 +10,6 @@ import ebookerr_sdk.spi as api
 import pytest
 from ebookerr_sdk.epub import EpubDocument
 from ebookerr_sdk.testing import Cancelled, FakeContext
-
 from epub_normalize.plugin import EpubNormalizePlugin
 
 # ---------------------------------------------------------------------------
