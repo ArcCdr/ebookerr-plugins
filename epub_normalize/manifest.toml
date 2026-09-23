@@ -1,0 +1,75 @@
+id = "epub_normalize"
+name = "EPUB Normalize"
+version = "1.1.0"
+type = "epub"
+spi_version = "2.30"
+description = "Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins."
+headed = true
+priority = 70
+events = ["EpubCreated", "EpubModified"]
+default_enabled = true
+run_timeout_s = 600
+icon = "format_paint"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[settings_schema]
+
+[[settings_schema.fields]]
+key = "strip_fonts"
+type = "bool"
+label = "Strip embedded fonts"
+default = true
+help = "Remove font-family declarations and @font-face rules, and delete the embedded font files nothing points at any more, so your reader's own font choice applies."
+
+[[settings_schema.fields]]
+key = "strip_colors"
+type = "bool"
+label = "Strip hardcoded colours"
+default = true
+help = "Remove text and background colours the publisher fixed, so a dark or sepia reading theme works."
+
+[[settings_schema.fields]]
+key = "convert_font_sizes"
+type = "bool"
+label = "Convert absolute font sizes"
+default = true
+help = "Rewrite font sizes given in px/pt/cm as relative em values, and drop the size fixed on the whole document, so your reader's font-size control works."
+
+[[settings_schema.fields]]
+key = "strip_line_spacing"
+type = "bool"
+label = "Strip fixed line and letter spacing"
+default = true
+help = "Remove line-height, letter-spacing and word-spacing, which override your reader's own spacing controls."
+
+[[settings_schema.fields]]
+key = "strip_fixed_dimensions"
+type = "bool"
+label = "Strip fixed widths and heights"
+default = true
+help = "Remove absolute widths and heights on text containers, which cause sideways scrolling on a phone. Images and covers are never touched."
+
+[[settings_schema.fields]]
+key = "preserve_alignment"
+type = "bool"
+label = "Preserve text alignment"
+default = true
+help = "Keep text-align and text-indent, which carry real meaning in poetry, signatures and headings. Turn this off to strip them too."
+
+[[settings_schema.fields]]
+key = "normalize_margins"
+type = "bool"
+label = "Convert fixed margins and padding"
+default = false
+help = "Also rewrite absolute margins and padding as relative em values. Off by default: it is the change most likely to alter a book's intended layout."
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "sweep"
+label = "Normalize styling"
+description = "Remove publisher CSS that overrides your reader's font, theme and text size."
