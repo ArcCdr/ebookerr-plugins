@@ -1,0 +1,74 @@
+id = "epub_validate"
+name = "EPUB Validate"
+version = "1.1.0"
+type = "epub"
+spi_version = "2.30"
+description = "Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file."
+headed = true
+priority = 950
+accepts_list = true
+events = ["EpubCreated", "EpubModified"]
+default_enabled = true
+run_timeout_s = 600
+icon = "fact_check"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[custom_values]]
+key = "status"
+type = "string"
+label = "EPUB validation"
+filterable = true
+aggregatable = true
+
+[[custom_values]]
+key = "checked_at"
+type = "datetime"
+label = "EPUB checked"
+
+[[custom_values]]
+key = "error_count"
+type = "int"
+label = "EPUB errors"
+
+[[custom_values]]
+key = "warning_count"
+type = "int"
+label = "EPUB warnings"
+
+[[custom_values]]
+key = "checker"
+type = "string"
+label = "EPUB checker"
+
+[[custom_values]]
+key = "report"
+type = "string"
+label = "EPUB validation report"
+
+[settings_schema]
+summary = "{external_checker_command|Built-in checks only}"
+
+[[settings_schema.fields]]
+key = "external_checker_command"
+type = "string"
+label = "External EPUBCheck command"
+default = ""
+help = "Absolute path to an executable EPUBCheck-compatible binary. Leave empty to use the built-in checker. Nothing is downloaded or discovered automatically."
+
+[[settings_schema.fields]]
+key = "external_timeout_s"
+type = "int"
+label = "External checker timeout (s)"
+default = 120
+help = "How long to wait for the external checker before giving up and using the built-in one."
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "rule"
+label = "Validate"
+description = "Check the EPUB for structural errors and warnings."
