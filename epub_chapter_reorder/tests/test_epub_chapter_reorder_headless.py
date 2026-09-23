@@ -70,7 +70,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }
@@ -110,7 +110,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }
@@ -173,7 +173,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u3",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }
@@ -220,7 +220,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }
@@ -258,7 +258,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }
@@ -310,7 +310,7 @@ class TestHeadlessPassWithStoredOrder:
 
         # Store a malformed order
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value="{[", value_type="string"
             )
         }
@@ -360,7 +360,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "epub_chapter_reorder.manual_order": api.CustomValueView(
+            "manual_order": api.CustomValueView(
                 value=json.dumps(stored_order), value_type="string"
             )
         }

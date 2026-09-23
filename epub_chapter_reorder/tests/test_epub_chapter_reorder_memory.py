@@ -10,8 +10,9 @@ from pathlib import Path
 import ebookerr_sdk.spi as api
 import pytest
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.epub.chapters import classify_spine
-from ebookerr_sdk.testing import FakeContext, make_book_view, make_epub_item
+from ebookerr_sdk.epub.chapters import chapter_keys, classify_spine
+from ebookerr_sdk.testing import FakeContext, make_book_view, make_epub_item, make_request, run_wire
+from ebookerr_sdk.wire import encode_epub_item
 from epub_chapter_reorder.plugin import EpubChapterReorderPlugin, _stored_manual_order
 
 _LOGGER_NAME = "plugin.epub_chapter_reorder"
@@ -31,11 +32,24 @@ class TestStoredManualOrder:
     def test_missing_value_is_empty(self) -> None:
         """A BookView with no custom values yields []."""
         book = make_book_view(book_id="b1", title="Test Book", story_url=None)
-        result = _stored_manual_order(book, "epub_chapter_reorder")
+        result = _stored_manual_order(book)
         assert result == []
 
-    def test_prefixed_key_is_read(self) -> None:
-        """A BookView whose custom_values holds the prefixed key yields the order."""
+    def test_the_bare_key_is_read(self) -> None:
+        """A BookView whose own custom values hold ``manual_order`` yields the order."""
+        book = make_book_view(
+            book_id="b1",
+            title="Test Book",
+            story_url=None,
+            custom_values={
+                "manual_order": api.CustomValueView(value='["a","b"]', value_type="string")
+            },
+        )
+        result = _stored_manual_order(book)
+        assert result == ["a", "b"]
+
+    def test_a_namespaced_key_is_not_read(self) -> None:
+        """The core's namespaced key never reaches the plugin; it is not read."""
         book = make_book_view(
             book_id="b1",
             title="Test Book",
@@ -46,20 +60,7 @@ class TestStoredManualOrder:
                 )
             },
         )
-        result = _stored_manual_order(book, "epub_chapter_reorder")
-        assert result == ["a", "b"]
-
-    def test_bare_key_is_not_read(self) -> None:
-        """A BookView holding only the bare key (unprefixed) yields []."""
-        book = make_book_view(
-            book_id="b1",
-            title="Test Book",
-            story_url=None,
-            custom_values={
-                "manual_order": api.CustomValueView(value='["a","b"]', value_type="string")
-            },
-        )
-        result = _stored_manual_order(book, "epub_chapter_reorder")
+        result = _stored_manual_order(book)
         assert result == []
 
     def test_malformed_json_is_empty_and_warns(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -69,13 +70,13 @@ class TestStoredManualOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value="{[", value_type="string"
                 )
             },
         )
         with caplog.at_level(logging.WARNING):
-            result = _stored_manual_order(book, "epub_chapter_reorder")
+            result = _stored_manual_order(book)
         assert result == []
         assert any("unreadable" in record.message for record in caplog.records)
 
@@ -86,12 +87,12 @@ class TestStoredManualOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='{"a": 1}', value_type="string"
                 )
             },
         )
-        result = _stored_manual_order(book, "epub_chapter_reorder")
+        result = _stored_manual_order(book)
         assert result == []
 
     def test_empty_string_is_empty(self) -> None:
@@ -101,12 +102,12 @@ class TestStoredManualOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value="", value_type="string"
                 )
             },
         )
-        result = _stored_manual_order(book, "epub_chapter_reorder")
+        result = _stored_manual_order(book)
         assert result == []
 
 
@@ -364,7 +365,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["a","b"]', value_type="string"
                 )
             },
@@ -430,7 +431,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["b","a","c"]', value_type="string"
                 )
             },
@@ -482,7 +483,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["a","b"]', value_type="string"
                 )
             },
@@ -536,7 +537,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["a","b","c"]', value_type="string"
                 )
             },
@@ -685,14 +686,14 @@ class TestRefusingDuplicateKeys:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["u","u","u"]', value_type="string"
                 )
             },
         )
 
         with caplog.at_level(logging.WARNING):
-            result = _stored_manual_order(book, "epub_chapter_reorder")
+            result = _stored_manual_order(book)
 
         assert result == []
         discard_warnings = [
@@ -714,13 +715,13 @@ class TestRefusingDuplicateKeys:
             title="Test Book",
             story_url=None,
             custom_values={
-                "epub_chapter_reorder.manual_order": api.CustomValueView(
+                "manual_order": api.CustomValueView(
                     value='["a","b","c"]', value_type="string"
                 )
             },
         )
 
-        result = _stored_manual_order(book, "epub_chapter_reorder")
+        result = _stored_manual_order(book)
 
         assert result == ["a", "b", "c"]
 
@@ -1009,3 +1010,59 @@ def test_a_genuinely_unknown_key_still_logs_the_partial_warning(
     assert any("10 of 11 key(s) matched" in record.message for record in caplog.records), (
         f"Expected '10 of 11 key(s) matched' in logs, got: {[r.message for r in caplog.records]}"
     )
+
+
+def _stored_order_item(epub: Path) -> tuple[api.EpubItem, list[str]]:
+    """An item whose record stores [title, chapter 3, chapter 1, chapter 2] under the core's namespaced key."""
+    doc = EpubDocument.open(epub)
+    entries = classify_spine(doc)
+    key_map = chapter_keys(doc, entries)
+    content = [key_map[e.idref] for e in entries if e.role.value == "content"]
+    stored = [key_map[entries[0].idref], content[2], content[0], content[1]]
+    item = make_epub_item(
+        epub,
+        book_id="b1",
+        title="Test Book",
+        story_url=None,
+        custom_values={
+            "epub_chapter_reorder.manual_order": api.CustomValueView(
+                value=json.dumps(stored), value_type="string"
+            )
+        },
+    )
+    return item, stored
+
+
+def test_a_stored_order_is_reapplied_through_the_wire(build_epub: Callable[..., Path]) -> None:
+    """A headless pass over the wire re-applies the stored manual order (CHX-D4)."""
+    epub = build_epub([("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")], doc_title="Test Book")
+    item, stored = _stored_order_item(epub)
+
+    terminal, _frames = run_wire(
+        EpubChapterReorderPlugin(),
+        make_request("process", items=[encode_epub_item(item, plugin_id="epub_chapter_reorder")]),
+    )
+
+    assert terminal["ok"] is True
+    doc = EpubDocument.open(epub)
+    entries = classify_spine(doc)
+    key_map = chapter_keys(doc, entries)
+    assert [key_map[e.idref] for e in entries] == stored
+
+
+def test_the_editor_shows_the_stored_order_note_through_the_wire(build_epub: Callable[..., Path]) -> None:
+    """A headed pass over the wire opens the editor with the manual-order note (CHX-D3)."""
+    epub = build_epub([("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")], doc_title="Test Book")
+    item, _stored = _stored_order_item(epub)
+
+    _terminal, frames = run_wire(
+        EpubChapterReorderPlugin(),
+        make_request(
+            "process",
+            items=[encode_epub_item(item, plugin_id="epub_chapter_reorder")],
+            interactive=True,
+        ),
+    )
+
+    views = [frame["view"] for frame in frames if frame.get("op") == "view"]
+    assert [section["kind"] for section in views[0]["sections"]] == ["note", "item_list"]

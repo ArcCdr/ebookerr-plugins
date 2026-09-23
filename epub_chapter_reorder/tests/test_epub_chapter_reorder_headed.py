@@ -1029,10 +1029,10 @@ class TestNoOpApply:
         stored_manual_order = list(reversed(keys))
 
         book_view = make_book_view(book_id="b1", title="Test Book", story_url=None)
-        book_view.custom_values["epub_chapter_reorder.manual_order"] = api.CustomValueView(
+        book_view.custom_values["manual_order"] = api.CustomValueView(
             value=json.dumps(stored_manual_order), value_type="string"
         )
-        book_view.custom_values["epub_chapter_reorder.manual_order_at"] = api.CustomValueView(
+        book_view.custom_values["manual_order_at"] = api.CustomValueView(
             value="2025-01-01T00:00:00+00:00", value_type="datetime"
         )
 
@@ -1098,10 +1098,10 @@ class TestNoOpApply:
         stored_manual_order = list(reversed(keys))
 
         book_view = make_book_view(book_id="b1", title="Test Book", story_url=None)
-        book_view.custom_values["epub_chapter_reorder.manual_order"] = api.CustomValueView(
+        book_view.custom_values["manual_order"] = api.CustomValueView(
             value=json.dumps(stored_manual_order), value_type="string"
         )
-        book_view.custom_values["epub_chapter_reorder.manual_order_at"] = api.CustomValueView(
+        book_view.custom_values["manual_order_at"] = api.CustomValueView(
             value="2025-01-01T00:00:00+00:00", value_type="datetime"
         )
 
