@@ -1,0 +1,44 @@
+id = "epub_merge"
+name = "EPUB Merge"
+version = "2.1.0"
+type = "epub"
+spi_version = "2.30"
+description = "Combines several books into one, moving every chapter into the first book and deleting the others. Run it from the Merge action; there is no undo."
+headless = false
+headed = true
+priority = 50
+accepts_list = true
+handles_merge_proposals = true
+default_enabled = true
+run_timeout_s = 900
+icon = "merge"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[settings_schema]
+summary = "Rewrite title page: {rewrite_title_page} · Chapter range in title: {rewrite_book_title}"
+
+[[settings_schema.fields]]
+key = "rewrite_title_page"
+type = "bool"
+label = "Rewrite the title page"
+default = false
+help = "Regenerate the merged book's title page from its own metadata (title, authors, categories, language) instead of keeping the first book's."
+
+[[settings_schema.fields]]
+key = "rewrite_book_title"
+type = "bool"
+label = "Rewrite the book title with the chapter range"
+default = false
+help = "Rename the merged book to \"<series> <first>-<last>\" using the chapter numbers found in the merged chapters, e.g. Three Square Meals 174-180."
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "merge"
+label = "Merge"
+min_books = 2
+description = "Combine multiple selected books into one."
