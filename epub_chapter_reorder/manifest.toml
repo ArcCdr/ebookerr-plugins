@@ -1,0 +1,28 @@
+id = "epub_chapter_reorder"
+name = "Chapter Reorder"
+version = "2.1.0"
+type = "epub"
+spi_version = "2.30"
+description = "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched."
+headed = true
+events = ["EpubCreated", "EpubModified"]
+default_enabled = true
+run_timeout_s = 600
+icon = "reorder"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[custom_values]]
+key = "manual_order_at"
+type = "datetime"
+label = "Manual chapter order set"
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "low_priority"
+label = "Chapters"
+description = "Reorder chapters or set a manual order for this book."
