@@ -69,11 +69,7 @@ class TestStoredManualOrder:
             book_id="b1",
             title="Test Book",
             story_url=None,
-            custom_values={
-                "manual_order": api.CustomValueView(
-                    value="{[", value_type="string"
-                )
-            },
+            custom_values={"manual_order": api.CustomValueView(value="{[", value_type="string")},
         )
         with caplog.at_level(logging.WARNING):
             result = _stored_manual_order(book)
@@ -87,9 +83,7 @@ class TestStoredManualOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='{"a": 1}', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='{"a": 1}', value_type="string")
             },
         )
         result = _stored_manual_order(book)
@@ -101,11 +95,7 @@ class TestStoredManualOrder:
             book_id="b1",
             title="Test Book",
             story_url=None,
-            custom_values={
-                "manual_order": api.CustomValueView(
-                    value="", value_type="string"
-                )
-            },
+            custom_values={"manual_order": api.CustomValueView(value="", value_type="string")},
         )
         result = _stored_manual_order(book)
         assert result == []
@@ -365,9 +355,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["a","b"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["a","b"]', value_type="string")
             },
         )
         item = api.EpubItem(book=book, epub_path=epub)
@@ -431,9 +419,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["b","a","c"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["b","a","c"]', value_type="string")
             },
         )
         item = api.EpubItem(book=book, epub_path=epub)
@@ -483,9 +469,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["a","b"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["a","b"]', value_type="string")
             },
         )
         item = api.EpubItem(book=book, epub_path=epub)
@@ -537,9 +521,7 @@ class TestClearingTheOrder:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["a","b","c"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["a","b","c"]', value_type="string")
             },
         )
         item = api.EpubItem(book=book, epub_path=epub)
@@ -686,9 +668,7 @@ class TestRefusingDuplicateKeys:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["u","u","u"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["u","u","u"]', value_type="string")
             },
         )
 
@@ -715,9 +695,7 @@ class TestRefusingDuplicateKeys:
             title="Test Book",
             story_url=None,
             custom_values={
-                "manual_order": api.CustomValueView(
-                    value='["a","b","c"]', value_type="string"
-                )
+                "manual_order": api.CustomValueView(value='["a","b","c"]', value_type="string")
             },
         )
 
@@ -1013,7 +991,10 @@ def test_a_genuinely_unknown_key_still_logs_the_partial_warning(
 
 
 def _stored_order_item(epub: Path) -> tuple[api.EpubItem, list[str]]:
-    """An item whose record stores [title, chapter 3, chapter 1, chapter 2] under the core's namespaced key."""
+    """An item whose record stores [title, chapter 3, chapter 1, chapter 2].
+
+    Stores under the core's namespaced key, which encode_epub_item strips.
+    """
     doc = EpubDocument.open(epub)
     entries = classify_spine(doc)
     key_map = chapter_keys(doc, entries)
@@ -1033,9 +1014,14 @@ def _stored_order_item(epub: Path) -> tuple[api.EpubItem, list[str]]:
     return item, stored
 
 
-def test_a_stored_order_is_reapplied_through_the_wire(build_epub: Callable[..., Path]) -> None:
+def test_a_stored_order_is_reapplied_through_the_wire(
+    build_epub: Callable[..., Path],
+) -> None:
     """A headless pass over the wire re-applies the stored manual order (CHX-D4)."""
-    epub = build_epub([("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")], doc_title="Test Book")
+    epub = build_epub(
+        [("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")],
+        doc_title="Test Book",
+    )
     item, stored = _stored_order_item(epub)
 
     terminal, _frames = run_wire(
@@ -1050,9 +1036,14 @@ def test_a_stored_order_is_reapplied_through_the_wire(build_epub: Callable[..., 
     assert [key_map[e.idref] for e in entries] == stored
 
 
-def test_the_editor_shows_the_stored_order_note_through_the_wire(build_epub: Callable[..., Path]) -> None:
+def test_the_editor_shows_the_stored_order_note_through_the_wire(
+    build_epub: Callable[..., Path],
+) -> None:
     """A headed pass over the wire opens the editor with the manual-order note (CHX-D3)."""
-    epub = build_epub([("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")], doc_title="Test Book")
+    epub = build_epub(
+        [("Chapter 1", "u1"), ("Chapter 2", "u2"), ("Chapter 3", "u3")],
+        doc_title="Test Book",
+    )
     item, _stored = _stored_order_item(epub)
 
     _terminal, frames = run_wire(

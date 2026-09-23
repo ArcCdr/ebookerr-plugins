@@ -95,22 +95,21 @@ def _zone_lock(entry: ChapterEntry) -> tuple[bool, str]:
     return (True, reason) if reason is not None else (False, "")
 
 
-def _stored_manual_order(book: BookView, plugin_id: str) -> list[str]:
+def _stored_manual_order(book: BookView) -> list[str]:
     """Return the stored manual chapter-key order, or [] (CHX-TR-1).
 
-    Reads ``book.custom_values[f"{plugin_id}.manual_order"]`` — the in-image mapping is
-    keyed with the plugin-id prefix — and JSON-decodes it. A missing, malformed or
-    non-list value yields ``[]``; this never raises. A degenerate order (duplicate keys)
-    is discarded at read time.
+    Reads ``book.custom_values["manual_order"]`` — a plugin receives only its own custom
+    values, bare-keyed (the wire strips the ``epub_chapter_reorder.`` namespace) —
+    and JSON-decodes it. A missing, malformed or non-list value yields ``[]``; this never
+    raises. A degenerate order (duplicate keys) is discarded at read time.
 
     Args:
         book: The BookView to read from.
-        plugin_id: The plugin's manifest id.
 
     Returns:
         A list of stable chapter keys, or [] if missing/malformed/degenerate.
     """
-    key = f"{plugin_id}.{_MANUAL_ORDER_KEY}"
+    key = _MANUAL_ORDER_KEY
     if key not in book.custom_values:
         return []
 
@@ -385,7 +384,7 @@ class EpubChapterReorderPlugin:
         original_spine = [e.idref for e in entries]
 
         # Check for stored manual order
-        stored = _stored_manual_order(item.book, self.manifest.id)
+        stored = _stored_manual_order(item.book)
 
         # Build the view
         dupes = _duplicate_idrefs(doc, entries, story_url=item.book.story_url)
@@ -600,7 +599,7 @@ class EpubChapterReorderPlugin:
 
             # Headless path
             try:
-                stored = _stored_manual_order(item.book, self.manifest.id)
+                stored = _stored_manual_order(item.book)
                 if stored:
                     logger.debug(
                         "Applying a stored manual chapter order to %s: %d key(s)",
