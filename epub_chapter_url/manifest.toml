@@ -1,0 +1,17 @@
+id = "epub_chapter_url"
+name = "Chapter URL Stamp"
+version = "1.1.0"
+type = "epub"
+spi_version = "2.30"
+description = "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from."
+priority = 60
+events = ["EpubCreated", "EpubModified"]
+default_enabled = true
+run_timeout_s = 600
+icon = "link"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
