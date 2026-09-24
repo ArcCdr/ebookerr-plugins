@@ -1,0 +1,43 @@
+id = "url_story_extractor"
+name = "URL Story Extractor"
+version = "1.1.0"
+type = "catalog"
+spi_version = "2.30"
+description = "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping."
+priority = 1000
+network = true
+extract_url_patterns = ["^https?://"]
+default_enabled = true
+run_timeout_s = 1800
+icon = "travel_explore"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+requirements = ["fanficfare>=4.58.1"]
+entrypoint = "entrypoint.py"
+
+[settings_schema]
+summary = "{extract_urls|No watched URLs} watched URL(s) · {max_new_metadata_per_scan} metadata lookup(s) per scan"
+
+[[settings_schema.fields]]
+key = "extract_urls"
+type = "url_list"
+label = "Watched URLs"
+default = []
+help = "Listing pages re-scanned on every catalog refresh - an author's works page, a series page, a favourites list. Add one from the Stories page with \"Keep watching\" ticked."
+
+[[settings_schema.fields]]
+key = "max_new_metadata_per_scan"
+type = "int"
+label = "Metadata fetches per scan"
+default = "25"
+help = "How many newly-found stories may have their full metadata fetched in one scan. A story already listed is never re-fetched."
+
+[[settings_schema.fields]]
+key = "request_delay_ms"
+type = "int"
+label = "Delay between metadata fetches (ms)"
+default = "750"
+help = "Spacing between metadata requests, to stay a polite visitor."
