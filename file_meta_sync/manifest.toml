@@ -1,0 +1,39 @@
+id = "file_meta_sync"
+name = "File metadata sync"
+version = "2.1.0"
+default_enabled = true
+type = "book"
+spi_version = "2.30"
+entrypoint = "entrypoint.py"
+description = "Syncs sidecar files (cover candidates, synopsis) with the library"
+network = false
+headed = true
+accepts_list = true
+events = ["BookCreated", "BookUpdated", "BookImported", "BookDeleted", "EpubCreated", "EpubModified"]
+icon = "snippet_folder"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/file_meta_sync"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/file_meta_sync"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+
+[settings_schema]
+summary = "Delete sidecar files with the book: {delete_on_book_delete}"
+
+[[settings_schema.fields]]
+key = "delete_on_book_delete"
+type = "bool"
+label = "Delete sidecar files when the book is deleted"
+default = true
+help = "When a book is deleted, also delete its sidecar files."
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "sync_alt"
+label = "Sync metadata file"
+description = "Reconcile the sidecar metadata file stored next to the EPUB."
+
+[[ui_triggers]]
+scope = "cover_invalidate"
+icon = "delete_sweep"
+label = "Purge cover files"
