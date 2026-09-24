@@ -1,0 +1,174 @@
+id = "llm_cover"
+name = "Cover generator"
+version = "1.1.0"
+type = "book"
+spi_version = "2.30"
+description = "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. Candidates are never set as the cover automatically."
+headed = true
+priority = 510
+events = ["BookCreated", "BookImported"]
+network = true
+testable = true
+default_enabled = false
+deferred = true
+long_running = true
+run_timeout_s = 3600
+stage_labels = [["", "Image prompt"], ["image:", "Image"]]
+icon = "image"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[custom_values]]
+key = "prompt_model"
+type = "string"
+label = "Image prompt model"
+filterable = true
+
+[settings_schema]
+summary = "{model|No text model set} · {image_models|No image models}"
+
+[[settings_schema.fields]]
+key = "base_url"
+type = "url"
+label = "Base URL"
+default = "http://127.0.0.1:11434/v1"
+help = "The OpenAI-compatible API base used to write the image prompt."
+group = "Text model"
+credential = true
+
+[[settings_schema.fields]]
+key = "model"
+type = "string"
+label = "Model"
+default = ""
+group = "Text model"
+
+[[settings_schema.fields]]
+key = "timeout_s"
+type = "int"
+label = "Timeout (s)"
+default = 600
+group = "Text model"
+
+[[settings_schema.fields]]
+key = "input_words"
+type = "int"
+label = "Input words"
+default = 3000
+group = "Image prompt"
+
+[[settings_schema.fields]]
+key = "max_completion_tokens"
+type = "int"
+label = "Maximum output tokens"
+default = 0
+help = "0 sends no limit."
+group = "Image prompt"
+
+[[settings_schema.fields]]
+key = "prompt_template"
+type = "textarea"
+label = "Prompt template"
+default = "Opening of the book:\n{book_text}\n\nWrite one text-to-image prompt for a vertical book cover illustration for \"{title}\", based on the opening above.\nDescribe concrete visual elements — subject, setting, mood, lighting, colour palette and art style — as one comma-separated line.\nThe image must contain no text, letters or typography. Answer with the prompt only, as plain text."
+help = "Placeholders: {book_text} {title} {author} {category} {tags} {description} {synopsis}."
+group = "Image prompt"
+previous_defaults = ["Write one text-to-image prompt for a vertical book cover illustration for \"{title}\", based on the opening of the book below.\nDescribe concrete visual elements — subject, setting, mood, lighting, colour palette and art style — as one comma-separated line.\nThe image must contain no text, letters or typography. Answer with the prompt only, as plain text.\n\nOpening of the book:\n{book_text}"]
+
+[[settings_schema.fields]]
+key = "image_models"
+type = "record_list"
+label = "Image models"
+default = []
+help = "Each model produces one candidate cover per book."
+group = "Image models"
+summary = ["api", "width", "height"]
+
+[[settings_schema.fields.fields]]
+key = "label"
+type = "string"
+label = "Label"
+default = ""
+help = "A short unique name for this model; it names the candidate, e.g. flux-dev."
+
+[[settings_schema.fields.fields]]
+key = "api"
+type = "select"
+label = "API"
+default = "a1111"
+options = ["openai", "a1111"]
+options_strict = true
+option_labels = ["OpenAI-compatible", "AUTOMATIC1111-compatible"]
+
+[[settings_schema.fields.fields]]
+key = "base_url"
+type = "url"
+label = "Base URL"
+default = "http://127.0.0.1:7860"
+credential = true
+
+[[settings_schema.fields.fields]]
+key = "model"
+type = "string"
+label = "Model"
+default = ""
+help = "Leave empty on an AUTOMATIC1111-compatible server to use its loaded model."
+
+[[settings_schema.fields.fields]]
+key = "width"
+type = "int"
+label = "Width"
+default = 768
+
+[[settings_schema.fields.fields]]
+key = "height"
+type = "int"
+label = "Height"
+default = 1152
+
+[[settings_schema.fields.fields]]
+key = "prompt_prefix"
+type = "string"
+label = "Prompt prefix"
+default = ""
+help = "Text put before the generated prompt; placeholders such as {category} work here."
+
+[[settings_schema.fields.fields]]
+key = "negative_prompt"
+type = "textarea"
+label = "Negative prompt"
+default = ""
+
+[[settings_schema.fields.fields]]
+key = "extra_params"
+type = "textarea"
+label = "Extra parameters (JSON)"
+default = "{}"
+help = "A JSON object merged into the request, e.g. {\"steps\": 8, \"seed\": 42}."
+
+[[settings_schema.fields.fields]]
+key = "timeout_s"
+type = "int"
+label = "Timeout (s)"
+default = 3600
+
+[[settings_schema.groups]]
+label = "Text model"
+summary = "{model|No model set} · {base_url|No base URL}"
+
+[[settings_schema.groups]]
+label = "Image prompt"
+summary = "{input_words} words in · {max_completion_tokens|no output limit} output tokens · {prompt_template} prompt"
+
+[[settings_schema.groups]]
+label = "Image models"
+summary = "{image_models|No image models}"
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "imagesmode"
+label = "Generate cover candidates"
+description = "Create candidate covers for each selected book with the configured image models."
