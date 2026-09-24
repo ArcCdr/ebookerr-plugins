@@ -14,7 +14,7 @@ import requests
 import responses
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode, PluginContext
+from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode
 from pdf_download_source.plugin import PdfDownloadSourcePlugin
 
 
