@@ -1,0 +1,19 @@
+id = "rtf_download_source"
+name = "RTF download"
+version = "1.1.0"
+type = "source"
+spi_version = "2.30"
+description = "Downloads an RTF and converts it to EPUB in the library."
+url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.rtf(?:[?#]|$)"]
+update_check = true
+default_enabled = true
+run_timeout_s = 900
+icon = "text_snippet"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+requirements = ["striprtf>=0.0.26", "charset-normalizer>=3.3"]
+formats = ["rtf"]
+entrypoint = "entrypoint.py"
