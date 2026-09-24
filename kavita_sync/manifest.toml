@@ -1,0 +1,77 @@
+id = "kavita_sync"
+name = "Kavita Sync"
+version = "1.1.0"
+type = "book"
+spi_version = "2.30"
+description = "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time."
+headless = true
+headed = true
+priority = 900
+accepts_list = true
+exclusive_group = "library_server"
+provider = "kavita"
+delete_mode = "rescan"
+default_enabled = false
+deferred = true
+network = true
+run_timeout_s = 1800
+testable = true
+reader_url_template = "{external_url}/library/{library_id}/series/{series_id}/book/{book_id}"
+events = ["BookCreated", "BookUpdated", "BookImported", "BookDeleted", "EpubModified"]
+icon = "library_books"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "sync"
+label = "Sync to Kavita"
+description = "Push this book's metadata and cover to your library server."
+
+[settings_schema]
+summary = "{server|No server URL} · folder {library_path|No library folder} · API key {api_key|No API key}"
+
+[[settings_schema.fields]]
+key = "server"
+type = "string"
+label = "Server URL"
+required = true
+help = "e.g. http://kavita.local:5000"
+
+[[settings_schema.fields]]
+key = "api_key"
+type = "string"
+label = "API key"
+secret = true
+required = true
+help = "Kavita → Settings → Users → your user → API key. Paste the key itself, not a URL."
+
+[[settings_schema.fields]]
+key = "external_url"
+type = "string"
+label = "External URL"
+help = "optional; the address you open Kavita at in your browser (defaults to the server URL)"
+
+[[settings_schema.fields]]
+key = "library_path"
+type = "string"
+label = "Library folder"
+help = "optional; the folder Kavita sees your library at, e.g. /books — needed for the folder scan that makes a newly downloaded book visible"
+
+[[settings_schema.fields]]
+key = "scan_retry_max"
+type = "int"
+label = "Scan retry attempts"
+default = "20"
+help = "how many times to poll Kavita after a folder scan"
+
+[[settings_schema.fields]]
+key = "scan_retry_delay"
+type = "int"
+label = "Scan retry delay (s)"
+default = "2"
+help = "seconds between scan polls"
