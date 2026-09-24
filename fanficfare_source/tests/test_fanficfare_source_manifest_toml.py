@@ -6,7 +6,6 @@ import dataclasses
 import tomllib
 from pathlib import Path
 
-import pytest
 from ebookerr_sdk.spi.manifest import parse_manifest
 
 _MANIFEST_TOML = Path(__file__).resolve().parents[1] / "manifest.toml"

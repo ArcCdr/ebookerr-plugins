@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from ebookerr_sdk.spi import CircuitOpenError
-
 from fanficfare_source.cli import FanFicFareCliGateway
 
 

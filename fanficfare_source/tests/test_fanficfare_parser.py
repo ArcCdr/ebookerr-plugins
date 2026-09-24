@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from fanficfare_source.parser import (
     classify_error,
     detect_was_update,

@@ -24,12 +24,12 @@ from urllib.parse import urlsplit
 
 from ebookerr_sdk.spi import CircuitOpenError
 
-from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.parser import (
     classify_error,
     detect_was_update,
     extract_metadata_json,
 )
+from fanficfare_source.protocol import DownloadResult
 
 if TYPE_CHECKING:
     from ebookerr_sdk.spi import CircuitGuard

@@ -18,13 +18,12 @@ from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.spi import BookPatch, ChapterLink, SourcePullError
 from ebookerr_sdk.testing import FakeContext, make_book_view
-
-from fanficfare_source.protocol import DownloadResult
-from fanficfare_source.parser import extract_metadata_json
 from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     fanficfare_json_to_book_fields,
 )
+from fanficfare_source.parser import extract_metadata_json
+from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.pull import FanFicFarePull
 
 URL = "https://www.literotica.com/s/the-12th-key"

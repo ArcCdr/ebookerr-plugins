@@ -9,7 +9,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-
 from fanficfare_source.cli import FanFicFareCliGateway
 from fanficfare_source.protocol import FanFicFareGateway
 

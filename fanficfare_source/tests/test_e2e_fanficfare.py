@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from fanficfare_source.cli import FanFicFareCliGateway
 
 pytestmark = pytest.mark.e2e

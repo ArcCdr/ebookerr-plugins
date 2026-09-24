@@ -32,15 +32,22 @@ from typing import Any
 from ebookerr_sdk.domain.dates import format_datetime, parse_datetime
 from ebookerr_sdk.domain.metadata import sanitize
 from ebookerr_sdk.download.paths import safe_component
-from ebookerr_sdk.spi import BookPatch, BookView, ChapterLink, PluginContext, SourcePullError, UpdateCheck
+from ebookerr_sdk.spi import (
+    BookPatch,
+    BookView,
+    ChapterLink,
+    PluginContext,
+    SourcePullError,
+    UpdateCheck,
+)
 
 from fanficfare_source.cli import pinned_output_template
-from fanficfare_source.protocol import FanFicFareGateway
 from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
 )
+from fanficfare_source.protocol import FanFicFareGateway
 
 logger = logging.getLogger(__name__)
 

@@ -11,9 +11,8 @@ import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.testing import FakeContext, make_book_view
-
-from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.plugin import FanFicFareSourcePlugin, SourcePullError
+from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.pull import FanFicFarePull
 
 URL = "https://www.literotica.com/s/the-12th-key"
@@ -183,17 +182,15 @@ class TestInit:
         sig = inspect.signature(FanFicFareSourcePlugin.__init__)
         assert "book_repo" not in sig.parameters
 
-    def test_pull_constructs_engine_when_not_injected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_constructs_engine_when_not_injected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Calling pull() with no injected engine constructs one on demand."""
         monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "plugin_data"))
         plugin = FanFicFareSourcePlugin()
-        # The engine will be constructed but the pull will fail because we're not passing a real URL/context
-        # This test mainly ensures the engine construction doesn't raise
-        try:
+        # The engine construction doesn't raise; the pull fails as expected
+        with pytest.raises(Exception):
             plugin.pull(URL, tmp_path, None, FakeContext())
-        except Exception as e:
-            # We expect some error from the actual pull operation, but not a RuntimeError about missing engine
-            assert not isinstance(e, RuntimeError) or "no injected pull engine" not in str(e)
 
 
 # ---------------------------------------------------------------------------

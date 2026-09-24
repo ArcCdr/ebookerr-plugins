@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from ebookerr_sdk.domain.ids import make_book_id
-
 from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     chapter_urls_from_fanficfare,
