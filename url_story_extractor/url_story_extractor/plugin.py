@@ -127,8 +127,8 @@ def default_pages() -> FanFicFarePagesGateway:
     """Build the page gateway on the FanFicFare configuration this install uses (D37).
 
     The FanFicFare Source owns the one ``personal.ini`` holding the user's site logins, at
-    ``<plugin data root>/fanficfare_source/personal.ini``; when it exists this plugin reads it, otherwise
-    it reads its own packaged default beside this module.
+    ``<plugin data root>/fanficfare_source/personal.ini``; when it exists this plugin reads
+    it, otherwise it reads its own packaged default beside this module.
 
     Returns:
         A gateway reading the shared configuration file, or the packaged default.

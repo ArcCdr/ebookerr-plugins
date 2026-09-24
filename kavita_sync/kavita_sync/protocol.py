@@ -1,4 +1,7 @@
-"""The Kavita REST client's shape — the seam the service depends on and the tests fake (moved from the core's gateway Protocols)."""
+"""The Kavita REST client's shape — the seam the service depends on and the tests fake.
+
+Moved from the core's gateway Protocols.
+"""
 
 from __future__ import annotations
 

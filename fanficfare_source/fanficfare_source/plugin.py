@@ -50,9 +50,9 @@ __all__ = ["FanFicFareSourcePlugin", "SourcePullError", "personal_ini_path"]
 def personal_ini_path() -> Path:
     """Return this install's FanFicFare configuration file, seeding it on first use (D37).
 
-    The file lives in the plugin's data folder (``EBOOKERR_PLUGIN_DATA_DIR``) and holds the user's site
-    logins; it is copied from the packaged default when absent. A leading UTF-8 byte-order mark is
-    removed, because FanFicFare's ini reader fails on one (TXE-D1).
+    The file lives in the plugin's data folder (``EBOOKERR_PLUGIN_DATA_DIR``) and holds the
+    user's site logins; it is copied from the packaged default when absent. A leading UTF-8
+    byte-order mark is removed, because FanFicFare's ini reader fails on one (TXE-D1).
 
     Returns:
         The path of the configuration file to pass to FanFicFare.

@@ -65,7 +65,10 @@ _SCHEMA = SettingsSchema(
             type="string",
             label="Library id",
             required=True,
-            help="the Komga library your books are in (shown in its address in Komga); ebookerr asks Komga to scan it when a book is added or changed",
+            help=(
+                "the Komga library your books are in (shown in its address in Komga); "
+                "ebookerr asks Komga to scan it when a book is added or changed"
+            ),
         ),
         SettingsField(
             key="scan_retry_max",
@@ -423,9 +426,10 @@ class KomgaSyncPlugin:
         """Test the configured Komga connection, distinguishing why a failure happened.
 
         Delegates the probe to :meth:`RequestsKomgaClient.test_connection`, which returns a
-        :class:`~ebookerr_sdk.providers.connection.ConnectionTestResult`; a non-ok outcome is logged once
-        at WARNING (with the outcome kind and the user-safe message) before being unwrapped into
-        this hook's ``(bool, str)`` shape (R-D — the hook signature itself is not widened).
+        :class:`~ebookerr_sdk.providers.connection.ConnectionTestResult`; a non-ok outcome is
+        logged once at WARNING (with the outcome kind and the user-safe message) before being
+        unwrapped into this hook's ``(bool, str)`` shape (R-D — the hook signature itself is
+        not widened).
 
         Args:
             ctx: Plugin invocation context; reads ``server``/``api_key``/``library_id`` from
