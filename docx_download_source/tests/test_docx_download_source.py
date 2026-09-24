@@ -85,7 +85,8 @@ _CLAIMS_TABLE = [
 
 @pytest.mark.parametrize(("url", "claimed"), _CLAIMS_TABLE)
 def test_the_manifest_pattern_claims_exactly_what_the_class_claims(url: str, claimed: bool) -> None:
-    """The core's out-of-process claim (a regex search of ``url_patterns``) equals the class's own rule."""
+    """The core's out-of-process claim (a regex search of ``url_patterns``) equals the
+    class's own rule."""
     (pattern,) = DocxDownloadSourcePlugin.manifest.url_patterns
     assert DocxDownloadSourcePlugin().claims(url) is claimed
     assert (re.search(pattern, url) is not None) is claimed
@@ -295,7 +296,7 @@ class TestTitleAndAuthorMetadataPrecedence:
         from docx_download_source.docx_to_epub import convert_docx_to_epub
         from ebookerr_sdk.download.document import download_convert_stage
 
-        DOCX_CONTENT_TYPE = (
+        docx_content_type = (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
@@ -308,7 +309,7 @@ class TestTitleAndAuthorMetadataPrecedence:
             url,
             body=body,
             status=200,
-            headers={"Content-Type": DOCX_CONTENT_TYPE},
+            headers={"Content-Type": docx_content_type},
         )
 
         session = requests.Session()

@@ -117,7 +117,8 @@ _CLAIMS_TABLE = [
 
 @pytest.mark.parametrize(("url", "claimed"), _CLAIMS_TABLE)
 def test_the_manifest_pattern_claims_exactly_what_the_class_claims(url: str, claimed: bool) -> None:
-    """The core's out-of-process claim (a regex search of ``url_patterns``) equals the class's own rule."""
+    """The core's out-of-process claim (a regex search of ``url_patterns``) equals the
+    class's own rule."""
     (pattern,) = PdfDownloadSourcePlugin.manifest.url_patterns
     assert PdfDownloadSourcePlugin().claims(url) is claimed
     assert (re.search(pattern, url) is not None) is claimed

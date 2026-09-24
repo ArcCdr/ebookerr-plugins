@@ -27,7 +27,8 @@ def test_the_manifest_has_a_non_empty_url_patterns_tuple() -> None:
 
 
 def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
-    """The Source answers the Auto-Pull update check and claims the ``epub`` format out of process."""
+    """The Source answers the Auto-Pull update check and claims the ``epub`` format out of
+    process."""
     manifest = EpubDownloadSourcePlugin.manifest
     assert manifest.update_check is True
     assert manifest.formats == ("epub",)

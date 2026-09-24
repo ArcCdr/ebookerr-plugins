@@ -68,7 +68,11 @@ class TextDownloadSourcePlugin:
         session: requests.Session | None = None,
         timeout_s: float = 300.0,
     ) -> None:
-        """Store the HTTP session — a fresh ``requests.Session`` when none is given (the plugin process serves one call) — and the request timeout."""
+        """Store the HTTP session and the request timeout.
+
+        A fresh ``requests.Session`` is created when none is given, since the plugin
+        process serves exactly one call.
+        """
         self._session = session if session is not None else requests.Session()
         self._timeout_s = timeout_s
 
@@ -77,7 +81,11 @@ class TextDownloadSourcePlugin:
         return SettingsSchema()
 
     def claims(self, url: str) -> bool:
-        """Claim absolute URLs whose path ends in ``.txt`` or ``.md`` (any case; query and fragment ignored) — the same rule as the manifest's ``url_patterns``, which is what the core applies out of process."""
+        """Claim absolute URLs whose path ends in ``.txt`` or ``.md``.
+
+        Case-insensitive; query and fragment are ignored — the same rule as the
+        manifest's ``url_patterns``, which is what the core applies out of process.
+        """
         path = urlsplit(url).path.lower()
         return path.endswith((".txt", ".md"))
 

@@ -1,4 +1,5 @@
-"""The merge plugin's own half of three unhappy flows (the session half lives in the core's merge-flow tests)."""
+"""The merge plugin's own half of three unhappy flows (the session half lives in the
+core's merge-flow tests)."""
 
 from __future__ import annotations
 
@@ -31,7 +32,8 @@ def _submitted(*ids: str) -> api.ViewResult:
 
 
 def test_a_disjoint_merge_with_a_gap_counts_every_chapter(build_epub: Callable[..., Path]) -> None:
-    """Chapters 1–6 and 9–11 merge into nine; the absorbed book is deleted in favour of the survivor."""
+    """Chapters 1–6 and 9–11 merge into nine; the absorbed book is deleted in favour of
+    the survivor."""
     a = build_epub(
         [(f"Chapter {i}", f"http://example.com/{i}") for i in range(1, 7)],
         filename="book_a.epub",
@@ -52,7 +54,8 @@ def test_a_disjoint_merge_with_a_gap_counts_every_chapter(build_epub: Callable[.
 
 
 def test_an_unreadable_source_changes_nothing_and_says_why(build_epub: Callable[..., Path]) -> None:
-    """A source that is not a zip stops the merge with one alert naming it; the survivor keeps its bytes."""
+    """A source that is not a zip stops the merge with one alert naming it; the survivor
+    keeps its bytes."""
     a = build_epub(
         [("Chapter 1", "http://example.com/1"), ("Chapter 2", "http://example.com/2")],
         filename="book_a.epub",
@@ -75,7 +78,8 @@ def test_an_unreadable_source_changes_nothing_and_says_why(build_epub: Callable[
 def test_a_source_with_no_content_chapters_is_absorbed_by_the_other(
     build_epub: Callable[..., Path],
 ) -> None:
-    """A title-page-only book is the orphan; the book with chapters survives with its two chapters."""
+    """A title-page-only book is the orphan; the book with chapters survives with its
+    two chapters."""
     a = build_epub([], filename="book_a.epub", doc_title="Title Page Only")
     b = build_epub(
         [("Chapter 1", "http://example.com/1"), ("Chapter 2", "http://example.com/2")],
