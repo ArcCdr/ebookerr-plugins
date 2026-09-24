@@ -138,8 +138,9 @@ class TestClaimsUrl:
         """Assert no _COMPILED_PATTERNS constant exists in the module."""
         from pathlib import Path
 
-        text = Path("src/plugins/url_story_extractor.py").read_text()
-        assert "_COMPILED_PATTERNS" not in text
+        text = Path(__file__).resolve().parents[1] / "url_story_extractor" / "plugin.py"
+        text_content = text.read_text()
+        assert "_COMPILED_PATTERNS" not in text_content
 
 
 class TestExtractStories:
