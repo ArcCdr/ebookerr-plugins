@@ -17,7 +17,7 @@ from ebookerr_sdk.spi import InvocationMode, PluginEventType
 
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
-_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extraction"
+_FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
 def load(name: str) -> list[str]:
