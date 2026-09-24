@@ -99,7 +99,6 @@ _MANIFEST = PluginManifest(
     settings_schema=_SCHEMA,
     headless=True,
     headed=True,
-    transport="in_image",
     priority=900,
     accepts_list=True,
     exclusive_group="library_server",

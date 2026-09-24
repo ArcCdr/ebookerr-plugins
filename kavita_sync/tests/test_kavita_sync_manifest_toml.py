@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import tomllib
 from pathlib import Path
 
@@ -13,9 +12,9 @@ _MANIFEST_TOML = Path(__file__).resolve().parents[1] / "manifest.toml"
 
 
 def test_kavita_sync_manifest_matches_the_in_image_manifest() -> None:
-    """``manifest.toml`` parses to the class's own manifest; only the transport differs."""
+    """``manifest.toml`` parses to the class's own manifest; the two are equal."""
     parsed = parse_manifest(tomllib.loads(_MANIFEST_TOML.read_text(encoding="utf-8")))
-    assert parsed == dataclasses.replace(KavitaSyncPlugin.manifest, transport="local_exec")
+    assert parsed == KavitaSyncPlugin.manifest
 
 
 def test_the_provider_asks_for_the_network_and_names_its_required_settings() -> None:

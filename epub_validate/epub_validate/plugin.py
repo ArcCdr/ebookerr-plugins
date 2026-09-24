@@ -85,7 +85,6 @@ _MANIFEST = PluginManifest(
     settings_schema=_SETTINGS_SCHEMA,
     headless=True,
     headed=True,
-    transport="local_exec",
     priority=950,
     accepts_list=True,
     events=(PluginEventType.EPUB_CREATED, PluginEventType.EPUB_MODIFIED),
