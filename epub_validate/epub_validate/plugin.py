@@ -57,7 +57,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
     fields=(
         SettingsField(
             key="external_checker_command",
-            type="string",
+            type="command",
             label="External EPUBCheck command",
             default="",
             help="Absolute path to an executable EPUBCheck-compatible binary. Leave empty to "

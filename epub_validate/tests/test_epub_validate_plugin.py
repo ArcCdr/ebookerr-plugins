@@ -190,7 +190,7 @@ class TestSettingsSchema:
         # Check external_checker_command
         assert "external_checker_command" in fields
         cmd_field = fields["external_checker_command"]
-        assert cmd_field.type == "string"
+        assert cmd_field.type == "command"
         assert cmd_field.default == ""
         assert cmd_field.secret is False
 
