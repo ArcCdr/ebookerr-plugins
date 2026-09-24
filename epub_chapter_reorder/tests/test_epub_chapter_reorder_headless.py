@@ -70,9 +70,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
@@ -110,9 +108,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         # First pass
@@ -173,9 +169,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u3",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         # Process with the stored order that doesn't mention u4
@@ -220,9 +214,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
@@ -258,9 +250,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
@@ -309,11 +299,7 @@ class TestHeadlessPassWithStoredOrder:
         epub = build_epub(chapters, doc_title="Test Book")
 
         # Store a malformed order
-        custom_values = {
-            "manual_order": api.CustomValueView(
-                value="{[", value_type="string"
-            )
-        }
+        custom_values = {"manual_order": api.CustomValueView(value="{[", value_type="string")}
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
         with caplog.at_level(logging.WARNING):
@@ -360,9 +346,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u2",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
@@ -424,9 +408,7 @@ class TestHeadlessPassWithStoredOrder:
             "https://example.com/u3",
         ]
         custom_values = {
-            "manual_order": api.CustomValueView(
-                value=json.dumps(stored_order), value_type="string"
-            )
+            "manual_order": api.CustomValueView(value=json.dumps(stored_order), value_type="string")
         }
 
         ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))

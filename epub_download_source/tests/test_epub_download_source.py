@@ -14,17 +14,11 @@ import requests
 import responses
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.spi import (
-    BookView,
     ChapterLink,
     CustomValueView,
-    CustomValueWrite,
-    ExternalLink,
-    ExternalProgress,
     InvocationMode,
-    PluginContext,
 )
 from ebookerr_sdk.testing import make_book_view
-
 from epub_download_source.plugin import EpubDownloadSourcePlugin, _extract_filename, _safe_component
 
 

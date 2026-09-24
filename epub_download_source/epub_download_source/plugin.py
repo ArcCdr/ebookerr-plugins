@@ -148,8 +148,11 @@ class EpubDownloadSourcePlugin:
         session: requests.Session | None = None,
         timeout_s: float = 300.0,
     ) -> None:
-        """Store the HTTP session — a fresh ``requests.Session`` when none is given (the plugin
-        process serves one call) — and the request timeout."""
+        """Store the HTTP session.
+
+        A fresh ``requests.Session`` when none is given (the plugin
+        process serves one call) — and the request timeout.
+        """
         self._session = session if session is not None else requests.Session()
         self._timeout_s = timeout_s
 
@@ -158,8 +161,11 @@ class EpubDownloadSourcePlugin:
         return SettingsSchema()
 
     def claims(self, url: str) -> bool:
-        """Claim absolute URLs whose path ends in ``.<ext>`` (any case; query and fragment ignored) — the same rule as the
-        manifest's ``url_patterns``, which is what the core applies out of process."""
+        """Claim absolute URLs whose path ends in .epub.
+
+        Any case; query and fragment ignored — the same rule as the
+        manifest's ``url_patterns``, which is what the core applies out of process.
+        """
         path = urlsplit(url).path.lower()
         return path.endswith(".epub")
 

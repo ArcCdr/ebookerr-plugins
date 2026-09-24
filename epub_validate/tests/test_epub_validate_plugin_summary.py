@@ -169,9 +169,7 @@ class TestHeadlessSummary:
             )
             plugin.process((item,), ctx)
 
-        assert ctx.notices == [
-            ("warning", "EPUB validation found errors in 1 of 1 book(s)", True)
-        ]
+        assert ctx.notices == [("warning", "EPUB validation found errors in 1 of 1 book(s)", True)]
         assert ctx.alerts == []
 
     def test_headless_batch_publishes_exactly_one_aggregate_toast(self, temp_epub: Path) -> None:
@@ -771,9 +769,7 @@ class TestExceptionIsolation:
             mock_validate.side_effect = RuntimeError("boom")
             plugin.process((item,), ctx)
 
-        assert ctx.notices == [
-            ("warning", "EPUB validation found errors in 1 of 1 book(s)", True)
-        ]
+        assert ctx.notices == [("warning", "EPUB validation found errors in 1 of 1 book(s)", True)]
 
     def test_a_cancellation_propagates(self, temp_epub: Path) -> None:
         """ctx.check_cancelled raises Cancelled → exception propagates."""

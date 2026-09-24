@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
 from ebookerr_sdk.spi import PluginManifest
-
 from epub_download_source.plugin import EpubDownloadSourcePlugin
 
 
