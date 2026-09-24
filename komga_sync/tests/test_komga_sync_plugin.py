@@ -12,7 +12,6 @@ from unittest import mock
 import ebookerr_sdk.spi as api
 import pytest
 from ebookerr_sdk.providers.connection import ConnectionTestResult
-
 from komga_sync import plugin as komga_sync
 from komga_sync.plugin import KomgaSyncPlugin
 
@@ -2547,7 +2546,6 @@ def test_build_service_passes_the_library_folder_to_the_komga_service() -> None:
 def test_build_service_binds_a_scan_ledger_to_the_run() -> None:
     """_build_service creates a ScanLedger bound to the plugin's context (DFT-D21, PMG-D32)."""
     from ebookerr_sdk.providers.scan_ledger import ScanLedger
-
     from komga_sync.plugin import _build_service
 
     ctx = _FakeCtx(

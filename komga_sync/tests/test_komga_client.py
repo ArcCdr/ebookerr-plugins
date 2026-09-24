@@ -10,7 +10,6 @@ import pytest
 import requests
 import responses
 from ebookerr_sdk.providers.connection import ProviderUnreachable
-
 from komga_sync.client import RequestsKomgaClient
 from komga_sync.protocol import KomgaClient
 

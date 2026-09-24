@@ -32,7 +32,6 @@ from ebookerr_sdk.spi import (
     ReadPosition,
 )
 from ebookerr_sdk.testing import make_book_view
-
 from komga_sync.service import (
     KomgaService,
     _book_patch,

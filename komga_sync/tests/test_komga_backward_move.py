@@ -5,7 +5,6 @@ import logging
 import pytest
 from ebookerr_sdk.spi import ExternalLink, ReadPosition
 from ebookerr_sdk.testing import make_book_view
-
 from test_komga_service import (
     _DEFAULT_CHAPTER_TABLE,
     MATCHING_BOOK_METADATA,
