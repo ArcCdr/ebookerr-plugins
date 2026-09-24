@@ -3,7 +3,7 @@
 Komga's own locator table never carries titles (measured: every locator's ``title`` is
 ``None``), which used to leave :func:`~ebookerr_sdk.readpos.match_chapter` with
 nothing to go on for its first, most durable identity facet. These tests pin the fix:
-the join built in :meth:`~src.services.komga_service.KomgaService._sync_reachable`
+the join built in :meth:`~komga_sync.service.KomgaService._sync_reachable`
 (``join_anchors``, ``CHC-D12``) now fills that gap from the book's own chapter table
 (``BookView.chapter_table``, ``SPI 2.22``/``CHC-D11``) — no EPUB read required for restore
 matching itself — and still cooperates with the pre-existing facet order and the
@@ -29,7 +29,7 @@ from test_komga_service import (
     service as komga_service,
 )
 
-_KOMGA_LOGGER = "src.services.komga_service"
+_KOMGA_LOGGER = "komga_sync.service"
 
 
 def _owner_scenario() -> tuple[BookView, list[dict[str, object]], ReadPosition]:

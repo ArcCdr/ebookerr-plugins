@@ -289,8 +289,8 @@ class _Book:
     rating: int | None = None
 
 
-# FanFicFare JSON key -> _Book field, the fixture-building slice of
-# src.services.fanficfare_metadata.fanficfare_json_to_book_fields's column map (core, and not
+# FanFicFare JSON key -> _Book field, the fixture-building slice of the FanFicFare Source
+# plugin's own fanficfare_source.metadata.fanficfare_json_to_book_fields's column map (not
 # this plugin-owned module's subject — KomgaService never sees this payload, only the BookView
 # make_book/book_to_view derive from it).
 _FFF_TEXT_FIELDS: dict[str, str] = {
@@ -514,7 +514,7 @@ def book_to_view(book: _Book, **overrides: Any) -> BookView:
 def service(client: FakeKomga, **kwargs: Any) -> KomgaService:
     """Build a ``KomgaService`` whose anchor join sees ``POSITIONS_FIXTURE``'s title page.
 
-    Patches :meth:`~src.services.komga_service.KomgaService._document_hrefs` to report the
+    Patches :meth:`~komga_sync.service.KomgaService._document_hrefs` to report the
     fixture's own title-page + chapter hrefs, standing in for a real, readable EPUB — tests
     exercising the anchor join's own inconsistency (an unmatched href, a missing chapter)
     override ``_document_hrefs`` again afterwards, or never reach the join at all (an empty
