@@ -1,0 +1,125 @@
+{
+  "data": [
+    {
+      "id": "201",
+      "type": "post",
+      "attributes": {
+        "title": "First Post",
+        "published_at": "2026-07-15T10:00:00Z",
+        "post_type": "text_post",
+        "current_user_can_view": true,
+        "content": "<p>This is <b>rich</b> content with <i>formatting</i></p>"
+      },
+      "relationships": {
+        "attachments_section": {
+          "data": [
+            {
+              "id": "301",
+              "type": "media"
+            },
+            {
+              "id": "302",
+              "type": "media"
+            }
+          ]
+        },
+        "media": {
+          "data": [
+            {
+              "id": "303",
+              "type": "media"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "202",
+      "type": "post",
+      "attributes": {
+        "title": "Locked Post",
+        "published_at": "2026-07-10T14:30:00Z",
+        "post_type": "text_post",
+        "current_user_can_view": false,
+        "content": ""
+      },
+      "relationships": {
+        "attachments_section": {
+          "data": [
+            {
+              "id": "304",
+              "type": "media"
+            }
+          ]
+        },
+        "media": {
+          "data": []
+        }
+      }
+    },
+    {
+      "id": "203",
+      "type": "post",
+      "attributes": {
+        "title": "",
+        "published_at": "2026-07-05T08:15:00Z",
+        "post_type": "image_post",
+        "current_user_can_view": true,
+        "content": null
+      },
+      "relationships": {
+        "attachments_section": {
+          "data": []
+        },
+        "media": {
+          "data": []
+        }
+      }
+    }
+  ],
+  "included": [
+    {
+      "id": "301",
+      "type": "media",
+      "attributes": {
+        "file_name": "story.epub",
+        "mimetype": "application/epub+zip",
+        "download_url": "https://download.patreon.com/301/story.epub"
+      }
+    },
+    {
+      "id": "302",
+      "type": "media",
+      "attributes": {
+        "file_name": "story.pdf",
+        "mimetype": "application/pdf",
+        "download_url": "https://download.patreon.com/302/story.pdf"
+      }
+    },
+    {
+      "id": "303",
+      "type": "media",
+      "attributes": {
+        "file_name": "cover.png",
+        "mimetype": "image/png",
+        "download_url": "https://download.patreon.com/303/cover.png"
+      }
+    },
+    {
+      "id": "304",
+      "type": "media",
+      "attributes": {
+        "file_name": "bonus.txt",
+        "mimetype": "text/plain",
+        "download_url": ""
+      }
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "cursors": {
+        "next": "cursor_next_page_value"
+      }
+    }
+  }
+}

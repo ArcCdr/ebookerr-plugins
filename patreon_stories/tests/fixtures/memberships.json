@@ -1,0 +1,27 @@
+{
+  "data": {
+    "id": "user123",
+    "type": "user",
+    "attributes": {"full_name": "Logged In User"},
+    "relationships": {"active_memberships": {"data": [{"id": "member-111", "type": "member"}]}}
+  },
+  "included": [
+    {
+      "id": "member-111",
+      "type": "member",
+      "attributes": {
+        "patron_status": "active_patron",
+        "pledge_relationship_end": "2026-07-01T09:00:00.000+00:00",
+        "access_expires_at": "2026-07-31T00:00:00.000+00:00"
+      },
+      "relationships": {"campaign": {"data": {"id": "111", "type": "campaign"}}}
+    },
+    {
+      "id": "111",
+      "type": "campaign",
+      "attributes": {"name": "Demo Campaign", "url": "https://www.patreon.com/democreator"},
+      "relationships": {"creator": {"data": {"id": "creator789", "type": "user"}}}
+    },
+    {"id": "creator789", "type": "user", "attributes": {"full_name": "Demo Creator"}}
+  ]
+}

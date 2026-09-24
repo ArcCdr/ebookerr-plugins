@@ -1,0 +1,30 @@
+id = "patreon_stories"
+name = "Patreon memberships"
+version = "2.2.0"
+default_enabled = false
+type = "catalog"
+spi_version = "2.30"
+entrypoint = "entrypoint.py"
+description = "Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file"
+network = true
+complete_listing = true  # every scan returns every membership's posts or raises — a shrink is a lapsed membership, not a partial listing (EXT-D31)
+auth_methods = ["cookies"]
+auth_sites = ["patreon.com"]
+icon = "volunteer_activism"
+sites = ["patreon.com"]
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/patreon_stories"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/patreon_stories"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+
+[settings_schema]
+summary = "Posts from the last {recent_weeks} week(s)"
+fields = [
+  { key = "recent_weeks", type = "int", label = "Look-back window (weeks)", default = "4", help = "Posts older than this many weeks are ignored on each scan." },
+]
+
+[[ui_triggers]]
+scope = "catalog_scan"
+icon = "sync"
+label = "Scan"
