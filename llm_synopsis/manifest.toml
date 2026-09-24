@@ -1,0 +1,95 @@
+id = "llm_synopsis"
+name = "Synopsis generator"
+version = "1.1.0"
+type = "book"
+spi_version = "2.30"
+description = "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. Only books without a synopsis from the configured model are processed."
+headed = true
+priority = 500
+events = ["BookCreated", "BookImported"]
+network = true
+testable = true
+default_enabled = false
+deferred = true
+long_running = true
+run_timeout_s = 1800
+icon = "summarize"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[custom_values]]
+key = "model"
+type = "string"
+label = "Synopsis model"
+filterable = true
+
+[settings_schema]
+summary = "{model|No model set} · {prompt_template} prompt"
+
+[[settings_schema.fields]]
+key = "base_url"
+type = "url"
+label = "Base URL"
+default = "http://127.0.0.1:11434/v1"
+help = "The OpenAI-compatible API base, ending before /chat/completions. An API key, if the server needs one, goes in Settings → Credentials as \"API key (Bearer)\" for this host."
+group = "Text model"
+credential = true
+
+[[settings_schema.fields]]
+key = "model"
+type = "string"
+label = "Model"
+default = ""
+help = "The model name exactly as the server lists it, for example qwen3:8b."
+group = "Text model"
+
+[[settings_schema.fields]]
+key = "timeout_s"
+type = "int"
+label = "Timeout (s)"
+default = 600
+help = "How long to wait for the next piece of the answer before treating the server as unreachable."
+group = "Text model"
+
+[[settings_schema.fields]]
+key = "input_words"
+type = "int"
+label = "Input words"
+default = 3000
+help = "How many words from the start of the book are sent to the model."
+group = "Generation"
+
+[[settings_schema.fields]]
+key = "max_completion_tokens"
+type = "int"
+label = "Maximum output tokens"
+default = 0
+help = "0 sends no limit. Raise it if a reasoning model stops before answering."
+group = "Generation"
+
+[[settings_schema.fields]]
+key = "prompt_template"
+type = "textarea"
+label = "Prompt template"
+default = "Opening of the book:\n{book_text}\n\nWrite a back-cover synopsis of at most 200 words for the book \"{title}\" by {author}, based on the opening above.\nWrite plain text only: no title, no heading, no preamble and no notes. Do not reveal the ending."
+help = "Placeholders: {book_text} {title} {author} {category} {tags} {description} {synopsis}."
+group = "Generation"
+previous_defaults = ["Write a back-cover synopsis of at most 200 words for the book \"{title}\" by {author}, based on its opening below.\nWrite plain text only: no title, no heading, no preamble and no notes. Do not reveal the ending.\n\nOpening of the book:\n{book_text}"]
+
+[[settings_schema.groups]]
+label = "Text model"
+summary = "{model|No model set} · {base_url|No base URL}"
+
+[[settings_schema.groups]]
+label = "Generation"
+summary = "{input_words} words in · {max_completion_tokens|no output limit} output tokens · {prompt_template} prompt"
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "auto_awesome"
+label = "Generate synopsis"
+description = "Write a synopsis for each selected book with the configured model."
