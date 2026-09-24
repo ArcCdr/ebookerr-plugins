@@ -69,6 +69,7 @@ def personal_ini_path() -> Path:
         logger.info("Removed a UTF-8 byte-order mark from %s", target.name)
     return target
 
+
 _MANIFEST = PluginManifest(
     id="fanficfare_source",
     name="FanFicFare",

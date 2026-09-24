@@ -426,15 +426,11 @@ def test_a_fanficfare_failure_is_logged_at_debug_not_error(
         make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
 
     error_records = [
-        r
-        for r in caplog.records
-        if r.levelname == "ERROR" and r.name == "fanficfare_source.pull"
+        r for r in caplog.records if r.levelname == "ERROR" and r.name == "fanficfare_source.pull"
     ]
     assert len(error_records) == 0
     debug_records = [
-        r
-        for r in caplog.records
-        if r.levelname == "DEBUG" and r.name == "fanficfare_source.pull"
+        r for r in caplog.records if r.levelname == "DEBUG" and r.name == "fanficfare_source.pull"
     ]
     assert any(
         "FanFicFare reported a failure for" in r.getMessage() and "boom" in r.getMessage()
