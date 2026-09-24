@@ -10,12 +10,11 @@ from typing import Any
 import pytest
 import requests
 import responses
+from docx_download_source.plugin import DocxDownloadSourcePlugin
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.spi import BookPatch, BookView, InvocationMode
+from ebookerr_sdk.spi import BookPatch, BookView
 from ebookerr_sdk.testing import FakeContext
-
-from docx_download_source.plugin import DocxDownloadSourcePlugin
 
 
 def _make_docx(
@@ -232,7 +231,7 @@ class TestCheckForUpdateDelegates:
     @responses.activate
     def test_check_for_update_delegates(self) -> None:
         """plugin's check_for_update with prior → delegates to helper."""
-        from ebookerr_sdk.spi import BookView, CustomValueView
+        from ebookerr_sdk.spi import CustomValueView
 
         url = "https://x.com/book.docx"
 
@@ -293,11 +292,12 @@ class TestTitleAndAuthorMetadataPrecedence:
         self, tmp_path: Path, caplog: Any
     ) -> None:
         """Real DOCX converter: URL stem chapter179 + first_line → uses first_line."""
+        from docx_download_source.docx_to_epub import convert_docx_to_epub
         from ebookerr_sdk.download.document import download_convert_stage
 
-        from docx_download_source.docx_to_epub import convert_docx_to_epub
-
-        DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        DOCX_CONTENT_TYPE = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
         body = (
             Path(__file__).resolve().parent / "fixtures" / "Three Square Meals - Chapter 179.docx"

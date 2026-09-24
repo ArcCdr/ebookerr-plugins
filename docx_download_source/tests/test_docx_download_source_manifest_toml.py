@@ -6,8 +6,8 @@ import dataclasses
 import tomllib
 from pathlib import Path
 
-from ebookerr_sdk.spi.manifest import parse_manifest
 from docx_download_source.plugin import DocxDownloadSourcePlugin
+from ebookerr_sdk.spi.manifest import parse_manifest
 
 _MANIFEST_TOML = Path(__file__).resolve().parents[1] / "manifest.toml"
 
