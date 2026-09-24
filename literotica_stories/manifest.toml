@@ -1,0 +1,30 @@
+id = "literotica_stories"
+name = "Literotica search"
+version = "2.2.0"
+default_enabled = false
+type = "catalog"
+spi_version = "2.30"
+entrypoint = "entrypoint.py"
+description = "Fetches stories with Literotica search"
+network = true
+auth_methods = ["anonymous"]
+icon = "menu_book"
+sites = ["literotica.com"]
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/literotica_stories"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/literotica_stories"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+
+[settings_schema]
+summary = "{search_urls|No search URLs} search URL(s) · {max_pages} page(s) each · {min_thresholds|no minimums}"
+fields = [
+  { key = "search_urls", type = "url_list", label = "Search URLs", default = ["https://search.literotica.com/?period=1%20month&popular=true&sort=vote", "https://search.literotica.com/?categories=29&period=1%20month&popular=true&sort=vote"], help = "Literotica search pages to fetch (https://search.literotica.com/?query=…); each URL's own filters are honoured." },
+  { key = "max_pages", type = "int", label = "Pages per search URL", default = "5", help = "How many consecutive result pages (50 stories each) to fetch per search URL." },
+  { key = "min_thresholds", type = "threshold_list", label = "Minimum thresholds", default = { rating = 4.0 }, options = ["rating", "num_words", "Votes", "Views", "Favorites", "Comments", "Rank", "Reading Lists", "Series Parts", "Author Stories", "Is Hot", "Is New", "Writer's Pick", "Contest Winner"], option_labels = ["Rating", "Word count", "Votes", "Views", "Favorites", "Comments", "Rank", "Reading Lists", "Series Parts", "Author Stories", "Is Hot", "Is New", "Writer's Pick", "Contest Winner"], options_strict = true, help = "Keep only stories where every named field is at least this value (field name or custom column label, e.g. rating or Is Hot); stories missing the field are dropped. Boolean fields (Is Hot, Is New, Writer's Pick, Contest Winner) use minimum 1 for \"must be true\"." },
+]
+
+[[ui_triggers]]
+scope = "catalog_scan"
+icon = "sync"
+label = "Scan"

@@ -1,0 +1,112 @@
+{
+  "data": [
+    {
+      "allow_vote": 1,
+      "allow_download": 0,
+      "author": {
+        "userid": 8098281,
+        "username": "4SomeoneSpecial",
+        "userpic": "https://speedy.literotica.com/imagesv2/da_default.jpg",
+        "stories_count": 12,
+        "poems_count": 0,
+        "audios_count": 0,
+        "illustrations_count": 0,
+        "sgs_count": 0
+      },
+      "authorname": "4SomeoneSpecial",
+      "category_info": {
+        "type": "story",
+        "pageUrl": "mind-control"
+      },
+      "category": 29,
+      "comment_count": 1,
+      "contest_winner": 0,
+      "date_approve": "07/03/2026",
+      "description": "Anna enjoys spirals, but not for those reasons... right?",
+      "enable_comments": 1,
+      "favorite_count": 9,
+      "id": 4450510,
+      "is_hot": true,
+      "is_new": false,
+      "language": 1,
+      "newlanguage": 1,
+      "rank": null,
+      "rate_all": 4.52,
+      "rate_count": 31,
+      "reading_lists_count": 11,
+      "tags": [
+        {"id": 582694, "tag": "wlw", "is_banned": 0},
+        {"id": 5841, "tag": "hypnosis", "is_banned": 0}
+      ],
+      "title": "Not Another Spiral Story",
+      "type": "story",
+      "url": "not-another-spiral-story",
+      "view_count": 4204,
+      "writers_pick": false,
+      "status": "v",
+      "series": [],
+      "words_count": 2999
+    },
+    {
+      "allow_vote": 1,
+      "allow_download": 0,
+      "author": {
+        "userid": 8098282,
+        "username": "Nslait",
+        "userpic": "https://speedy.literotica.com/imagesv2/da_default.jpg",
+        "stories_count": 10,
+        "poems_count": 0,
+        "audios_count": 0,
+        "illustrations_count": 0,
+        "sgs_count": 0
+      },
+      "authorname": "Nslait",
+      "category_info": {
+        "type": "story",
+        "pageUrl": "mind-control"
+      },
+      "category": 29,
+      "comment_count": 0,
+      "contest_winner": 0,
+      "date_approve": "06/28/2026",
+      "description": "A complex relationship unfolds with unexpected twists.",
+      "enable_comments": 1,
+      "favorite_count": 0,
+      "id": 4445434,
+      "is_hot": true,
+      "is_new": false,
+      "language": 1,
+      "newlanguage": 1,
+      "rank": null,
+      "rate_all": 4.52,
+      "rate_count": 25,
+      "reading_lists_count": 0,
+      "tags": [
+        {"id": 347, "tag": "lesbian", "is_banned": 0}
+      ],
+      "title": "Bad Mom And Naughty Shrink Ch. 02",
+      "type": "story",
+      "url": "bad-mom-and-naughty-shrink-ch-02",
+      "view_count": 4011,
+      "writers_pick": false,
+      "status": "v",
+      "series": {
+        "meta": {
+          "id": 495401236,
+          "title": "Bad Mom And Naughty Shrink",
+          "url": "",
+          "created_at": "05/14/2026",
+          "updated_at": "06/28/2026",
+          "order": [4397655, 4445434]
+        },
+        "items": []
+      },
+      "words_count": 4450,
+      "series_count": 2
+    }
+  ],
+  "meta": {
+    "pageSize": 50,
+    "total": 56
+  }
+}

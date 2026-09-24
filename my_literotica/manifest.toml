@@ -1,0 +1,23 @@
+id = "my_literotica"
+name = "Literotica - My Home"
+version = "1.1.0"
+default_enabled = false
+type = "catalog"
+spi_version = "2.30"
+entrypoint = "entrypoint.py"
+description = "Lists new story publications from the authors you follow on Literotica (from \"My Home\" activity wall)"
+network = true
+auth_methods = ["cookies", "username_password"]
+auth_sites = ["literotica.com"]
+icon = "bookmarks"
+sites = ["literotica.com"]
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/my_literotica"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/my_literotica"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+
+[[ui_triggers]]
+scope = "catalog_scan"
+icon = "sync"
+label = "Scan"
