@@ -122,9 +122,9 @@ class TestManifestIdentity:
         assert decls["warning_count"].type == "int"
         assert decls["checker"].type == "string"
         assert decls["report"].type == "string"
-        # Check all have display == "book_detail"
+        # Check all have display == "check_report"
         for decl in m.custom_values:
-            assert decl.display == "book_detail"
+            assert decl.display == "check_report"
 
     def test_the_validate_trigger_keeps_its_label_and_gains_a_description(self) -> None:
         """The Validate action keeps its label and adds a description."""

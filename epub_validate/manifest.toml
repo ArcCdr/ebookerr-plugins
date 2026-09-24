@@ -22,6 +22,7 @@ entrypoint = "entrypoint.py"
 key = "status"
 type = "string"
 label = "EPUB validation"
+display = "check_report"
 filterable = true
 aggregatable = true
 
@@ -29,26 +30,31 @@ aggregatable = true
 key = "checked_at"
 type = "datetime"
 label = "EPUB checked"
+display = "check_report"
 
 [[custom_values]]
 key = "error_count"
 type = "int"
 label = "EPUB errors"
+display = "check_report"
 
 [[custom_values]]
 key = "warning_count"
 type = "int"
 label = "EPUB warnings"
+display = "check_report"
 
 [[custom_values]]
 key = "checker"
 type = "string"
 label = "EPUB checker"
+display = "check_report"
 
 [[custom_values]]
 key = "report"
 type = "string"
 label = "EPUB validation report"
+display = "check_report"
 
 [settings_schema]
 summary = "{external_checker_command|Built-in checks only}"

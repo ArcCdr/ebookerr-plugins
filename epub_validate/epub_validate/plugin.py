@@ -111,14 +111,21 @@ _MANIFEST = PluginManifest(
             key="status",
             type="string",
             label="EPUB validation",
+            display="check_report",
             filterable=True,
             aggregatable=True,
         ),
-        CustomValueDecl(key="checked_at", type="datetime", label="EPUB checked"),
-        CustomValueDecl(key="error_count", type="int", label="EPUB errors"),
-        CustomValueDecl(key="warning_count", type="int", label="EPUB warnings"),
-        CustomValueDecl(key="checker", type="string", label="EPUB checker"),
-        CustomValueDecl(key="report", type="string", label="EPUB validation report"),
+        CustomValueDecl(
+            key="checked_at", type="datetime", label="EPUB checked", display="check_report"
+        ),
+        CustomValueDecl(key="error_count", type="int", label="EPUB errors", display="check_report"),
+        CustomValueDecl(
+            key="warning_count", type="int", label="EPUB warnings", display="check_report"
+        ),
+        CustomValueDecl(key="checker", type="string", label="EPUB checker", display="check_report"),
+        CustomValueDecl(
+            key="report", type="string", label="EPUB validation report", display="check_report"
+        ),
     ),
     description="Check every EPUB ebookerr writes for structural problems, and report what "
     "it finds without ever changing the file.",
