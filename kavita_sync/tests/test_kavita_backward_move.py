@@ -5,9 +5,8 @@ import logging
 import pytest
 from ebookerr_sdk.spi import ReadPosition
 from ebookerr_sdk.testing import make_book_view
-
-from tests.unit.test_kavita_service import BACKWARD_TOC, BACKWARD_TOC_CHAPTERS, FakeKavita, _ref
-from tests.unit.test_kavita_service import service as kavita_service
+from test_kavita_service import BACKWARD_TOC, BACKWARD_TOC_CHAPTERS, FakeKavita, _ref
+from test_kavita_service import service as kavita_service
 
 
 @pytest.mark.pins("EXP-207")

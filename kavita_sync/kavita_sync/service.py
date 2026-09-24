@@ -1,7 +1,7 @@
 """Kavita sync business rules (see ARCHITECTURE.md §2.2 for the cross-provider contract).
 
 Kavita is a read-server for manga/EPUBs; each book maps to one Kavita "chapter" inside
-one "series" behind the ``KavitaClient`` protocol (:mod:`src.gateways.protocols`).
+one "series" behind the ``KavitaClient`` protocol (:mod:`kavita_sync.protocol`).
 Unlike Komga, Kavita is not a metadata sink: local/FanFicFare fields are never pushed to
 it, and the only series-level action is rating cross-sync.
 A file Kavita has indexed but cannot place in a series is reported as unresolved, never
@@ -48,7 +48,7 @@ The sync, for one freshly-downloaded book (:meth:`KavitaService.sync`):
 
 The service makes no DB writes itself: every outcome is returned as ``SyncResult.fields``
 plus an optional ``SyncResult.read_position``, for the caller
-(:class:`~src.plugins.kavita_sync.KavitaSyncPlugin`) to persist through the standard
+(:class:`~kavita_sync.plugin.KavitaSyncPlugin`) to persist through the standard
 apply path. Kavita being disabled/unreachable is non-fatal: :meth:`KavitaService.enrich`
 returns a not-``ok`` result on any failure, ``attempted=True`` except when an open
 circuit breaker (``EXP-269``) answers unreachable from memory instead of probing;
@@ -102,8 +102,8 @@ from ebookerr_sdk.spi import (
     ReadPosition,
 )
 
-from src.gateways.kavita_client import KavitaRef, KavitaSeriesUnresolved
-from src.gateways.protocols import KavitaClient
+from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
+from kavita_sync.protocol import KavitaClient
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class SyncResult:
     """Outcome of one :meth:`KavitaService.sync` or :meth:`KavitaService.enrich` call.
 
     Carries no side effects itself — the caller
-    (:class:`~src.plugins.kavita_sync.KavitaSyncPlugin`) wraps ``fields``/``read_position``
+    (:class:`~kavita_sync.plugin.KavitaSyncPlugin`) wraps ``fields``/``read_position``
     into a ``BookPatch`` for the single apply path to persist.
 
     Attributes:

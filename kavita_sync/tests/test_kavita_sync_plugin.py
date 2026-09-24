@@ -12,9 +12,8 @@ from unittest.mock import MagicMock, patch
 import ebookerr_sdk.spi as api
 import pytest
 from ebookerr_sdk.testing import Cancelled, FakeContext
-
-from src.plugins.kavita_sync import KavitaSyncPlugin, _build_service
-from src.services.kavita_service import SyncResult
+from kavita_sync.plugin import KavitaSyncPlugin, _build_service
+from kavita_sync.service import SyncResult
 
 # ---------------------------------------------------------------------------
 # Stub PluginContext
@@ -142,9 +141,9 @@ class TestManifest:
         )
 
     def test_manifest_version_and_group(self) -> None:
-        """Manifest version is 1.0.0 with correct exclusive_group and events."""
+        """Manifest version is 1.1.0 with correct exclusive_group and events."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.version == "1.0.0"
+        assert plugin.manifest.version == "1.1.0"
         assert plugin.manifest.exclusive_group == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -232,7 +231,7 @@ class TestSettingsSchema:
         )
 
         with patch(
-            "src.plugins.kavita_sync.RequestsKavitaClient",
+            "kavita_sync.plugin.RequestsKavitaClient",
             FakeKavitaClient,  # type: ignore
         ):
             service = _build_service(ctx, enabled=True)
@@ -320,9 +319,7 @@ class TestEnrich:
         # Patch the service factory to return a disabled service
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=False, fields={}, attempted=False)
-        with patch(
-            "src.plugins.kavita_sync._build_service", return_value=mock_service
-        ) as mock_factory:
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service) as mock_factory:
             result = plugin.enrich((view,), ctx)
             assert result == []
             # Verify the factory was called to build a disabled service
@@ -350,7 +347,7 @@ class TestEnrich:
         # Patch the service factory to return a mock service
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={})
-        patcher = patch("src.plugins.kavita_sync._build_service", return_value=mock_service)
+        patcher = patch("kavita_sync.plugin._build_service", return_value=mock_service)
         with patcher as mock_factory:
             result = plugin.enrich((view1, view2), ctx)
 
@@ -392,7 +389,7 @@ class TestEnrich:
         # Patch the service factory to return a mock service
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={})
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             # Should propagate the Cancelled exception
             with pytest.raises(Cancelled):
                 plugin.enrich((view1, view2), ctx)
@@ -419,7 +416,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={"external_provider": "kavita"})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return one BookPatch with the service's fields plus link-attempt fields
@@ -446,7 +443,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return one patch with link-attempt fields (ok=True means error=None)
@@ -466,7 +463,7 @@ class TestEnrich:
             }
         )
 
-        from src.plugins.kavita_sync import _build_service
+        from kavita_sync.plugin import _build_service
 
         service = _build_service(ctx, enabled=True)
 
@@ -491,7 +488,7 @@ class TestEnrich:
             ok=True, fields={"external_provider": "kavita"}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should call enrich, not sync
@@ -524,7 +521,7 @@ class TestEnrich:
         # Mock service
         mock_service = MagicMock()
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should call nudge_folder_after_delete on the service for unlinked book
@@ -559,7 +556,7 @@ class TestEnrich:
         # Mock service
         mock_service = MagicMock()
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should NOT call rescan_library_after_delete or nudge_folder_after_delete
@@ -608,7 +605,7 @@ class TestEnrich:
             build_count[0] += 1
             return mock_service
 
-        with patch("src.plugins.kavita_sync._build_service", side_effect=build_service_side_effect):
+        with patch("kavita_sync.plugin._build_service", side_effect=build_service_side_effect):
             result = plugin.enrich((view1, view2), ctx)
 
             # Should build service exactly once
@@ -669,7 +666,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
             # Verify sync was called with restore_target kwarg
@@ -725,7 +722,7 @@ class TestEnrich:
             ok=False, message="down", fields={}, restore_attempted=True
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return one patch with marker cleared and link attempt recorded (EXP-200)
@@ -761,7 +758,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={}, read_position=read_pos)
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return one patch with read_position
@@ -793,7 +790,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={"external_provider": "kavita"})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return one patch with service fields and link-attempt, no marker (EXP-200)
@@ -849,7 +846,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.DEBUG, logger="src.plugin.kavita_sync"),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view,), ctx)
 
@@ -895,7 +892,7 @@ class TestEnrich:
             True, "synced", restore_attempted=True, fields={"external_item_id": "K1"}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
         assert len(result) == 1
@@ -938,7 +935,7 @@ class TestEnrich:
             False, "unreachable", attempted=True, restore_attempted=False
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
         assert not result or "read_position_restore" not in result[0].fields
@@ -962,7 +959,7 @@ class TestEnrich:
             True, "synced", fields={"external_item_id": "K1"}, restore_attempted=False
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
         assert len(result) == 1
@@ -989,7 +986,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.DEBUG),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view,), ctx)
 
@@ -1036,7 +1033,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.INFO),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view1, view2, view3), ctx)
 
@@ -1087,7 +1084,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.WARNING),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view1, view2), ctx)
 
@@ -1121,7 +1118,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.INFO),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view,), ctx)
 
@@ -1154,7 +1151,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view1, view2, view3, view4), ctx)
 
             # Should report [25.0, 50.0, 75.0, 100.0]
@@ -1186,7 +1183,7 @@ class TestEnrich:
         # Mock service
         mock_service = MagicMock()
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view1, view2), ctx)
 
             # Should return empty list
@@ -1210,7 +1207,7 @@ class TestEnrich:
 
         mock_service = MagicMock()
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return empty list
@@ -1231,7 +1228,7 @@ class TestEnrich:
 
         mock_service = MagicMock()
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((), ctx)
 
             # Should return empty list
@@ -1260,7 +1257,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.DEBUG),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             plugin.enrich((view1, view2, view3), ctx)
 
@@ -1296,7 +1293,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.DEBUG),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view,), ctx)
 
@@ -1346,7 +1343,7 @@ class TestEnrich:
 
         with (
             caplog.at_level(logging.INFO),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             result = plugin.enrich((view,), ctx)
 
@@ -1387,7 +1384,7 @@ class TestEnrich:
             fields={},
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
             # No patch should be created (no fields and no read position)
             assert result == []
@@ -1400,7 +1397,7 @@ class TestEnrich:
             fields={},
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
             # No patch should be created (no fields and no read position)
             assert result == []
@@ -1421,7 +1418,7 @@ class TestEnrich:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={"external_provider": "kavita"})
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should call sync, not enrich
@@ -1463,7 +1460,7 @@ class TestTestConnection:
             }
         )
 
-        with patch("src.plugins.kavita_sync.RequestsKavitaClient", side_effect=fake_client_factory):
+        with patch("kavita_sync.plugin.RequestsKavitaClient", side_effect=fake_client_factory):
             ok, msg = plugin.test_connection(ctx)
 
         assert ok is True
@@ -1520,7 +1517,7 @@ class TestTestConnection:
 
         with (
             caplog.at_level(logging.WARNING),
-            patch("src.plugins.kavita_sync.RequestsKavitaClient", side_effect=fake_unreachable),
+            patch("kavita_sync.plugin.RequestsKavitaClient", side_effect=fake_unreachable),
         ):
             ok, msg = plugin.test_connection(ctx)
             assert ok is False
@@ -1536,7 +1533,7 @@ class TestTestConnection:
 
         with (
             caplog.at_level(logging.WARNING),
-            patch("src.plugins.kavita_sync.RequestsKavitaClient", side_effect=fake_rejected),
+            patch("kavita_sync.plugin.RequestsKavitaClient", side_effect=fake_rejected),
         ):
             ok, msg = plugin.test_connection(ctx)
             assert ok is False
@@ -1552,7 +1549,7 @@ class TestTestConnection:
 
         with (
             caplog.at_level(logging.WARNING),
-            patch("src.plugins.kavita_sync.RequestsKavitaClient", side_effect=fake_ok),
+            patch("kavita_sync.plugin.RequestsKavitaClient", side_effect=fake_ok),
         ):
             ok, msg = plugin.test_connection(ctx)
             assert ok is True
@@ -1594,7 +1591,7 @@ class TestPluginNoDependencies:
         mock_service = MagicMock()
         mock_service.enrich = capture_view
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
             # Verify the exact view instance was passed
@@ -1636,7 +1633,7 @@ class TestPluginNoDependencies:
         mock_service = MagicMock()
         mock_service.sync.return_value = SyncResult(ok=True, fields={}, restore_attempted=True)
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             result = plugin.enrich((view,), ctx)
 
             # Should return patch with marker cleared
@@ -1668,7 +1665,7 @@ class TestPerBookFailureReporting:
             ok=False, message="Kavita is not reachable", attempted=True, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_failures == [("b1", "Kavita is not reachable")]
@@ -1691,7 +1688,7 @@ class TestPerBookFailureReporting:
             ok=False, message="Kavita sync is disabled", attempted=False, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_failures == []
@@ -1717,7 +1714,7 @@ class TestPerBookFailureReporting:
 
         with (
             caplog.at_level(logging.WARNING, logger="src.plugin.kavita_sync"),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             plugin.enrich((view,), ctx)
 
@@ -1743,7 +1740,7 @@ class TestPerBookFailureReporting:
 
         with (
             caplog.at_level(logging.DEBUG, logger="src.plugin.kavita_sync"),
-            patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+            patch("kavita_sync.plugin._build_service", return_value=mock_service),
         ):
             plugin.enrich((view,), ctx)
 
@@ -1768,7 +1765,7 @@ class TestPerBookFailureReporting:
             ok=False, message=refusal_msg, attempted=True, refused=True, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_skips == [("b1", refusal_msg)]
@@ -1791,7 +1788,7 @@ class TestPerBookFailureReporting:
             ok=False, message="book not found in Kavita", attempted=True, not_found=True, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_skips == [("b1", "book not found in Kavita")]
@@ -1815,7 +1812,7 @@ class TestPerBookFailureReporting:
             ok=False, message="Kavita is not reachable", attempted=True, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_failures == [("b1", "Kavita is not reachable")]
@@ -1840,7 +1837,7 @@ class TestPerBookFailureReporting:
             ok=False, message=refusal_msg, attempted=True, refused=True, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_skips == [("b1", refusal_msg)]
@@ -1864,7 +1861,7 @@ class TestPerBookFailureReporting:
             ok=False, message="Kavita sync is disabled", attempted=False, fields={}
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         assert ctx.item_failures == []
@@ -1904,7 +1901,7 @@ class TestBackwardMoveNotification:
             backward_move='Read position for "Test Book" moved backwards: chapter 30 → 4',
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         # Should have called ctx.notify with warning, the backward_move message, and durable=True
@@ -1941,7 +1938,7 @@ class TestBackwardMoveNotification:
             backward_move=None,
         )
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
             plugin.enrich((view,), ctx)
 
         # Should not have called ctx.notify
@@ -1975,7 +1972,7 @@ def test_a_kavita_chapter_id_change_never_authorises_a_history_purge() -> None:
         ),
     )
 
-    with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+    with patch("kavita_sync.plugin._build_service", return_value=mock_service):
         result = plugin.enrich((view,), ctx)
 
     assert len(result) == 1
@@ -2000,7 +1997,7 @@ def test_a_kept_stale_link_is_recorded_as_the_books_link_error() -> None:
         False, "stale link kept: X", fields={}, stale_link_kept="stale link kept: X"
     )
 
-    with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+    with patch("kavita_sync.plugin._build_service", return_value=mock_service):
         result = plugin.enrich((view,), ctx)
 
     assert len(result) == 1
@@ -2018,7 +2015,7 @@ def test_a_clean_kavita_sync_still_clears_the_link_error() -> None:
     mock_service = MagicMock()
     mock_service.sync.return_value = SyncResult(True, "synced", fields={}, stale_link_kept=None)
 
-    with patch("src.plugins.kavita_sync._build_service", return_value=mock_service):
+    with patch("kavita_sync.plugin._build_service", return_value=mock_service):
         result = plugin.enrich((view,), ctx)
 
     assert len(result) == 1
@@ -2045,9 +2042,9 @@ def test_build_service_passes_the_link_owner() -> None:
     # Dynamically add the provider_link_owner method
     ctx.provider_link_owner = mock_provider_link_owner  # type: ignore
 
-    import src.plugins.kavita_sync
+    import kavita_sync.plugin
 
-    service = src.plugins.kavita_sync._build_service(ctx, enabled=True)
+    service = kavita_sync.plugin._build_service(ctx, enabled=True)
 
     assert service._link_owner is not None
     assert service._link_owner("owned_id") == "someBook"
@@ -2084,7 +2081,7 @@ def test_an_unreachable_result_logs_at_debug_and_still_counts_as_failed(
 
     with (
         caplog.at_level(logging.DEBUG, logger="src.plugin.kavita_sync"),
-        patch("src.plugins.kavita_sync._build_service", return_value=mock_service),
+        patch("kavita_sync.plugin._build_service", return_value=mock_service),
     ):
         plugin.enrich((view1, view2), ctx)
 
@@ -2172,7 +2169,7 @@ def test_an_unlanded_restore_is_reported_as_an_item_failure(caplog: Any) -> None
             return True
 
     with (
-        patch("src.plugins.kavita_sync._build_service", return_value=_UnlandedRestoreService()),
+        patch("kavita_sync.plugin._build_service", return_value=_UnlandedRestoreService()),
         caplog.at_level(logging.WARNING, logger="src.plugin.kavita_sync"),
     ):
         patches = plugin.enrich((view,), ctx)
@@ -2257,7 +2254,7 @@ def test_a_landed_restore_reports_nothing() -> None:
         def nudge_folder_after_delete(self, output_filename: str | None, title: str | None) -> bool:
             return True
 
-    with patch("src.plugins.kavita_sync._build_service", return_value=_LandedRestoreService()):
+    with patch("kavita_sync.plugin._build_service", return_value=_LandedRestoreService()):
         patches = plugin.enrich((view,), ctx)
 
     # Should NOT report an item failure
@@ -2281,7 +2278,7 @@ def test_build_service_passes_the_library_folder_to_the_kavita_service() -> None
         library_root=Path("/lib"),
     )
 
-    with patch("src.plugins.kavita_sync.RequestsKavitaClient"):
+    with patch("kavita_sync.plugin.RequestsKavitaClient"):
         service = _build_service(ctx, enabled=True)
 
     assert service._library_folder == Path("/lib")
@@ -2290,14 +2287,14 @@ def test_build_service_passes_the_library_folder_to_the_kavita_service() -> None
 @pytest.mark.pins("EXP-194")
 def test_build_service_without_a_library_root_still_builds() -> None:
     """_build_service still builds when library_root is None."""
-    from src.plugins.kavita_sync import _build_service
+    from kavita_sync.plugin import _build_service
 
     ctx = _FakeCtx(
         settings={"server": "http://k", "api_key": "x"},
         library_root=None,
     )
 
-    with patch("src.plugins.kavita_sync.RequestsKavitaClient"):
+    with patch("kavita_sync.plugin.RequestsKavitaClient"):
         service = _build_service(ctx, enabled=True)
 
     assert service is not None
@@ -2348,7 +2345,7 @@ def test_the_kavita_nudge_is_the_same_whether_the_epub_is_kept_or_deleted() -> N
     spy1 = _SpyKavitaService()
 
     plugin = KavitaSyncPlugin()
-    with patch("src.plugins.kavita_sync._build_service", return_value=spy1):
+    with patch("kavita_sync.plugin._build_service", return_value=spy1):
         plugin.enrich((view_with_lib_id,), ctx1)
 
     # Second run with epub_kept=0
@@ -2359,7 +2356,7 @@ def test_the_kavita_nudge_is_the_same_whether_the_epub_is_kept_or_deleted() -> N
     )
     spy2 = _SpyKavitaService()
 
-    with patch("src.plugins.kavita_sync._build_service", return_value=spy2):
+    with patch("kavita_sync.plugin._build_service", return_value=spy2):
         plugin.enrich((view_with_lib_id,), ctx2)
 
     # Both should have identical rescan and nudge calls
@@ -2404,7 +2401,7 @@ class TestUnreachedItems:
             def nudge_folder_after_delete(self, output_filename: str, title: str) -> None:
                 pass
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=_UnreachedService()):
+        with patch("kavita_sync.plugin._build_service", return_value=_UnreachedService()):
             view = _make_book_view("b1", title="Test Book")
             plugin.enrich((view,), ctx)
 
@@ -2436,7 +2433,7 @@ class TestUnreachedItems:
             def nudge_folder_after_delete(self, output_filename: str, title: str) -> None:
                 pass
 
-        with patch("src.plugins.kavita_sync._build_service", return_value=_DisabledService()):
+        with patch("kavita_sync.plugin._build_service", return_value=_DisabledService()):
             view = _make_book_view("b1", title="Test Book")
             plugin.enrich((view,), ctx)
 

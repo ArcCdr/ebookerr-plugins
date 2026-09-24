@@ -1,6 +1,6 @@
 """Real :class:`KavitaClient` over the Kavita REST API (plugin token auth).
 
-Calls only — no business rules (those live in :mod:`src.services.kavita_service`).
+Calls only — no business rules (those live in :mod:`kavita_sync.service`).
 The HTTP session is injectable so tests mock it without live calls. Transport failures and
 HTTP 502/503/504 answers raise ``ProviderUnreachable`` (``EXP-192``, ``DFT-D41``);
 ``test_connection`` is the probe and reports instead.

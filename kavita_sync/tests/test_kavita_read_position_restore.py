@@ -19,8 +19,7 @@ from typing import Any
 import pytest
 from ebookerr_sdk.spi import ChapterView, ReadPosition
 from ebookerr_sdk.testing import make_book_view
-
-from tests.unit.test_kavita_service import FakeKavita, _ref, service
+from test_kavita_service import FakeKavita, _ref, service
 
 _ANCHORING_LOGGER = "ebookerr_sdk.providers.anchoring"
 

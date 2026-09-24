@@ -8,9 +8,8 @@ import pytest
 import requests
 import responses
 from ebookerr_sdk.providers.connection import ProviderUnreachable
-
-from src.gateways.kavita_client import KavitaRef, RequestsKavitaClient
-from src.gateways.protocols import KavitaClient
+from kavita_sync.client import KavitaRef, RequestsKavitaClient
+from kavita_sync.protocol import KavitaClient
 
 BASE = "http://kavita.test"
 API_KEY = "test-api-key-12345"  # gitleaks:allow
@@ -683,7 +682,7 @@ def test_a_basename_only_candidate_is_logged_at_debug(caplog: pytest.LogCaptureF
     )
 
     client = _client()
-    with caplog.at_level(logging.DEBUG, logger="src.gateways.kavita_client"):
+    with caplog.at_level(logging.DEBUG, logger="kavita_sync.client"):
         result = client.find_chapter("Foo/foo-story.epub")
 
     assert result is None
@@ -751,7 +750,7 @@ def test_series_for_mangafile_reads_the_dto_id_not_series_id() -> None:
 @responses.activate
 def test_a_matched_file_whose_series_is_unresolved_is_not_none() -> None:
     """A file matched but series unresolved returns KavitaSeriesUnresolved, not None."""
-    from src.gateways.kavita_client import KavitaSeriesUnresolved
+    from kavita_sync.client import KavitaSeriesUnresolved
 
     # Mock auth
     responses.add(
@@ -807,7 +806,7 @@ def test_the_name_fallback_needs_exactly_one_series_named_like_the_stem(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Ambiguous fallback (2+ series with same name) returns KavitaSeriesUnresolved."""
-    from src.gateways.kavita_client import KavitaSeriesUnresolved
+    from kavita_sync.client import KavitaSeriesUnresolved
 
     # Mock auth
     responses.add(
@@ -863,7 +862,7 @@ def test_the_name_fallback_needs_exactly_one_series_named_like_the_stem(
 @responses.activate
 def test_the_name_fallback_resolves_a_unique_exact_name() -> None:
     """Unique name fallback returns KavitaRef with the single matching series."""
-    from src.gateways.kavita_client import KavitaRef
+    from kavita_sync.client import KavitaRef
 
     # Mock auth
     responses.add(
@@ -1434,7 +1433,7 @@ def test_a_rejected_save_progress_names_the_body_and_the_payload_on_the_error_li
 
     client = _client()
     ref = KavitaRef(chapter_id=7, volume_id=3, series_id=5, library_id=1, total_pages=40)
-    with caplog.at_level(logging.ERROR, logger="src.gateways.kavita_client"):
+    with caplog.at_level(logging.ERROR, logger="kavita_sync.client"):
         result = client.save_progress(ref, 12)
 
     assert result is False
@@ -1469,7 +1468,7 @@ def test_a_rejected_rate_series_names_the_body_and_the_payload_on_the_error_line
     )
 
     client = _client()
-    with caplog.at_level(logging.ERROR, logger="src.gateways.kavita_client"):
+    with caplog.at_level(logging.ERROR, logger="kavita_sync.client"):
         result = client.rate_series(5, 4.0)
 
     assert result is False
@@ -1503,7 +1502,7 @@ def test_a_long_kavita_error_body_is_clipped_on_the_error_line(
 
     client = _client()
     ref = KavitaRef(chapter_id=7, volume_id=3, series_id=5, library_id=1, total_pages=40)
-    with caplog.at_level(logging.ERROR, logger="src.gateways.kavita_client"):
+    with caplog.at_level(logging.ERROR, logger="kavita_sync.client"):
         result = client.save_progress(ref, 12)
 
     assert result is False
@@ -1534,7 +1533,7 @@ def test_the_kavita_key_and_token_never_reach_the_error_line(
 
     client = _client()
     ref = KavitaRef(chapter_id=7, volume_id=3, series_id=5, library_id=1, total_pages=40)
-    with caplog.at_level(logging.DEBUG, logger="src.gateways.kavita_client"):
+    with caplog.at_level(logging.DEBUG, logger="kavita_sync.client"):
         result = client.save_progress(ref, 12)
 
     assert result is False
@@ -1821,7 +1820,7 @@ def test_an_unavailable_answer_is_logged_at_debug(caplog: pytest.LogCaptureFixtu
     )
 
     client = _client()
-    caplog.set_level(logging.DEBUG, logger="src.gateways.kavita_client")
+    caplog.set_level(logging.DEBUG, logger="kavita_sync.client")
     with pytest.raises(ProviderUnreachable):
         client.get_progress(42)
 

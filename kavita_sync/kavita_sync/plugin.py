@@ -1,6 +1,6 @@
 """A ``BookPlugin`` (``priority=900``, the late band) that wraps KavitaService.
 
-Thin adapter around :class:`~src.services.kavita_service.KavitaService` (the sync
+Thin adapter around :class:`~kavita_sync.service.KavitaService` (the sync
 mechanics — rating cross-sync, progress/TOC read-back, semantic restore — are documented
 there); this plugin's own job is routing one ``enrich()`` call per event to the right
 service method, translating the schema-driven settings into a service instance, and
@@ -67,8 +67,8 @@ from ebookerr_sdk.spi import (
     UiTrigger,
 )
 
-from src.gateways.kavita_client import RequestsKavitaClient
-from src.services.kavita_service import KavitaService, SyncResult
+from kavita_sync.client import RequestsKavitaClient
+from kavita_sync.service import KavitaService, SyncResult
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ _SCHEMA = SettingsSchema(
             key="server",
             type="string",
             label="Server URL",
+            required=True,
             help="e.g. http://kavita.local:5000",
         ),
         SettingsField(
@@ -85,6 +86,7 @@ _SCHEMA = SettingsSchema(
             type="string",
             label="API key",
             secret=True,
+            required=True,
             help=(
                 "Kavita → Settings → Users → your user → API key. Paste the key itself, not a URL."
             ),
@@ -131,12 +133,11 @@ _MANIFEST = PluginManifest(
         "Publishes your books to a Kavita server and reads your reading progress back. "
         "Only one library server can be enabled at a time."
     ),
-    version="1.0.0",
+    version="1.1.0",
     plugin_type=PluginType.BOOK,
     settings_schema=_SCHEMA,
     headless=True,
     headed=True,
-    transport="in_image",
     priority=900,
     exclusive_group="library_server",
     provider="kavita",
@@ -164,6 +165,14 @@ _MANIFEST = PluginManifest(
     ),
     testable=True,
     reader_url_template="{external_url}/library/{library_id}/series/{series_id}/book/{book_id}",
+    network=True,
+    run_timeout_s=1800,
+    icon="library_books",
+    author="ArcCdr",
+    license="MIT",
+    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
+    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
+    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
 )
 
 

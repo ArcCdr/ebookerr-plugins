@@ -21,9 +21,8 @@ from ebookerr_sdk.spi import (
     ReadPosition,
 )
 from ebookerr_sdk.testing import make_book_view
-
-from src.gateways.kavita_client import KavitaRef, KavitaSeriesUnresolved
-from src.services.kavita_service import KavitaService
+from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
+from kavita_sync.service import KavitaService
 
 FIXED_NOW = datetime(2026, 7, 2, 12, 0, 0, tzinfo=UTC)
 STORY_URL = "https://www.literotica.com/s/test-book"
@@ -284,7 +283,7 @@ def test_sync_not_found_returns_failure() -> None:
 def test_an_unresolved_series_is_reported_as_unresolved_not_as_not_found(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from src.gateways.kavita_client import KavitaSeriesUnresolved
+    from kavita_sync.client import KavitaSeriesUnresolved
 
     client = FakeKavita()
     client.find_chapter_result = KavitaSeriesUnresolved(
@@ -307,7 +306,7 @@ def test_an_unresolved_series_is_reported_as_unresolved_not_as_not_found(
 def test_enrich_unresolved_series_returns_failure_with_attempted_true(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from src.gateways.kavita_client import KavitaSeriesUnresolved
+    from kavita_sync.client import KavitaSeriesUnresolved
 
     client = FakeKavita()
     client.find_chapter_result = KavitaSeriesUnresolved(
@@ -1103,9 +1102,8 @@ def test_a_position_at_the_last_page_captures_the_last_chapter_position(
 
 def test_kavita_has_no_raw_locator_layer() -> None:
     """A successful restore never sets external_locator — Kavita has no raw-locator layer."""
+    import kavita_sync.service as kavita_service_module
     from ebookerr_sdk.spi import ReadPosition
-
-    import src.services.kavita_service as kavita_service_module
 
     ref = _ref(chapter_id=11, total_pages=10)
     client = FakeKavita()
@@ -1414,7 +1412,7 @@ def test_enrich_never_reports_a_restore_attempt() -> None:
 
 def test_sync_result_defaults_restore_attempted_to_false() -> None:
     """SyncResult.restore_attempted defaults to False."""
-    from src.services.kavita_service import SyncResult
+    from kavita_sync.service import SyncResult
 
     result = SyncResult(True)
 
@@ -2223,7 +2221,7 @@ def test_a_changed_chapter_id_is_reported_as_a_relink(caplog: pytest.LogCaptureF
     client.get_progress_result = {"pageNum": 50}
     view = make_book_view(book_id="thisBook", external=ExternalLink(item_id="77"))
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -2242,7 +2240,7 @@ def test_an_unchanged_chapter_id_is_not_a_relink(caplog: pytest.LogCaptureFixtur
     client.get_progress_result = {"pageNum": 50}
     view = make_book_view(book_id="thisBook", external=ExternalLink(item_id="77"))
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -2260,7 +2258,7 @@ def test_a_first_link_is_not_a_relink(caplog: pytest.LogCaptureFixture) -> None:
     # external defaults to ExternalLink() with item_id=None
     view = make_book_view(book_id="thisBook")
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -2277,7 +2275,7 @@ def test_enrich_also_reports_a_relink(caplog: pytest.LogCaptureFixture) -> None:
     client.get_progress_result = {"pageNum": 50}
     view = make_book_view(book_id="thisBook", external=ExternalLink(item_id="77"))
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).enrich(view)
 
     assert result.ok is True
@@ -2296,7 +2294,7 @@ def test_a_refused_chapter_is_not_reported_as_a_relink(caplog: pytest.LogCapture
     view = make_book_view(book_id="thisBook", external=ExternalLink(item_id="77"))
     svc = service(client, link_owner=lambda item_id, *, provider=None: "otherBook")
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = svc.sync(view)
 
     assert result.ok is False
@@ -2410,7 +2408,7 @@ def test_the_precheck_logs_exactly_one_refusal_warning(caplog: Any) -> None:
         library_path="/books",
     )
 
-    with caplog.at_level(logging.WARNING, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.WARNING, logger="kavita_sync.service"):
         result = svc.sync(view)
 
     assert result.ok is False
@@ -2460,7 +2458,7 @@ def test_the_kept_stale_kavita_link_is_logged_at_warning(caplog: Any) -> None:
     )
     link_owner = lambda item_id, *, provider=None: "otherBook" if item_id == "88" else None  # noqa: E731
 
-    with caplog.at_level(logging.WARNING, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.WARNING, logger="kavita_sync.service"):
         service(client, link_owner=link_owner).sync(view)
 
     assert any(
@@ -2762,7 +2760,7 @@ def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
     anchor = ProviderAnchor("10", "The 12th Key - Ch 1", 1)
     bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {"completed": False})
 
-    with caplog.at_level(logging.DEBUG, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.DEBUG, logger="kavita_sync.service"):
         svc.place_bookmark("11", anchor, bookmark)
 
     assert (
@@ -3065,7 +3063,7 @@ def test_a_re_anchor_re_reads_the_page_before_capture(caplog: Any) -> None:
         ),
     )
 
-    with caplog.at_level(logging.DEBUG, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.DEBUG, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -3362,9 +3360,9 @@ def test_capture_without_a_library_folder_keeps_the_previous_basis(
 
 def test_semantic_from_pages_is_gone() -> None:
     """_semantic_from_pages function is deleted."""
-    import src.services.kavita_service
+    import kavita_sync.service
 
-    assert not hasattr(src.services.kavita_service, "_semantic_from_pages")
+    assert not hasattr(kavita_sync.service, "_semantic_from_pages")
 
 
 def test_capture_logs_under_the_kavita_provider_name(
@@ -3493,7 +3491,7 @@ def test_an_unreachable_provider_is_probed_once_not_once_per_book(
     client.connected = False
     svc = service(client, circuit=_OneStrikeCircuitGuard())
 
-    with caplog.at_level(logging.WARNING, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.WARNING, logger="kavita_sync.service"):
         results = [svc.sync(make_book_view(title=f"Book {i}")) for i in range(100)]
 
     assert client.test_connection_calls == 1
@@ -3657,7 +3655,7 @@ def test_the_open_circuit_logs_once_per_batch_not_once_per_book(
     client.connected = False
     svc = service(client, circuit=guard)
 
-    with caplog.at_level(logging.DEBUG, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.DEBUG, logger="kavita_sync.service"):
         for i in range(100):
             svc.sync(make_book_view(title=f"Book {i}"))
 
@@ -3678,7 +3676,7 @@ def test_the_open_circuit_logs_once_per_batch_not_once_per_book(
 @pytest.mark.pins("EXP-269")
 def test_the_plugin_passes_its_context_circuit_to_the_service() -> None:
     """_build_service forwards ctx.circuit straight through to KavitaService (EXP-269)."""
-    from src.plugins.kavita_sync import _build_service
+    from kavita_sync.plugin import _build_service
 
     class _CtxDouble:
         settings: dict[str, Any] = {"server": "http://kavita.local:5000", "api_key": "k"}
@@ -3785,7 +3783,7 @@ def test_kavita_a_changed_count_is_logged_at_info(caplog: pytest.LogCaptureFixtu
     ]
     view = make_book_view(external=ExternalLink(item_id="11"))
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -3812,7 +3810,7 @@ def test_kavita_an_unchanged_count_is_not_logged_at_info(caplog: pytest.LogCaptu
         chapter_table=_chapters("Chapter 1", "Chapter 2", "Chapter 3"),
     )
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
@@ -3852,7 +3850,7 @@ def test_a_changed_file_waits_for_kavita_to_re_index(caplog: pytest.LogCaptureFi
         ),
     )
 
-    with caplog.at_level(logging.INFO, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.INFO, logger="kavita_sync.service"):
         result = service(client, library_path="/books", scan_retry_max=5).sync(view)
 
     assert result.ok is True
@@ -3890,7 +3888,7 @@ def test_kavita_never_re_indexing_skips_read_position_work(
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.WARNING, logger="kavita_sync.service"):
         result = service(client, library_path="/books", scan_retry_max=2).sync(
             view, restore_target=restore_target
         )
@@ -3930,7 +3928,7 @@ def test_a_stale_toc_without_a_nudge_is_skipped(caplog: pytest.LogCaptureFixture
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="src.services.kavita_service"):
+    with caplog.at_level(logging.WARNING, logger="kavita_sync.service"):
         result = service(client).sync(view)
 
     assert result.ok is True
