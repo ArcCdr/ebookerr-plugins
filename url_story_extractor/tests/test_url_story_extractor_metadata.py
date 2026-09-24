@@ -11,7 +11,6 @@ from ebookerr_sdk.spi import (
     InvocationMode,
     PluginEventType,
 )
-
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 

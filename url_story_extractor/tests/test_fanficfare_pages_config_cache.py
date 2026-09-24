@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from url_story_extractor.pages import FanFicFarePagesGateway
 
 
@@ -188,8 +187,9 @@ def test_listing_failure_raises(tmp_path: Path, monkeypatch: Any, caplog: Any) -
 
 def test_no_dead_elapsed_assignment_in_the_failure_branch() -> None:
     """The dead elapsed assignment is removed from the except branch."""
-    source = Path("src/gateways/fanficfare_pages.py").read_text()
-    count = source.count("elapsed = time.monotonic() - start")
+    source = Path(__file__).resolve().parents[1] / "url_story_extractor" / "pages.py"
+    source_text = source.read_text()
+    count = source_text.count("elapsed = time.monotonic() - start")
     expected = 2
     assert count == expected, (
         f"Expected {expected} occurrences of 'elapsed = time.monotonic() - start', found {count}"

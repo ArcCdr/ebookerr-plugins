@@ -10,7 +10,6 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-
 from url_story_extractor.pages import FanFicFarePagesGateway
 
 

@@ -11,7 +11,6 @@ from ebookerr_sdk.spi import (
     PluginEventType,
     encode_known_urls,
 )
-
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 

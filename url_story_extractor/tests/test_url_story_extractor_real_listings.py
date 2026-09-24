@@ -14,7 +14,6 @@ from typing import Any
 
 from ebookerr_sdk.domain.chapter_number import extract_chapter_info
 from ebookerr_sdk.spi import InvocationMode, PluginEventType
-
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"

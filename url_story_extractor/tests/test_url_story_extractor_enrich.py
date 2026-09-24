@@ -11,7 +11,6 @@ from ebookerr_sdk.spi import (
     MetadataEnrichingCatalog,
     PluginEventType,
 )
-
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 

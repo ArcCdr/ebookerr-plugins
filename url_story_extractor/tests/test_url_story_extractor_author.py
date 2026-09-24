@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from ebookerr_sdk.spi import InvocationMode, PluginEventType, StoryPatch
-
 from url_story_extractor.plugin import UrlStoryExtractorPlugin, _propagate_author
 
 
