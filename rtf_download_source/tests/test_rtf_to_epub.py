@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-from rtf_download_source.rtf_to_epub import RtfConversionError, convert_rtf_to_epub
+from rtf_download_source.rtf_to_epub import convert_rtf_to_epub
 
 
 class TestRtfConversion:

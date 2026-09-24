@@ -251,7 +251,7 @@ class TestCheckForUpdateDelegates:
             external=None,
             progress=None,
             custom_values={
-                "text_download_source.etag": CustomValueView(
+                "etag": CustomValueView(
                     value="abc",
                     value_type="str",
                     updated_at=None,
