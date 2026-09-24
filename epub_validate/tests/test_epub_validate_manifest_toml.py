@@ -16,3 +16,9 @@ def test_epub_validate_manifest_matches_the_in_image_manifest() -> None:
     """``manifest.toml`` parses to the class's own manifest; only the transport differs."""
     parsed = parse_manifest(tomllib.loads(_MANIFEST_TOML.read_text(encoding="utf-8")))
     assert parsed == dataclasses.replace(EpubValidatePlugin.manifest, transport="local_exec")
+
+
+def test_every_validation_value_is_a_check_report() -> None:
+    """All epub_validate custom values declare display == 'check_report'."""
+    displays = {d.display for d in EpubValidatePlugin.manifest.custom_values}
+    assert displays == {"check_report"}
