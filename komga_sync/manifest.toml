@@ -1,0 +1,78 @@
+id = "komga_sync"
+name = "Komga Sync"
+version = "1.1.0"
+type = "book"
+spi_version = "2.30"
+description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
+headless = true
+headed = true
+priority = 900
+accepts_list = true
+exclusive_group = "library_server"
+provider = "komga"
+delete_mode = "purge"
+default_enabled = false
+deferred = true
+network = true
+run_timeout_s = 1800
+testable = true
+reader_url_template = "{external_url}/book/{book_id}/read-epub"
+events = ["BookCreated", "BookUpdated", "BookImported", "BookDeleted", "EpubModified"]
+icon = "collections_bookmark"
+author = "ArcCdr"
+license = "MIT"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync"
+source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync"
+issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
+entrypoint = "entrypoint.py"
+
+[[ui_triggers]]
+scope = "book_selection_action"
+icon = "sync"
+label = "Sync to Komga"
+description = "Push this book's metadata and cover to your library server."
+
+[settings_schema]
+summary = "{server|No server URL} · library {library_id|No library id} · API key {api_key|No API key}"
+
+[[settings_schema.fields]]
+key = "server"
+type = "string"
+label = "Server URL"
+required = true
+help = "e.g. http://komga.local:25600"
+
+[[settings_schema.fields]]
+key = "api_key"
+type = "string"
+label = "API key"
+secret = true
+required = true
+help = "Komga → Account settings → API keys. Paste the key itself, not the whole header."
+
+[[settings_schema.fields]]
+key = "external_url"
+type = "string"
+label = "External URL"
+help = "optional; the address you open Komga at in your browser (defaults to the server URL)"
+
+[[settings_schema.fields]]
+key = "library_id"
+type = "string"
+label = "Library id"
+required = true
+help = "the Komga library your books are in (shown in its address in Komga); ebookerr asks Komga to scan it when a book is added or changed"
+
+[[settings_schema.fields]]
+key = "scan_retry_max"
+type = "int"
+label = "Scan retry attempts"
+default = "20"
+help = "how many times to poll Komga after a scan"
+
+[[settings_schema.fields]]
+key = "scan_retry_delay"
+type = "int"
+label = "Scan retry delay (s)"
+default = "2"
+help = "seconds between scan polls"

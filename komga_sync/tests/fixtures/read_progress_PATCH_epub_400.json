@@ -1,0 +1,1 @@
+{"timestamp":"...","status":400,"error":"Bad Request","message":"epub book is not Divina compatible","path":"/api/v1/books/{id}/read-progress"}
