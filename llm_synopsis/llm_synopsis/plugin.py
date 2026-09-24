@@ -59,6 +59,7 @@ _SCHEMA = SettingsSchema(
             type="url",
             label="Base URL",
             default="http://127.0.0.1:11434/v1",
+            required=True,
             group="Text model",
             credential=True,
             help=(
@@ -72,6 +73,7 @@ _SCHEMA = SettingsSchema(
             type="string",
             label="Model",
             default="",
+            required=True,
             group="Text model",
             help="The model name exactly as the server lists it, for example qwen3:8b.",
         ),
