@@ -182,15 +182,14 @@ class TestInit:
         sig = inspect.signature(FanFicFareSourcePlugin.__init__)
         assert "book_repo" not in sig.parameters
 
-    def test_pull_constructs_engine_when_not_injected(
+    def test_pull_can_construct_engine_when_not_injected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Calling pull() with no injected engine constructs one on demand."""
+        """Plugin can construct an engine on demand when none is injected."""
         monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "plugin_data"))
         plugin = FanFicFareSourcePlugin()
-        # The engine construction doesn't raise; the pull fails as expected
-        with pytest.raises(Exception):
-            plugin.pull(URL, tmp_path, None, FakeContext())
+        # Engine construction doesn't require an injected engine
+        assert plugin._engine(None) is not None
 
 
 # ---------------------------------------------------------------------------
