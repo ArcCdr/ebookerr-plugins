@@ -179,7 +179,7 @@ class TestPullEmptyTextMapsToSourcePullError:
     @responses.activate
     def test_pull_empty_text_maps_to_sourcepullerror(self, tmp_path: Path) -> None:
         """pull() raises SourcePullError on empty text content."""
-        from ebookerr_sdk.download.errors import SourcePullError
+        from ebookerr_sdk.spi import SourcePullError
 
         text_content = b"   \n\n"
         url = "https://x.com/story.txt"
@@ -201,7 +201,7 @@ class TestPullHttpError:
     @responses.activate
     def test_pull_http_error(self, tmp_path: Path) -> None:
         """pull() raises SourcePullError on non-200 status."""
-        from ebookerr_sdk.download.errors import SourcePullError
+        from ebookerr_sdk.spi import SourcePullError
 
         url = "https://x.com/story.txt"
         responses.add(responses.GET, url, status=404)
