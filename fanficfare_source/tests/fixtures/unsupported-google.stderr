@@ -1,0 +1,31 @@
+Traceback (most recent call last):
+  File "/Users/vince/dev/ebookerr/.venv/bin/fanficfare", line 6, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 347, in main
+    dispatch(options, urls, passed_defaultsini, passed_personalini, warn, fail)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 323, in dispatch
+    do_download(url,
+    ~~~~~~~~~~~^^^^^
+                options,
+                ^^^^^^^^
+    ...<2 lines>...
+                warn,
+                ^^^^^
+                fail)
+                ^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/fff_profile.py", line 43, in profiled_func
+    return func(*args, **kwargs)
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 387, in do_download
+    configuration = get_configuration(url,
+                                      passed_defaultsini,
+    ...<2 lines>...
+                                      chaptercount,
+                                      output_filename)
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 584, in get_configuration
+    configuration = Configuration(adapters.getConfigSectionsFor(url),
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/adapters/__init__.py", line 285, in getConfigSectionsFor
+    raise exceptions.UnknownSite( url, [cls.getSiteDomain() for cls in __class_list] )
+fanficfare.exceptions.UnknownSite: Unknown Site(https://www.google.com).  Supported sites: (althistory.com, archive.fanfictalk.com, archiveofourown.org, ashwinder.sycophanthex.com, bloodshedverse.com, chaos.sycophanthex.com, chireads.com, chosentwofanfic.com, dark-solace.org, efpfanfic.net, erosnsappho.sycophanthex.com, fanfics.me, ficbook.net, fiction.live, fictionhunt.com, fictionmania.tv, ficwad.com, forum.questionablequesting.com, forums.spacebattles.com, forums.sufficientvelocity.com, gluttonyfiction.com, imagine.e-fic.com, inkbunny.net, kakuyomu.jp, ksarchive.com, lcfanfic.com, literotica.com, lumos.sycophanthex.com, mcstories.com, mtt.just-once.net, ncisfiction.com, ninelivesarchive.com, novelfull.com, novelonlinefull.com, occlumency.sycophanthex.com, quotev.com, readonlymind.com, samandjack.net, scifistories.com, sheppardweir.com, sinful-dreams.com, sinful-dreams.com, spikeluver.com, squidgeworld.org, starslibrary.net, storiesonline.net, storyroom.com, superlove.sayitditto.net, syosetu.com, t.evancurrie.ca, test1.com, test2.com, test3.com, test4.com, tgstorytime.com, thehookupzone.net, themasque.net, touchfluffytail.org, trekfanfiction.net, valentchamber.com, voracity2.e-fic.com, www.adastrafanfic.com, www.adult-fanfiction.org, www.alternatehistory.com, www.aneroticstory.com, www.asexstories.com, www.asianfanfics.com, www.bdsmlibrary.com, www.cfaarchive.org, www.deviantart.com, www.dokuga.com, www.dracoandginny.com, www.fanficauthors.net, www.fanfiction.net, www.fanfictions.fr, www.fanfiktion.de, www.fictionalley-archive.org, www.fictionpress.com, www.fimfiction.net, www.fireflyfans.net, www.giantessworld.net, www.hentai-foundry.com, www.libraryofmoria.com, www.masseffect2.in, www.mediaminer.org, www.midnightwhispers.net, www.mugglenetfanfiction.com, www.naiceanilme.net, www.narutofic.org, www.novelall.com, www.phoenixsong.net, www.potionsandsnitches.org, www.pretendercentre.com, www.psychfic.com, www.royalroad.com, www.scribblehub.com, www.siye.co.uk, www.spiritfanfiction.com, www.storiesofarda.com, www.sunnydaleafterdark.com, www.the-sietch.com, www.thedelphicexpanse.com, www.tthfanfic.org, www.twilighted.net, www.utopiastories.com, www.walkingtheplank.org, www.wattpad.com, www.whofic.com, www.wolverineandrogue.com)

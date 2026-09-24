@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "/Users/vince/dev/ebookerr/.venv/bin/fanficfare", line 6, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 347, in main
+    dispatch(options, urls, passed_defaultsini, passed_personalini, warn, fail)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 323, in dispatch
+    do_download(url,
+    ~~~~~~~~~~~^^^^^
+                options,
+                ^^^^^^^^
+    ...<2 lines>...
+                warn,
+                ^^^^^
+                fail)
+                ^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/fff_profile.py", line 43, in profiled_func
+    return func(*args, **kwargs)
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/cli.py", line 444, in do_download
+    adapter.getStoryMetadataOnly()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/adapters/base_adapter.py", line 378, in getStoryMetadataOnly
+    self.doExtractChapterUrlsAndMetadata(get_cover=get_cover)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/adapters/base_adapter.py", line 488, in doExtractChapterUrlsAndMetadata
+    return self.extractChapterUrlsAndMetadata()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/vince/dev/ebookerr/.venv/lib/python3.13/site-packages/fanficfare/adapters/adapter_literotica.py", line 201, in extractChapterUrlsAndMetadata
+    json_state = json.loads(state[0].replace("\\'","'").replace("\\\\","\\"))
+                            ~~~~~^^^
+IndexError: list index out of range
