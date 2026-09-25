@@ -1,0 +1,63 @@
+# ebookerr-plugins: the first-party ebookerr plugins and the default plugin registry.
+# Not an installable project: this file configures the checks CI runs on every plugin.
+# Install the tools with `python -m pip install --group dev` (pip 25.1 or later).
+
+[dependency-groups]
+dev = [
+    "ebookerr-sdk[text,generation]==2.30.0",  # the SDK every plugin runs on
+    # the plugins' own runtime requirements (each manifest.toml `requirements`)
+    "fanficfare>=4.58.1",
+    "pymupdf>=1.24",
+    "python-docx>=1.1",
+    "striprtf>=0.0.26",
+    "charset-normalizer>=3.3",
+    # tests, lint and type checks
+    "pytest>=8.0",
+    "responses>=0.25",
+    "reportlab>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-requests",
+    "types-defusedxml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+addopts = "--strict-markers -m 'not e2e'"
+markers = [
+    "e2e: opt-in end-to-end tests that need the network (run with: python -m pytest -m e2e)",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N", "B", "S", "T20", "PTH", "SIM", "C90", "DTZ", "PT", "D"]
+ignore = ["S603", "S607"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/**" = ["S101", "S104", "S105", "S106", "S310", "S314", "DTZ", "D"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["."]
+exclude = ['/tests/', '/entrypoint\.py$', '^conftest\.py$', '^\.venv/']
+explicit_package_bases = true
+mypy_path = [
+    "epub_chapter_url", "epub_normalize", "epub_validate", "epub_chapter_reorder", "epub_merge",
+    "epub_download_source", "pdf_download_source", "docx_download_source", "text_download_source",
+    "rtf_download_source", "llm_synopsis", "llm_cover", "kavita_sync", "komga_sync",
+    "fanficfare_source", "url_story_extractor",
+]
+
+[[tool.mypy.overrides]]
+module = ["pymupdf", "docx", "striprtf.*", "tinycss2.*", "fanficfare", "fanficfare.*"]
+ignore_missing_imports = true
