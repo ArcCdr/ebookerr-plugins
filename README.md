@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-10 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+12 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -14,3 +14,5 @@
 | FanFicFare | `fanficfare_source` | Source | 1.1.0 | Downloads stories from any site FanFicFare supports. |
 | File metadata sync | `file_meta_sync` | Book | 2.1.0 | Syncs sidecar files (cover candidates, synopsis) with the library |
 | Kavita Sync | `kavita_sync` | Book | 1.1.0 | Publishes your books to a Kavita server and reads your reading progress back. |
+| Komga Sync | `komga_sync` | Book | 1.1.0 | Publishes your books to a Komga server and reads your reading progress back. |
+| Literotica search | `literotica_stories` | Catalog | 2.2.0 | Fetches stories with Literotica search |
