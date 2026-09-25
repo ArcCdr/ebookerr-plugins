@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-12 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+15 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -16,3 +16,6 @@
 | Kavita Sync | `kavita_sync` | Book | 1.1.0 | Publishes your books to a Kavita server and reads your reading progress back. |
 | Komga Sync | `komga_sync` | Book | 1.1.0 | Publishes your books to a Komga server and reads your reading progress back. |
 | Literotica search | `literotica_stories` | Catalog | 2.2.0 | Fetches stories with Literotica search |
+| Cover generator | `llm_cover` | Book | 1.1.0 | Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. |
+| Synopsis generator | `llm_synopsis` | Book | 1.1.0 | Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. |
+| Literotica - My Home | `my_literotica` | Catalog | 1.1.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
