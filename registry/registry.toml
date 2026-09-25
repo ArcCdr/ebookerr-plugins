@@ -1,0 +1,67 @@
+# The default ebookerr plugin registry (PMG-FR-1, PMG-FR-9, PMG-FR-75).
+# `python -m ebookerr_sdk.pack index registry --packages <every release zip> --out <site>` reads this file.
+id = "ebookerr"
+name = "ebookerr"
+maintainer = "ArcCdr"
+homepage = "https://github.com/ArcCdr/ebookerr-plugins"
+base_url = "https://github.com/ArcCdr/ebookerr-plugins/releases/download"
+
+[plugins.docx_download_source]
+official = true
+
+[plugins.epub_chapter_reorder]
+official = true
+
+[plugins.epub_chapter_url]
+official = true
+
+[plugins.epub_download_source]
+official = true
+
+[plugins.epub_merge]
+official = true
+
+[plugins.epub_normalize]
+official = true
+
+[plugins.epub_validate]
+official = true
+
+[plugins.fanficfare_source]
+official = true
+
+[plugins.file_meta_sync]
+official = true
+
+[plugins.kavita_sync]
+official = true
+
+[plugins.komga_sync]
+official = true
+
+[plugins.literotica_stories]
+official = true
+
+[plugins.llm_cover]
+official = true
+
+[plugins.llm_synopsis]
+official = true
+
+[plugins.my_literotica]
+official = true
+
+[plugins.patreon_stories]
+official = true
+
+[plugins.pdf_download_source]
+official = true
+
+[plugins.rtf_download_source]
+official = true
+
+[plugins.text_download_source]
+official = true
+
+[plugins.url_story_extractor]
+official = true
