@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-9 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+10 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -13,3 +13,4 @@
 | EPUB Validate | `epub_validate` | EPUB | 1.1.0 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |
 | FanFicFare | `fanficfare_source` | Source | 1.1.0 | Downloads stories from any site FanFicFare supports. |
 | File metadata sync | `file_meta_sync` | Book | 2.1.0 | Syncs sidecar files (cover candidates, synopsis) with the library |
+| Kavita Sync | `kavita_sync` | Book | 1.1.0 | Publishes your books to a Kavita server and reads your reading progress back. |
