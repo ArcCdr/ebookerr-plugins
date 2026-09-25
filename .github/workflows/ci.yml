@@ -28,7 +28,7 @@ jobs:
       - name: Check and test every plugin
         run: |
           set -euo pipefail
-          for manifest in */manifest.toml; do
+          for manifest in plugins/*/*/manifest.toml; do
             plugin="$(dirname "$manifest")"
             echo "::group::$plugin"
             python -m ebookerr_sdk.pack check "$plugin"

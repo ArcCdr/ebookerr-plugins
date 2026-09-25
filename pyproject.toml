@@ -54,10 +54,13 @@ files = ["."]
 exclude = ['/tests/', '/entrypoint\.py$', '^conftest\.py$', '^\.venv/']
 explicit_package_bases = true
 mypy_path = [
-    "epub_chapter_url", "epub_normalize", "epub_validate", "epub_chapter_reorder", "epub_merge",
-    "epub_download_source", "pdf_download_source", "docx_download_source", "text_download_source",
-    "rtf_download_source", "llm_synopsis", "llm_cover", "kavita_sync", "komga_sync",
-    "fanficfare_source", "url_story_extractor",
+    "plugins/epub/epub_chapter_url", "plugins/epub/epub_normalize", "plugins/epub/epub_validate",
+    "plugins/epub/epub_chapter_reorder", "plugins/epub/epub_merge",
+    "plugins/source/epub_download_source", "plugins/source/pdf_download_source",
+    "plugins/source/docx_download_source", "plugins/source/text_download_source",
+    "plugins/source/rtf_download_source", "plugins/source/fanficfare_source",
+    "plugins/book/llm_synopsis", "plugins/book/llm_cover", "plugins/book/kavita_sync",
+    "plugins/book/komga_sync", "plugins/catalog/url_story_extractor",
 ]
 
 [[tool.mypy.overrides]]

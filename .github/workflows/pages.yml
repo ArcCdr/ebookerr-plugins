@@ -1,0 +1,35 @@
+name: pages
+
+# Publish the committed site/ folder (the registry index) to GitHub Pages. Started by the index
+# workflow after it commits a new index, or by hand. The deployment is keyed on the main commit this
+# run checked out, which holds exactly the content it publishes: a repeated key means that content
+# is already live.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the index is committed
+        run: test -s site/index.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

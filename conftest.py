@@ -1,12 +1,13 @@
-"""Shared fixtures for the staged first-party plugins' tests (``PMG-D26``).
+"""Shared fixtures for the first-party plugins' tests (``PMG-D26``).
 
-Plugin tests never import ``src`` or ``tests`` (gate
+Plugin tests never import the core's ``src`` or ``tests`` (the core's gate
 ``tests/unit/test_plugin_boundary.py``), so the EPUB builders they need are a
-verbatim copy of the ones in ``tests/conftest.py`` (the core keeps its own copy;
-``tests/unit/test_plugins_conftest.py`` fails when the two drift). Importing this
-module also puts every staged plugin folder on ``sys.path``, so a test imports its
-plugin package by name (``from epub_merge.plugin import EpubMergePlugin``) exactly
-as the plugin's ``entrypoint.py`` does.
+verbatim copy of the ones in the core's ``tests/conftest.py`` (the core keeps its
+own copy; its ``tests/unit/test_plugins_conftest.py`` fails when the two drift).
+Importing this module also puts every plugin folder (``plugins/<type>/<id>/``) on
+``sys.path``, so a test imports its plugin package by name
+(``from epub_merge.plugin import EpubMergePlugin``) exactly as the plugin's
+``entrypoint.py`` does.
 """
 
 from __future__ import annotations
@@ -19,23 +20,27 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-PLUGINS_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent
 EpubChapter = tuple[str, str]
 
 
 def plugin_package_dirs(root: Path) -> list[Path]:
-    """Return the staged plugin folders under *root*: direct children holding a ``manifest.toml``.
+    """Return the plugin folders of the repository at *root*.
+
+    A plugin folder is ``plugins/<type>/<id>/`` holding a ``manifest.toml``.
 
     Args:
-        root: The folder of plugin folders (``plugins/``).
+        root: The repository root (the folder holding ``plugins/``).
 
     Returns:
-        The plugin folders, sorted by name.
+        The plugin folders, sorted by path (type, then id).
     """
-    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "manifest.toml").is_file())
+    return sorted(
+        p for p in root.glob("plugins/*/*") if p.is_dir() and (p / "manifest.toml").is_file()
+    )
 
 
-for _folder in plugin_package_dirs(PLUGINS_ROOT):
+for _folder in plugin_package_dirs(REPO_ROOT):
     if str(_folder) not in sys.path:
         sys.path.insert(0, str(_folder))
 

@@ -1,18 +1,20 @@
 name: release
 
+# A tag <id>-<version> releases one plugin: check it, build its package, attach the package to a
+# GitHub release, then ask the index workflow to rebuild the registry index from every release.
+# This workflow never deploys GitHub Pages itself: a Pages deployment is keyed on the commit a run
+# was triggered for, and several tags on one commit would all ask for the same deployment.
+
 on:
   push:
     tags: ["*-[0-9]+.[0-9]+.[0-9]+"]
-  workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+  actions: write
 
 jobs:
   release:
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,62 +32,22 @@ jobs:
         run: |
           set -euo pipefail
           plugin="${TAG%-*}"
-          python -m ebookerr_sdk.pack check "$plugin"
-          python -m ebookerr_sdk.pack build "$plugin" --out dist
+          shopt -s nullglob
+          folders=(plugins/*/"$plugin")
+          if [ "${#folders[@]}" -ne 1 ]; then
+            echo "The tag $TAG names no single plugin folder plugins/<type>/$plugin." >&2
+            exit 1
+          fi
+          folder="${folders[0]}"
+          python -m ebookerr_sdk.pack check "$folder"
+          python -m ebookerr_sdk.pack build "$folder" --out dist
           if [ ! -f "dist/$TAG.zip" ]; then
-            echo "The tag $TAG does not match the version in $plugin/manifest.toml." >&2
+            echo "The tag $TAG does not match the version in $folder/manifest.toml." >&2
             exit 1
           fi
           gh release create "$TAG" "dist/$TAG.zip" --title "$TAG" \
-            --notes "What's new is in $plugin/CHANGELOG.txt and in the ebookerr plugin catalogue."
-
-  pages:
-    needs: release
-    if: ${{ always() && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: pages
-      cancel-in-progress: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - name: Install the SDK
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "ebookerr-sdk==2.30.0"
-      - name: Download every released package
+            --notes "What's new is in $folder/CHANGELOG.txt and in the ebookerr plugin catalogue."
+      - name: Rebuild the registry index
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p packages
-          gh release list --limit 1000 --json tagName,publishedAt > releases.json
-          python -c "import json; rows = json.load(open('releases.json', encoding='utf-8')); json.dump({r['tagName']: r['publishedAt'] for r in rows}, open('published.json', 'w', encoding='utf-8'))"
-          for tag in $(python -c "import json; print(' '.join(json.load(open('published.json', encoding='utf-8'))))"); do
-            gh release download "$tag" --pattern "$tag.zip" --dir packages
-          done
-      - name: Build the index
-        run: python -m ebookerr_sdk.pack index registry --packages packages --published published.json --out site
-      - name: Commit the plugin list
-        run: |
-          cp site/README.md README.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: regenerate the plugin list"
-            git push origin HEAD:main
-          fi
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - id: deploy
-        uses: actions/deploy-pages@v4
+        run: gh workflow run index.yml --ref main
