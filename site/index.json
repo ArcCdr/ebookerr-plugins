@@ -1,0 +1,852 @@
+{
+  "format": 1,
+  "registry": {
+    "id": "ebookerr",
+    "name": "ebookerr",
+    "maintainer": "ArcCdr",
+    "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
+  },
+  "generated_at": "2026-09-25T22:16:27Z",
+  "plugins": [
+    {
+      "id": "docx_download_source",
+      "name": "DOCX download",
+      "type": "source",
+      "summary": "Downloads a DOCX and converts it to EPUB in the library.",
+      "description": "Downloads a DOCX and converts it to EPUB in the library.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "description",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/docx_download_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/docx_download_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:09:36Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/docx_download_source-1.1.0/docx_download_source-1.1.0.zip",
+          "sha256": "634344d3ddb68b5736260a26b268a2efb3c84c3f388e1bdc4644ffdc1d21b120",
+          "size": 5131,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": [
+            "python-docx>=1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "epub_chapter_reorder",
+      "name": "Chapter Reorder",
+      "type": "epub",
+      "summary": "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled.",
+      "description": "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "reorder",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "2.1.0",
+          "published_at": "2026-09-25T22:09:57Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_reorder-2.1.0/epub_chapter_reorder-2.1.0.zip",
+          "sha256": "783012f8ca34b6eaa09d0f9bdc0693aa30a023c32540eaf7a969cb14fe2a81ac",
+          "size": 14881,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "epub_chapter_url",
+      "name": "Chapter URL Stamp",
+      "type": "epub",
+      "summary": "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from.",
+      "description": "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "link",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:10:21Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_url-1.1.0/epub_chapter_url-1.1.0.zip",
+          "sha256": "be8f46cb2d2f1cc8fc23deec2f3bc6ed9f56b98e0d26f5e5e20be71efee42f59",
+          "size": 3901,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "epub_download_source",
+      "name": "EPUB download",
+      "type": "source",
+      "summary": "Downloads a story EPUB from a direct download URL.",
+      "description": "Downloads a story EPUB from a direct download URL.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "download",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:10:43Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_download_source-1.1.0/epub_download_source-1.1.0.zip",
+          "sha256": "d9aad29471fcc984c937d18bfd4edecbdb2d9490b3b5636e5d5bed2e7a6c6039",
+          "size": 6910,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "epub_merge",
+      "name": "EPUB Merge",
+      "type": "epub",
+      "summary": "Combines several books into one, moving every chapter into the first book and deleting the others.",
+      "description": "Combines several books into one, moving every chapter into the first book and deleting the others. Run it from the Merge action; there is no undo.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "merge",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "2.1.0",
+          "published_at": "2026-09-25T22:11:02Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_merge-2.1.0/epub_merge-2.1.0.zip",
+          "sha256": "1d962137929c90911c86711a6054801b99fb7906418629f587e3435aecbf98fa",
+          "size": 59184,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "epub_normalize",
+      "name": "EPUB Normalize",
+      "type": "epub",
+      "summary": "Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins.",
+      "description": "Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "format_paint",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:11:26Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_normalize-1.1.0/epub_normalize-1.1.0.zip",
+          "sha256": "a673113e521c9df4e8320cf9f1daa86f1146e87e0637be1ea32f25128d0e868e",
+          "size": 30329,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "epub_validate",
+      "name": "EPUB Validate",
+      "type": "epub",
+      "summary": "Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file.",
+      "description": "Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "fact_check",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:11:45Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_validate-1.1.0/epub_validate-1.1.0.zip",
+          "sha256": "e24ac4fe0e7d6cbaec4edf9507ff08269e3feb8e23b33c3ad7a51d5ddfa4149b",
+          "size": 7281,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "fanficfare_source",
+      "name": "FanFicFare",
+      "type": "source",
+      "summary": "Downloads stories from any site FanFicFare supports.",
+      "description": "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "auto_stories",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:12:18Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-1.1.0/fanficfare_source-1.1.0.zip",
+          "sha256": "d3c7f3022a0a802756b29d3f1e14431789d095773f5556050388a5b70a89b777",
+          "size": 23085,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": true
+          },
+          "requirements": [
+            "fanficfare>=4.58.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "file_meta_sync",
+      "name": "File metadata sync",
+      "type": "book",
+      "summary": "Syncs sidecar files (cover candidates, synopsis) with the library",
+      "description": "Syncs sidecar files (cover candidates, synopsis) with the library",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "snippet_folder",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/file_meta_sync",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/file_meta_sync",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "2.1.0",
+          "published_at": "2026-09-25T22:12:29Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.1.0/file_meta_sync-2.1.0.zip",
+          "sha256": "7b2d95cdc5d917b91615566f4eb3a6d22a2d3846650c815d8e4d3c5a849df352",
+          "size": 8339,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "kavita_sync",
+      "name": "Kavita Sync",
+      "type": "book",
+      "summary": "Publishes your books to a Kavita server and reads your reading progress back.",
+      "description": "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "library_books",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": "library_server",
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:12:52Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.1.0/kavita_sync-1.1.0.zip",
+          "sha256": "476412101beb7be2c77bc18cd1e7740a088fbdd4504e1fe83c44b431ffdc1d65",
+          "size": 31756,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "komga_sync",
+      "name": "Komga Sync",
+      "type": "book",
+      "summary": "Publishes your books to a Komga server and reads your reading progress back.",
+      "description": "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "collections_bookmark",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": "library_server",
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:13:15Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.1.0/komga_sync-1.1.0.zip",
+          "sha256": "a721bb5c2f8b9583a35ada803b68fc88a820cb493b452df3372adca6a81872f6",
+          "size": 44760,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "literotica_stories",
+      "name": "Literotica search",
+      "type": "catalog",
+      "summary": "Fetches stories with Literotica search",
+      "description": "Fetches stories with Literotica search",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "menu_book",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/literotica_stories",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/literotica_stories",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "2.2.0",
+          "published_at": "2026-09-25T22:13:33Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/literotica_stories-2.2.0/literotica_stories-2.2.0.zip",
+          "sha256": "4b230621c92b1cde62249e0fec793e28ac7c02d6b1a66ef0165c6ffef3709e8a",
+          "size": 9058,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [
+            "literotica.com"
+          ],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "llm_cover",
+      "name": "Cover generator",
+      "type": "book",
+      "summary": "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters.",
+      "description": "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. Candidates are never set as the cover automatically.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "image",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:14:00Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.1.0/llm_cover-1.1.0.zip",
+          "sha256": "bff6cc8ad7f6d6cc3cbde40352cad2a9fb737d58bc751922a128f5e0273dfc2f",
+          "size": 8451,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "llm_synopsis",
+      "name": "Synopsis generator",
+      "type": "book",
+      "summary": "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to.",
+      "description": "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. Only books without a synopsis from the configured model are processed.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "summarize",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:14:22Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.1.0/llm_synopsis-1.1.0.zip",
+          "sha256": "e4dc75598e1436e566caf5af42e5cd44d9b7da45a5921674739772ef30a0f5f8",
+          "size": 5796,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "my_literotica",
+      "name": "Literotica - My Home",
+      "type": "catalog",
+      "summary": "Lists new story publications from the authors you follow on Literotica (from \"My Home\" activity wall)",
+      "description": "Lists new story publications from the authors you follow on Literotica (from \"My Home\" activity wall)",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "bookmarks",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/my_literotica",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/my_literotica",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:14:39Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/my_literotica-1.1.0/my_literotica-1.1.0.zip",
+          "sha256": "a25669e4633733874331eca53dd51883aa4b2fafb6436e39776905061c240688",
+          "size": 9533,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [
+            "literotica.com"
+          ],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [
+              "literotica.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "patreon_stories",
+      "name": "Patreon memberships",
+      "type": "catalog",
+      "summary": "Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file",
+      "description": "Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "volunteer_activism",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/patreon_stories",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/patreon_stories",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": false,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "2.2.0",
+          "published_at": "2026-09-25T22:15:01Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/patreon_stories-2.2.0/patreon_stories-2.2.0.zip",
+          "sha256": "9767262114f801a4e41db23792390b18c8fafc0add078748d00f81a0075f4f03",
+          "size": 10585,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [
+            "patreon.com"
+          ],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [
+              "patreon.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        }
+      ]
+    },
+    {
+      "id": "pdf_download_source",
+      "name": "PDF download",
+      "type": "source",
+      "summary": "Downloads a PDF and converts it to EPUB in the library.",
+      "description": "Downloads a PDF and converts it to EPUB in the library.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "picture_as_pdf",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:15:23Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/pdf_download_source-1.1.0/pdf_download_source-1.1.0.zip",
+          "sha256": "f21a1fc832f1d3324b50f16f2e6020471df8bdba0475c19fecc2c884326d1987",
+          "size": 6864,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": [
+            "pymupdf>=1.24"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rtf_download_source",
+      "name": "RTF download",
+      "type": "source",
+      "summary": "Downloads an RTF and converts it to EPUB in the library.",
+      "description": "Downloads an RTF and converts it to EPUB in the library.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "text_snippet",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:15:44Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.1.0/rtf_download_source-1.1.0.zip",
+          "sha256": "f87a2c3a6f7b858222f19d512033e82c974f333ec8d949ae57f201d5b23721e2",
+          "size": 4411,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": [
+            "striprtf>=0.0.26",
+            "charset-normalizer>=3.3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text_download_source",
+      "name": "Text download",
+      "type": "source",
+      "summary": "Downloads a TXT/Markdown file and converts it to EPUB in the library.",
+      "description": "Downloads a TXT/Markdown file and converts it to EPUB in the library.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "article",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_source",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_source",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:16:14Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.1.0/text_download_source-1.1.0.zip",
+          "sha256": "8b5afdc451a42a8b254622ce352a0dd67b62350b59c3ed97ca4b666986a307c5",
+          "size": 3220,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": [
+            "charset-normalizer>=3.3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "url_story_extractor",
+      "name": "URL Story Extractor",
+      "type": "catalog",
+      "summary": "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping.",
+      "description": "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping.",
+      "author": "ArcCdr",
+      "license": "MIT",
+      "icon": "travel_explore",
+      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor",
+      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor",
+      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
+      "official": true,
+      "suggested": true,
+      "exclusive_group": null,
+      "deprecated": null,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "published_at": "2026-09-25T22:16:27Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/url_story_extractor-1.1.0/url_story_extractor-1.1.0.zip",
+          "sha256": "20302c7f517f6ea816358c43e56167b7e8e9ff897d102208d5b0725884034a06",
+          "size": 15392,
+          "spi_version": "2.30",
+          "min_app_version": "",
+          "changelog": "Moved out of the ebookerr core.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": [
+            "fanficfare>=4.58.1"
+          ]
+        }
+      ]
+    }
+  ]
+}
