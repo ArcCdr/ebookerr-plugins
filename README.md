@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-17 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+20 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -21,3 +21,6 @@
 | Literotica - My Home | `my_literotica` | Catalog | 1.1.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
 | Patreon memberships | `patreon_stories` | Catalog | 2.2.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
 | PDF download | `pdf_download_source` | Source | 1.1.0 | Downloads a PDF and converts it to EPUB in the library. |
+| RTF download | `rtf_download_source` | Source | 1.1.0 | Downloads an RTF and converts it to EPUB in the library. |
+| Text download | `text_download_source` | Source | 1.1.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
+| URL Story Extractor | `url_story_extractor` | Catalog | 1.1.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
