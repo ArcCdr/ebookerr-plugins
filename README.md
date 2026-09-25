@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-15 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+17 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -19,3 +19,5 @@
 | Cover generator | `llm_cover` | Book | 1.1.0 | Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. |
 | Synopsis generator | `llm_synopsis` | Book | 1.1.0 | Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. |
 | Literotica - My Home | `my_literotica` | Catalog | 1.1.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
+| Patreon memberships | `patreon_stories` | Catalog | 2.2.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
+| PDF download | `pdf_download_source` | Source | 1.1.0 | Downloads a PDF and converts it to EPUB in the library. |
