@@ -12,8 +12,9 @@ from unittest import mock
 import ebookerr_sdk.spi as api
 import pytest
 from ebookerr_sdk.providers.connection import ConnectionTestResult
-from komga_sync import plugin as komga_sync
 from komga_sync.plugin import KomgaSyncPlugin
+
+from komga_sync import plugin as komga_sync
 
 # ---------------------------------------------------------------------------
 # Stub PluginContext

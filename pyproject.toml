@@ -26,6 +26,8 @@ testpaths = ["."]
 addopts = "--strict-markers -m 'not e2e'"
 markers = [
     "e2e: opt-in end-to-end tests that need the network (run with: python -m pytest -m e2e)",
+    "pins: declares the ledger finding(s) this test pins, e.g. @pytest.mark.pins(\"EXP-138\") (EXP-161)",
+    "real_impl(symbol): drives the real first-party implementation a sibling pins test stubs (EXP-240)",
 ]
 
 [tool.ruff]
@@ -61,3 +63,9 @@ mypy_path = [
 [[tool.mypy.overrides]]
 module = ["pymupdf", "docx", "striprtf.*", "tinycss2.*", "fanficfare", "fanficfare.*"]
 ignore_missing_imports = true
+
+# ebookerr-sdk 2.30.0 ships without a PEP 561 py.typed marker, so mypy would skip it as untyped.
+# Follow it anyway (full type checking of every SDK call); drop this once the SDK ships py.typed.
+[[tool.mypy.overrides]]
+module = ["ebookerr_sdk", "ebookerr_sdk.*"]
+follow_untyped_imports = true
