@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-7 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+9 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -11,3 +11,5 @@
 | EPUB Merge | `epub_merge` | EPUB | 2.1.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
 | EPUB Normalize | `epub_normalize` | EPUB | 1.1.0 | Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins. |
 | EPUB Validate | `epub_validate` | EPUB | 1.1.0 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |
+| FanFicFare | `fanficfare_source` | Source | 1.1.0 | Downloads stories from any site FanFicFare supports. |
+| File metadata sync | `file_meta_sync` | Book | 2.1.0 | Syncs sidecar files (cover candidates, synopsis) with the library |
