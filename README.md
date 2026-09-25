@@ -1,4 +1,7 @@
 # ebookerr plugins
 
-The first-party plugins of ebookerr and its default plugin registry. The plugin list is rewritten here by the release
-workflow after every release; the registry index is published at https://arccdr.github.io/ebookerr-plugins/index.json.
+1 plugin — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+
+| Plugin | Id | Kind | Version | Summary |
+|---|---|---|---|---|
+| DOCX download | `docx_download_source` | Source | 1.1.0 | Downloads a DOCX and converts it to EPUB in the library. |
