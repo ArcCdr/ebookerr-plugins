@@ -47,12 +47,13 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "*/tests/**" = ["S101", "S104", "S105", "S106", "S310", "S314", "DTZ", "D"]
+"tests/**" = ["S101", "S104", "S105", "S106", "S310", "S314", "DTZ", "D"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 files = ["."]
-exclude = ['/tests/', '/entrypoint\.py$', '^conftest\.py$', '^\.venv/']
+exclude = ['/tests/', '^tests/', '/entrypoint\.py$', '^conftest\.py$', '^\.venv/']
 explicit_package_bases = true
 mypy_path = [
     "plugins/epub/epub_chapter_url", "plugins/epub/epub_normalize", "plugins/epub/epub_validate",

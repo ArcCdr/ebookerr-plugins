@@ -1,7 +1,7 @@
 """Shared fixtures for the first-party plugins' tests (``PMG-D26``).
 
-Plugin tests never import the core's ``src`` or ``tests`` (the core's gate
-``tests/unit/test_plugin_boundary.py``), so the EPUB builders they need are a
+Plugin tests never import the core's ``src`` or ``tests`` (this
+repository's gate ``tests/test_repository.py``), so the EPUB builders they need are a
 verbatim copy of the ones in the core's ``tests/conftest.py`` (the core keeps its
 own copy; its ``tests/unit/test_plugins_conftest.py`` fails when the two drift).
 Importing this module also puts every plugin folder (``plugins/<type>/<id>/``) on
