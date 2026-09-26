@@ -1,6 +1,7 @@
 # ebookerr-plugins: the first-party ebookerr plugins and the default plugin registry.
 # Not an installable project: this file configures the checks CI runs on every plugin.
 # Install the tools with `python -m pip install --group dev` (pip 25.1 or later).
+# Run every check with `python scripts/check.py` (what CI runs).
 
 [dependency-groups]
 dev = [
