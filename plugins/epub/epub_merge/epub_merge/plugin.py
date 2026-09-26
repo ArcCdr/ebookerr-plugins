@@ -47,7 +47,6 @@ from ebookerr_sdk.spi import (
     PluginManifest,
     PluginType,
     PluginView,
-    ReadPosition,
     SettingsField,
     SettingsSchema,
     UiTrigger,
@@ -65,10 +64,6 @@ from epub_merge.merge import (
     candidate_from_epub,
     elect_survivor,
     merge_epubs,
-)
-from epub_merge.merge.read_positions import (
-    SourcePosition,
-    merge_read_positions,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,7 +99,7 @@ _MANIFEST = PluginManifest(
         "Combines several books into one, moving every chapter into the first book and "
         "deleting the others. Run it from the Merge action; there is no undo."
     ),
-    version="2.1.0",
+    version="2.2.0",
     plugin_type=PluginType.EPUB,
     settings_schema=_SETTINGS_SCHEMA,
     headless=False,
@@ -414,12 +409,12 @@ class EpubMergePlugin:
         Returns:
             On success: one ``BookPatch`` for the survivor (or the user's chosen override) with
             ``fields={"num_chapters": total}`` and, only when the ``rewrite_book_title``
-            setting produced a rename, ``"title": <that title>``, zero or more
-            ``BookPatch(read_position=...)`` entries (oldest first) carrying each input's
-            remapped semantic read position onto the merged spine, then one
+            setting produced a rename, ``"title": <that title>``, then one
             ``BookPatch(delete=True, superseded_by=<survivor id>)`` per merged-away book
             (including the elected survivor if the user overrode it).
             ``superseded_by`` (SPI 2.23) tells the core which book absorbed each one.
+            The core carries every merged-away book's reading history into the survivor
+            (``RPH-STR-6``); the merge itself returns no read position.
             Empty list when the selection is too small, two or more selected books share
             an ``output_filename`` (``EXP-249``), the caller is headless, the user
             cancels the confirmation view or clears its selection, or the merge fails
@@ -567,7 +562,7 @@ class EpubMergePlugin:
 
         ctx.check_cancelled()
 
-        # Read the merged EPUB to get chapter table (RP-D16)
+        # Read the merged EPUB's chapter table: the absorbed books' chapter URLs are re-pointed onto it.
         merged_doc = EpubDocument.open(survivor.epub_path)
         merged_chapters_tuple = chapter_table(merged_doc)
 
@@ -593,71 +588,6 @@ class EpubMergePlugin:
             title,
             survivor.book.book_id,
         )
-
-        # Read positions survive the merge (RP-D7). Every input's progress is remapped onto the
-        # merged chapter numbering and the most advanced wins; the entries are emitted oldest
-        # first so each one appends to the survivor's history in order, and the newest ends up
-        # as the book's current position.
-        all_items = [survivor, *others]
-        source_positions = [
-            SourcePosition(
-                input_index=i,
-                chapter_index=item.book.read_position.chapter_index,
-                chapter_progress=item.book.read_position.chapter_progress,
-                completed=item.book.read_position.completed,
-                captured_at=item.book.read_position.captured_at,
-                chapter_href=item.book.read_position.chapter_href,
-                chapter_key=item.book.read_position.chapter_key,
-            )
-            for i, item in enumerate(all_items)
-            if item.book.read_position is not None
-        ]
-        merged_positions = merge_read_positions(
-            source_positions, outcome.contributions, outcome.chapter_map, merged_chapters
-        )
-
-        # Check for inferred positions and notify user (RP-D16)
-        inferred_positions = [p for p in merged_positions if p.inferred]
-        by_identity = len(inferred_positions) == 0
-
-        if inferred_positions:
-            # Notify about the first inferred position, using a generic title
-            for item in all_items:
-                if item.book.read_position is not None:
-                    item_title = item.book.title or item.book.book_id
-                    logger.warning(
-                        "Merge placed the read position of %r (book_id=%s) by chapter "
-                        "count; the reader should verify it",
-                        item_title,
-                        item.book.book_id,
-                    )
-                    ctx.notify(
-                        "warning",
-                        f"The reading position of {item_title!r} was placed by chapter "
-                        "count, not by identity — check where your reader resumes.",
-                        durable=True,
-                    )
-                    break
-
-        if merged_positions:
-            logger.info(
-                'Merged read positions for "%s" (book_id=%s): %d source(s) -> chapter %d at %.0f%%'
-                " (completed=%s), by identity=%s",
-                title,
-                survivor.book.book_id,
-                len(source_positions),
-                merged_positions[-1].chapter_index,
-                merged_positions[-1].chapter_progress * 100,
-                merged_positions[-1].completed,
-                by_identity,
-            )
-        else:
-            logger.info(
-                'No read positions to merge for "%s" (book_id=%s): %d source book(s) had none',
-                title,
-                survivor.book.book_id,
-                len(all_items),
-            )
 
         logger.info(
             'EPUB merge applied: "%s" (book_id=%s) now has %d chapter(s); %d book(s) to delete',
@@ -699,23 +629,6 @@ class EpubMergePlugin:
                 book_id=survivor.book.book_id,
                 fields=merged_fields,
                 chapters=absorbed,
-            ),
-            *(
-                BookPatch(
-                    book_id=survivor.book.book_id,
-                    read_position=ReadPosition(
-                        chapter_index=p.chapter_index,
-                        chapter_progress=p.chapter_progress,
-                        completed=p.completed,
-                        captured_at=p.captured_at,
-                        total_chapters=outcome.chapter_count,
-                        chapter_number=p.chapter_number,
-                        chapter_title=p.chapter_title,
-                        chapter_href=p.chapter_href,
-                        chapter_key=p.chapter_key,
-                    ),
-                )
-                for p in merged_positions
             ),
             *(
                 BookPatch(

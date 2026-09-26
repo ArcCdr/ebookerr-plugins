@@ -21,12 +21,11 @@ from ebookerr_sdk.domain.adoption import expand_number
 from ebookerr_sdk.domain.chapter_number import extract_chapter_info
 from ebookerr_sdk.epub import EpubDocument, EpubError
 from ebookerr_sdk.epub.chapters import ChapterRole
-from ebookerr_sdk.epub.roles import NON_CHAPTER_ITEM_IDS
 
 from epub_merge.merge.errors import (
     MergeStructureError,
 )
-from epub_merge.merge.model import InputBook, MergedChapter, MergeOptions, MergeOutcome
+from epub_merge.merge.model import InputBook, MergeOptions, MergeOutcome
 from epub_merge.merge.plan import MergePlan, build_merge_plan
 from epub_merge.merge.reader import read_input_book
 from epub_merge.merge.render import render_plan
@@ -165,15 +164,6 @@ def merge_epubs(
     total = _write_and_verify(plan, target, started)
     renamed = plan.title if opts.rewrite_book_title and plan.title != books[0].title else None
 
-    # Compute contributions: count content chapters per input in plan order
-    # using the same rule as _content_chapter_indices.
-    contributions: dict[int, int] = {}
-    for i, book in enumerate(books):
-        contributions[i] = len(_content_chapter_indices(book))
-
-    # Build contributions tuple in book order (survivor first)
-    contributions_tuple = tuple(contributions.get(i, 0) for i in range(len(books)))
-
     # Compute duplicate chapter numbers from the planned chapters (R17)
     duplicate_numbers = _compute_duplicate_numbers(plan)
     if duplicate_numbers:
@@ -184,25 +174,10 @@ def merge_epubs(
             ", ".join(duplicate_numbers),
         )
 
-    # Build chapter_map: one entry per merged chapter, excluding non-chapter documents
-    chapter_map = tuple(
-        MergedChapter(c.book_index, c.source_href, c.filename)
-        for c in plan.chapters
-        if c.item_id.lower() not in NON_CHAPTER_ITEM_IDS
-    )
-    logger.debug(
-        "Merge chapter map: %d %s for %d chapter(s)",
-        len(chapter_map),
-        "entry" if len(chapter_map) == 1 else "entries",
-        total,
-    )
-
     return MergeOutcome(
         chapter_count=total,
         title=renamed,
-        contributions=contributions_tuple,
         duplicate_numbers=duplicate_numbers,
-        chapter_map=chapter_map,
     )
 
 

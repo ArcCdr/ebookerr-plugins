@@ -1,2 +1,5 @@
+== 2.2.0 ==
+Reading positions are no longer rearranged by the merge itself: ebookerr now carries every merged book's reading history into the merged book, and your current position is the one you read most recently.
+
 == 2.1.0 ==
 Moved out of the ebookerr core.

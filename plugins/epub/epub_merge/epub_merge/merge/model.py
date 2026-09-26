@@ -37,24 +37,6 @@ class MergeOptions:
 
 
 @dataclass(frozen=True, slots=True)
-class MergedChapter:
-    """One merged chapter's provenance (input, source document, merged file).
-
-    Captures which input EPUB a merged chapter came from, the OPF-relative href
-    from that input, and the flat filename it was assigned in the merged EPUB (RP-D16).
-
-    Attributes:
-        input_index: The index of the input EPUB this chapter came from.
-        source_href: The input's OPF-relative href this chapter came from.
-        filename: The flat output file name in the merged EPUB.
-    """
-
-    input_index: int
-    source_href: str
-    filename: str
-
-
-@dataclass(frozen=True, slots=True)
 class MergeOutcome:
     """The result of an EPUB merge operation (EXP-205).
 
@@ -63,27 +45,16 @@ class MergeOutcome:
         title: When ``options.rewrite_book_title`` produced a rename, the title
             the merge wrote — never a title read back from the file (EXP-205);
             ``None`` otherwise.
-        contributions: One entry per input book, in the order the inputs were given
-            (survivor first), holding how many **content chapters** that input contributed
-            to the merged spine. The running sum gives each input's merged chapter range:
-            input ``i`` owns merged 1-based chapters
-            ``sum(contributions[:i]) + 1 .. sum(contributions[:i + 1])``. Empty when the
-            merge did not record them (a caller predating this field).
         duplicate_numbers: Chapter-number tokens that appear on more than one chapter
             of the merged result, sorted. A merge never refuses over these (``R17``):
             two books that overlap are still merged, because refusing leaves the user
             with two books and no remedy. The overlap is reported instead — on the
             outcome, in the log, and to the user through the plugin's alert.
-        chapter_map: In merged reading order, one entry per chapter of the merged book,
-            so ``len(chapter_map) == chapter_count``; documents the merged book does not
-            count as chapters — the carried title page — are omitted.
     """
 
     chapter_count: int
     title: str | None = None
-    contributions: tuple[int, ...] = ()
     duplicate_numbers: tuple[str, ...] = ()
-    chapter_map: tuple[MergedChapter, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
