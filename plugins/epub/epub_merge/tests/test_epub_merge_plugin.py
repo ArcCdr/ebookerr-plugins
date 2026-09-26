@@ -702,9 +702,52 @@ def test_settings_schema_method_matches_manifest() -> None:
 
 
 def test_manifest_version_bumped() -> None:
-    """Manifest version is bumped to 2.1.0."""
+    """Manifest version is bumped to 2.2.0."""
     manifest = EpubMergePlugin().manifest
-    assert manifest.version == "2.1.0"
+    assert manifest.version == "2.2.0"
+
+
+def test_a_merge_returns_no_read_position_patches(
+    tmp_path: Path, build_epub: Callable[..., Path]
+) -> None:
+    """A real merge returns no read-position patches; the core carries histories."""
+    import dataclasses
+
+    # Build two distinct one-chapter books
+    x = build_epub([("Chapter A1", "https://example.com/a1")], filename="x.epub", doc_title="Book A")
+    y = build_epub([("Chapter B1", "https://example.com/b1")], filename="y.epub", doc_title="Book B")
+
+    # Construct items with second book having a read position
+    item_x = _make_item("b1", x, "Book A")
+    item_y = api.EpubItem(
+        book=dataclasses.replace(
+            _make_book_view("b2", "Book B"),
+            read_position=api.ReadPosition(
+                captured_at="2026-09-01T00:00:00+00:00",
+                chapter_index=1,
+                chapter_progress=0.5,
+            ),
+        ),
+        epub_path=y,
+    )
+
+    ctx = FakeContext(
+        mode=api.InvocationMode.HEADED,
+        view_results=[_submitted("b1", "b2")],
+    )
+    patches = EpubMergePlugin().process((item_x, item_y), ctx)
+
+    # Verify exactly 2 patches: survivor and one delete
+    assert len(patches) == 2
+    # No read_position patches should exist
+    assert all(p.read_position is None for p in patches)
+    # First patch is survivor
+    assert patches[0].book_id == "b1"
+    assert patches[0].delete is False
+    # Second patch is delete for the merged-away book
+    assert patches[1].book_id == "b2"
+    assert patches[1].delete is True
+    assert patches[1].superseded_by == patches[0].book_id
 
 
 def test_process_passes_options_from_settings(
