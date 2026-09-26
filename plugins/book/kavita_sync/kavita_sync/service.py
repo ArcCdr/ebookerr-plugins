@@ -31,9 +31,10 @@ The sync, for one freshly-downloaded book (:meth:`KavitaService.sync`):
 4. Restore the read position via one of two mutually-exclusive branches, both delegated to
    the core anchoring orchestrator: a pending cross-pull restore marker
    (``restore_target``) runs :func:`~ebookerr_sdk.providers.anchoring.restore_to_target`,
-   which writes over Kavita's own bookmark unconditionally because the user asked for this
-   position; otherwise :func:`~ebookerr_sdk.providers.anchoring.reanchor_bookmark` checks
-   whether Kavita's own bookmark still resolves and re-anchors it when it does not
+   which writes over Kavita's own bookmark because the user asked for this position —
+   unless the bookmark already stands at that exact target, in which case nothing is
+   rewritten (``RPH-REST-5``); otherwise :func:`~ebookerr_sdk.providers.anchoring.reanchor_bookmark`
+   checks whether Kavita's own bookmark still resolves and re-anchors it when it does not
    (``RP-D9``). This is Kavita's **only** restore layer: its scan model never resets the page
    position within one sync the way a Komga re-analyse does, so there is no raw-locator
    snapshot/fast-path to maintain here — Kavita has no raw-locator layer at all (its API
@@ -45,6 +46,13 @@ The sync, for one freshly-downloaded book (:meth:`KavitaService.sync`):
    for the caller to change-gate and store (``RP-CAP-5``); the captured chapter's title and
    key come from the joined chapter table, not from Kavita's own (often title-less) TOC
    (``RP-D20``).
+
+The service reports Kavita's own fresh finished flag on every sync/enrich — Kavita has no
+completion flag of its own, so "finished" is ``pageNum >= total pages`` (``RPH-FACT-7``),
+read from the page this sync just read, never from the pre-sync merged view (``RPH-SRC-4``)
+— and returns its capture as ``SyncResult.read_position`` for the plugin to place on
+``BookPatch.read_position``; it decides nothing about history, backward moves or local
+backups — the core owns all three (``RPH-ARCH-3``).
 
 The service makes no DB writes itself: every outcome is returned as ``SyncResult.fields``
 plus an optional ``SyncResult.read_position``, for the caller
@@ -76,6 +84,8 @@ from typing import Any
 
 from ebookerr_sdk.domain.dates import log_clock, parse_datetime
 from ebookerr_sdk.providers.anchoring import (
+    REANCHOR_ALREADY,
+    REANCHOR_WRITTEN,
     AnchorJoin,
     capture_position,
     join_anchors,
@@ -87,12 +97,6 @@ from ebookerr_sdk.providers.link_attempt import file_changed_since_attempt
 from ebookerr_sdk.providers.link_refusal import LinkOwnerLookup, LinkRefusal
 from ebookerr_sdk.providers.scan_ledger import ScanLedger, file_changed_at
 from ebookerr_sdk.providers.urls import deep_link_base
-from ebookerr_sdk.readpos import (
-    backward_move_message,
-    db_backup_capture,
-    is_empty_position,
-    moves_backwards,
-)
 from ebookerr_sdk.spi import (
     BookView,
     CircuitGuard,
@@ -128,11 +132,9 @@ class SyncResult:
             (ids, timestamps, reading state, rating).
         read_position: Semantic read position captured from the TOC + current page
             (``RP-CAP-5``), or ``None`` when the book has no usable TOC or is unread.
-        backward_move: A user-safe message when the read position moved backwards
-            (``EXP-123``), built by
-            :func:`~ebookerr_sdk.readpos.backward_move_message` — both chapter
-            indices and both in-chapter percentages (``EXP-207``); ``None`` when no
-            backward move occurred.
+        reanchor_notice: A user-facing sentence when a restore or re-anchor placed the
+            bookmark on a facet weaker than key or title (``RPH-ANC-5``); ``None``
+            otherwise.
         restore_attempted: ``True`` when the sync reached the book and attempted the restore —
             an accepted write, a rejected write, or no chapter match alike — so the
             one-shot marker is consumed and the history entry stays for a manual retry;
@@ -163,7 +165,7 @@ class SyncResult:
     attempted: bool = True
     fields: Mapping[str, Any] = field(default_factory=dict)
     read_position: ReadPosition | None = None
-    backward_move: str | None = None
+    reanchor_notice: str | None = None
     restore_attempted: bool = False
     restore_landed: bool = False
     unreachable: bool = False
@@ -524,12 +526,12 @@ class KavitaService:
         read_position = capture_position(
             self,
             str(ref.chapter_id),
-            book=book,
             join=self._build_join(book, ref.chapter_id),
             stored=book.read_position,
             captured_at=self._now().isoformat(),
             provider_name="Kavita",
             book_title=book.title,
+            provider_finished=fields["external_read_completed"] == 1,
         )
 
         return SyncResult(
@@ -541,11 +543,7 @@ class KavitaService:
 
         See the module docstring for the full numbered sequence. Makes no DB write
         itself — the caller persists ``SyncResult.fields``/``read_position``.
-        Operates on the merged ``BookView`` snapshot (EDIT-D14). On a first link to
-        a Kavita chapter that reports page 0, the local percent is backed up to RP
-        history before the empty provider state is adopted
-        (:meth:`_first_link_backup`, EXP-002); a Kavita chapter that already has a
-        page still wins unconditionally, exactly as before. A chapter another library
+        Operates on the merged ``BookView`` snapshot (EDIT-D14). A chapter another library
         row already owns is refused with a message naming that row, after one WARNING
         naming both books (``EXP-149``, ``EXP-187``).
 
@@ -743,6 +741,7 @@ class KavitaService:
 
         progress = self._client.get_progress(ref.chapter_id)
         page_num = int(progress.get("pageNum", 0))
+        provider_finished = ref.total_pages > 0 and page_num >= ref.total_pages
 
         # Built once (CHC-D12): the restore/re-anchor branch below, the stale gate and the
         # joined chapter count all read this same join, so they can never disagree on which
@@ -765,6 +764,7 @@ class KavitaService:
 
         restore_attempted = False
         restore_landed = False
+        reanchor_notice: str | None = None
 
         if stale:
             pass  # restore_attempted stays False so the one-shot marker survives (EXP-155).
@@ -777,10 +777,13 @@ class KavitaService:
                 str(ref.chapter_id),
                 target=restore_target,
                 join=join,
+                provider_finished=provider_finished,
+                book_read=book.progress.completed,
                 book_title=book.title,
                 provider_name="Kavita",
             )
-            restore_landed = outcome.written
+            restore_landed = outcome.action in (REANCHOR_WRITTEN, REANCHOR_ALREADY)
+            reanchor_notice = outcome.notice
             if outcome.written:
                 page_num = int(self._client.get_progress(ref.chapter_id).get("pageNum", 0))
                 logger.info(
@@ -802,7 +805,9 @@ class KavitaService:
                 join=join,
                 book_title=book.title,
                 provider_name="Kavita",
+                provider_finished=provider_finished,
             )
+            reanchor_notice = outcome.notice
             if outcome.written:
                 page_num = int(self._client.get_progress(ref.chapter_id).get("pageNum", 0))
                 logger.debug(
@@ -831,18 +836,13 @@ class KavitaService:
             read_position = capture_position(
                 self,
                 str(ref.chapter_id),
-                book=book,
                 join=join,
                 stored=book.read_position,
                 captured_at=self._now().isoformat(),
                 provider_name="Kavita",
                 book_title=book.title,
+                provider_finished=fields["external_read_completed"] == 1,
             )
-        backward = self._warn_on_backward_move(
-            book, read_position, restore_attempted=restore_attempted
-        )
-        if read_position is None:
-            read_position = self._first_link_backup(book, ref, page_num)
 
         logger.info('Kavita sync finished for "%s": %s', book.title, ", ".join(sorted(fields)))
         return SyncResult(
@@ -850,7 +850,7 @@ class KavitaService:
             "synced",
             fields=fields,
             read_position=read_position,
-            backward_move=backward,
+            reanchor_notice=reanchor_notice,
             restore_attempted=restore_attempted,
             restore_landed=restore_landed,
             relinked=relinked,
@@ -896,83 +896,6 @@ class KavitaService:
             self._scan_retry_max,
         )
         return None
-
-    def _warn_on_backward_move(
-        self, book: BookView, read_position: ReadPosition | None, *, restore_attempted: bool = False
-    ) -> str | None:
-        """Warn when a read position moves backwards, and return a user-safe summary (``RP-D18``).
-
-        An empty provider read-back is never a backward move: the provider is reporting that it
-        has no position, which the apply path never records (``RP-CAP-3``).
-        When ``restore_attempted`` is True and the move is backwards: INFO log only, no user
-        message, so no durable notice is created.
-
-        Args:
-            book: The merged book view (for prior stored position and title).
-            read_position: The newly-captured semantic read position, or ``None``.
-            restore_attempted: Whether this sync performed a restore; ``True`` means the
-                backward move was requested by the user.
-
-        Returns:
-            A user-safe message when a backward move is detected and not requested, or ``None``.
-        """
-        prev = book.read_position
-        if read_position is not None and is_empty_position(read_position):
-            logger.debug(
-                'Read position for "%s" (book_id=%s) came back empty; the provider holds no '
-                "position, so this is not a backward move",
-                book.title,
-                book.book_id,
-            )
-            return None
-        if prev is None or read_position is None or not moves_backwards(prev, read_position):
-            return None
-        if restore_attempted:
-            logger.info(
-                'Read position for "%s" moved backwards by the requested restore: '
-                "chapter_index %d -> %d, %.0f%% -> %.0f%%",
-                book.title,
-                prev.chapter_index,
-                read_position.chapter_index,
-                prev.chapter_progress * 100,
-                read_position.chapter_progress * 100,
-            )
-            return None
-        logger.warning(
-            'Read position for "%s" moved backwards: chapter_index %d -> %d, %.0f%% -> %.0f%%',
-            book.title,
-            prev.chapter_index,
-            read_position.chapter_index,
-            prev.chapter_progress * 100,
-            read_position.chapter_progress * 100,
-        )
-        return backward_move_message(book.title, prev, read_position)
-
-    def _first_link_backup(
-        self, book: BookView, ref: KavitaRef, page_num: int
-    ) -> ReadPosition | None:
-        """DB-sourced RP-history backup on link/re-link to a progress-less Kavita (EXP-002).
-
-        Fires only when this sync links the book to a Kavita chapter id it was not
-        linked to before AND Kavita reports page 0 for it AND local state carries
-        progress. A Kavita chapter that already has a page still wins exactly as
-        before.
-        """
-        if book.external.item_id == str(ref.chapter_id):
-            return None
-        if page_num > 0:
-            return None
-        capture = db_backup_capture(book, captured_at=self._now().isoformat())
-        if capture is not None:
-            logger.info(
-                'Backing up local read state before first-link adoption for "%s": '
-                "chapter_index=%d of %s (local %.0f%%)",
-                book.title,
-                capture.chapter_index,
-                capture.total_chapters,
-                (book.progress.percent or 0.0) * 100,
-            )
-        return capture
 
     def _provider_folder(self, output_filename: str | None) -> str | None:
         """The folder Kavita knows a book by: ``<library_path>/<parent>``, or ``None``.
@@ -1208,7 +1131,7 @@ class KavitaService:
         deliberately **not** corrected: ``KAVITA-FACT-3`` drift (a re-scan recomputing page
         counts) is indistinguishable from a genuine reader move and ``RP-PLUG-5`` still
         forbids overwriting live provider progress. Progress 1.0 lands on the chapter's last
-        page, never on the next chapter's first (``RP-D20``).
+        page, never on the next chapter's first (``RPH-ANC-7``).
 
         Args:
             item_id: The provider's own id for the book (keyed by str(chapter_id)).
@@ -1234,13 +1157,7 @@ class KavitaService:
         # after its chapter list has already grown, understating total_pages.
         has_later_anchor = any(int(a.ref) > start for a in anchors)
         max_page = start + span - 1 if has_later_anchor else start + span
-        if bool(bookmark.raw.get("completed")):
-            # A stale "book finished" position may name a chapter no longer last (a later
-            # append, e.g. a merge, added one after it) — still clamp to its own span, never
-            # to the book's current last page (RP-D20).
-            page = max_page
-        else:
-            page = max(start, min(max_page, start + int(round(bookmark.progression * span))))
+        page = max(start, min(max_page, start + int(round(bookmark.progression * span))))
         logger.debug(
             "Kavita page for chapter %s: starts at %d, span %d, progress %.2f -> page=%d",
             item_id,

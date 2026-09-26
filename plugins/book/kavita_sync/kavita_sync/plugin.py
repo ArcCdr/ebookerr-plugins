@@ -133,7 +133,7 @@ _MANIFEST = PluginManifest(
         "Publishes your books to a Kavita server and reads your reading progress back. "
         "Only one library server can be enabled at a time."
     ),
-    version="1.1.0",
+    version="1.2.0",
     plugin_type=PluginType.BOOK,
     settings_schema=_SCHEMA,
     headless=True,
@@ -251,20 +251,6 @@ def _log_outcome(logger: logging.Logger, action: str, view: BookView, result: Sy
             view.book_id,
             result.message,
         )
-
-
-def _notify_backward_move(ctx: PluginContext, result: SyncResult) -> None:
-    """Surface a backward read-position move as durable notice (``EXP-123``, ``EXP-218``).
-
-    Records outlive the toast so a scheduled sync with no browser still leaves it in
-    the notification centre.
-
-    Args:
-        ctx: Plugin context; ``ctx.notify`` publishes the toast and records the notice.
-        result: The ``SyncResult`` returned by the service call.
-    """
-    if result.backward_move:
-        ctx.notify("warning", result.backward_move, durable=True)
 
 
 def _report_sync_problems(ctx: PluginContext, view: BookView, result: SyncResult) -> None:
@@ -421,8 +407,9 @@ def _sync_book(ctx: PluginContext, service: KavitaService, view: BookView) -> Bo
 
     ``BookImported`` takes the read-only ``KavitaService.enrich`` path; every other event
     calls ``KavitaService.sync``. A failed attempt is reported through
-    ``ctx.report_failure`` (SPI 2.12) and a detected backward read-position move through
-    ``ctx.notify``. A refused link is reported to the core as a skip, never a failure (``EXP-243``).
+    ``ctx.report_failure`` (SPI 2.12) and a weak-facet re-anchor notice through
+    ``ctx.notify`` (``RPH-ANC-5``). A refused link is reported to the core as a skip, never a
+    failure (``EXP-243``).
     A pending ``view.restore_target`` passes through to ``sync``, and the one-shot restore marker is
     consumed in the same patch only when ``result.restore_attempted`` is ``True`` — the marker
     survives a read-only ``enrich`` or any other call that could not attempt the provider write (see
@@ -450,7 +437,9 @@ def _sync_book(ctx: PluginContext, service: KavitaService, view: BookView) -> Bo
     action = "enrich" if ctx.event_type == PluginEventType.BOOK_IMPORTED else "sync"
     _log_outcome(ctx.logger, action, view, result)
     _report_sync_problems(ctx, view, result)
-    _notify_backward_move(ctx, result)
+    if result.reanchor_notice:
+        # A bookmark re-anchored on a facet weaker than key/title gets a durable notice (RPH-ANC-5).
+        ctx.notify("warning", result.reanchor_notice, durable=True)
 
     fields: dict[str, Any] = dict(result.fields)
     # A one-shot marker is consumed by a sync that actually attempted the provider write, never
