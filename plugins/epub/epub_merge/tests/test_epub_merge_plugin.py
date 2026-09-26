@@ -714,8 +714,12 @@ def test_a_merge_returns_no_read_position_patches(
     import dataclasses
 
     # Build two distinct one-chapter books
-    x = build_epub([("Chapter A1", "https://example.com/a1")], filename="x.epub", doc_title="Book A")
-    y = build_epub([("Chapter B1", "https://example.com/b1")], filename="y.epub", doc_title="Book B")
+    x = build_epub(
+        [("Chapter A1", "https://example.com/a1")], filename="x.epub", doc_title="Book A"
+    )
+    y = build_epub(
+        [("Chapter B1", "https://example.com/b1")], filename="y.epub", doc_title="Book B"
+    )
 
     # Construct items with second book having a read position
     item_x = _make_item("b1", x, "Book A")

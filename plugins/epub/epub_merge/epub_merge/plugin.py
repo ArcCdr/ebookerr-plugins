@@ -562,7 +562,8 @@ class EpubMergePlugin:
 
         ctx.check_cancelled()
 
-        # Read the merged EPUB's chapter table: the absorbed books' chapter URLs are re-pointed onto it.
+        # Read the merged EPUB's chapter table: the absorbed books' chapter URLs are
+        # re-pointed onto it.
         merged_doc = EpubDocument.open(survivor.epub_path)
         merged_chapters_tuple = chapter_table(merged_doc)
 
