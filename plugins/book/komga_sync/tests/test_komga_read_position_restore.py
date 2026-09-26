@@ -62,7 +62,6 @@ def _owner_scenario() -> tuple[BookView, list[dict[str, object]], ReadPosition]:
         chapter_number=None,
         chapter_title="Cookie Pt. 01",
         chapter_href=None,
-        completed=False,
         total_chapters=4,
     )
     return book, positions, target
@@ -108,7 +107,6 @@ def test_no_match_still_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
         chapter_number=None,
         chapter_title="Nonexistent Chapter",
         chapter_href=None,
-        completed=False,
         total_chapters=None,
     )
 
@@ -150,7 +148,6 @@ def test_a_restore_already_in_place_counts_as_landed() -> None:
         chapter_number=None,
         chapter_title="Ch 1",
         chapter_href="file0001.xhtml",
-        completed=False,
         total_chapters=2,
     )
 
@@ -201,7 +198,6 @@ def test_restore_semantic_still_returns_empty_on_no_match() -> None:
         chapter_number=None,
         chapter_title="Nonexistent Chapter",
         chapter_href=None,
-        completed=False,
         total_chapters=None,
     )
 
@@ -239,7 +235,6 @@ def test_restore_uses_spine_order_not_filename_order() -> None:
         chapter_number=None,
         chapter_title="Ch 2",
         chapter_href=None,
-        completed=False,
         total_chapters=3,
     )
 

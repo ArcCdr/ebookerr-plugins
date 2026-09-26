@@ -2385,7 +2385,6 @@ def test_a_stale_persisted_locator_is_not_replayed(repo: _FakeBookRepository) ->
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="ch1.xhtml",
-        completed=False,
         total_chapters=5,
     )
 
@@ -2455,7 +2454,6 @@ def test_a_fresh_persisted_locator_is_replayed(repo: _FakeBookRepository) -> Non
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="ch1.xhtml",
-        completed=False,
         total_chapters=5,
     )
 
@@ -2520,7 +2518,6 @@ def test_a_locator_with_no_modified_stamp_is_replayed(repo: _FakeBookRepository)
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="ch1.xhtml",
-        completed=False,
         total_chapters=5,
     )
 
@@ -2647,7 +2644,6 @@ def test_the_stale_locator_is_logged_at_warning(
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="ch1.xhtml",
-        completed=False,
         total_chapters=5,
     )
 
@@ -4687,7 +4683,6 @@ def test_the_age_guard_compares_timestamps_chronologically_across_offsets(
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="a.xhtml",
-        completed=False,
         total_chapters=5,
     )
     book_view = make_book_view(
@@ -4760,7 +4755,6 @@ def test_a_stale_locator_at_a_different_chapter_is_still_refused(
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="file0040.xhtml",  # different chapter
-        completed=False,
         total_chapters=5,
     )
     book_view = make_book_view(
@@ -4838,7 +4832,6 @@ def test_a_stale_locator_at_the_newest_records_chapter_is_replayed(
         chapter_number=1,
         chapter_title="Chapter 1",
         chapter_href="file0040.xhtml",  # same chapter
-        completed=False,
         total_chapters=5,
     )
     book_view = make_book_view(
@@ -5033,7 +5026,6 @@ def test_the_raw_replay_warns_when_the_app_has_a_record(
         chapter_number=2,
         chapter_title="Chapter 2",
         chapter_href="file0002.xhtml",
-        completed=False,
         total_chapters=10,
     )
 
@@ -5087,7 +5079,6 @@ def test_a_dead_locator_is_never_replayed(caplog: pytest.LogCaptureFixture) -> N
         chapter_number=999,
         chapter_title="Gone",
         chapter_href="nope.xhtml",
-        completed=False,
         total_chapters=5,
     )
     view = make_book_view(
@@ -5130,7 +5121,6 @@ def test_a_live_locator_still_takes_the_raw_fast_path(caplog: pytest.LogCaptureF
         chapter_number=2,
         chapter_title="The 12th Key - Ch 2",
         chapter_href="file0002.xhtml",
-        completed=False,
         total_chapters=2,
     )
     view = make_book_view(
@@ -5206,7 +5196,6 @@ def test_a_provider_with_no_anchors_still_takes_the_raw_fast_path(
         chapter_number=2,
         chapter_title="The 12th Key - Ch 2",
         chapter_href="file0002.xhtml",
-        completed=False,
         total_chapters=2,
     )
     view = make_book_view(external=ExternalLink(item_id="KB1"), read_position=read_position)
@@ -5240,7 +5229,6 @@ def test_a_lost_bookmark_is_re_anchored_instead_of_replayed(
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href="file0001.xhtml",
-        completed=False,
         total_chapters=2,
     )
     view = make_book_view(
@@ -5998,7 +5986,6 @@ def test_sync_reports_restore_attempted_when_it_restores(
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href="OEBPS/file0001.xhtml",
-        completed=False,
         total_chapters=2,
     )
     result = service(client).sync(book_to_view(book), restore_target=restore_target)
@@ -6039,7 +6026,6 @@ def test_sync_reports_no_restore_attempt_when_the_book_is_unresolvable(
         chapter_number=1,
         chapter_title="The 12th Key",
         chapter_href="OEBPS/titlepage.xhtml",
-        completed=False,
         total_chapters=2,
     )
     result = service(client, scan_retry_max=0).sync(
@@ -6064,7 +6050,6 @@ def test_sync_reports_no_restore_attempt_when_komga_is_disabled(
         chapter_number=1,
         chapter_title="The 12th Key",
         chapter_href="OEBPS/titlepage.xhtml",
-        completed=False,
         total_chapters=2,
     )
     result = service(client, enabled=False).sync(book_to_view(book), restore_target=restore_target)
@@ -6328,7 +6313,7 @@ def test_a_komga_sync_where_only_the_total_changed_does_not_stamp_external_progr
     # Create a view for the second sync as if Kavita's result was persisted
     view_after_kavita = make_book_view(
         external=ExternalLink(provider="kavita", item_id="11"),
-        progress=ExternalProgress(position=0, total=2, completed=False, percent=0.0),
+        progress=ExternalProgress(position=0, total=2, percent=0.0),
     )
 
     # Simulate Komga sync: reports different total (65) but same position (0)
@@ -6482,7 +6467,6 @@ def test_a_komga_sync_reports_the_semantic_position_the_migration_restores_after
         chapter_number=None,
         chapter_title="Chapter 3",
         chapter_href=None,
-        completed=False,
         total_chapters=10,
         chapter_key="Chapter 3",
     )
@@ -6507,7 +6491,7 @@ def test_a_komga_sync_reports_the_semantic_position_the_migration_restores_after
         # A provider move zeroes progress rather than leaving it None (_FORGET_LINK_FIELDS in
         # src/services/provider_move_service.py) — match that so the restore sync doesn't see
         # a spurious None->0 position change and stamp external_progress_at.
-        progress=ExternalProgress(position=0, total=0, completed=False, percent=0.0),
+        progress=ExternalProgress(position=0, total=0, percent=0.0),
         restore_target=restore_target,
     )
 
@@ -7360,7 +7344,6 @@ def test_the_dead_bookmark_is_re_anchored_from_the_table(
         chapter_number=1,
         chapter_title="Cookie Pt. 01",
         chapter_href="file0001.xhtml",
-        completed=False,
         total_chapters=2,
     )
     locator_json = json.dumps(
@@ -7754,7 +7737,7 @@ def test_capture_uses_the_fresh_completed_flag_in_both_directions() -> None:
         {"locator": {"href": "file0001.xhtml", "locations": {"progression": 0.1}}}
     ]
     view_b = make_book_view(
-        num_chapters=4, progress=ExternalProgress(completed=False), chapter_table=chapter_table
+        num_chapters=4, progress=ExternalProgress(), chapter_table=chapter_table
     )
 
     result_b = service(client_b).sync(view_b)

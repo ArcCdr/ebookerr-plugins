@@ -394,7 +394,6 @@ def test_restore_writes_computed_page(caplog: Any) -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -462,7 +461,6 @@ def test_restore_fails_closed_no_match(caplog: Any) -> None:
         chapter_number=None,
         chapter_title="Nonexistent Chapter",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -505,7 +503,6 @@ def test_restore_save_rejection_logs_error(caplog: Any) -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -980,7 +977,6 @@ def test_a_position_at_the_last_page_captures_the_last_chapter_position(
         chapter_number=30,
         chapter_title="Chapter 30",
         chapter_href=None,
-        completed=False,
         total_chapters=100,
     )
     view = make_book_view(read_position=prev_position, chapter_table=BACKWARD_TOC_CHAPTERS)
@@ -1020,7 +1016,6 @@ def test_kavita_has_no_raw_locator_layer() -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -1224,7 +1219,6 @@ def test_sync_reports_restore_attempted_when_it_restores() -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -1264,7 +1258,6 @@ def test_sync_reports_no_restore_attempt_when_the_chapter_is_missing() -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -1288,7 +1281,6 @@ def test_sync_reports_no_restore_attempt_when_kavita_is_disabled() -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -1432,7 +1424,7 @@ def test_kavita_stamps_external_progress_at_on_a_reading_event() -> None:
     client.book_chapters_result = []
     view = make_book_view(
         external=ExternalLink(provider="kavita"),
-        progress=ExternalProgress(position=0, total=100, completed=False),
+        progress=ExternalProgress(position=0, total=100),
     )
 
     svc = service(client, now=lambda: FIXED_NOW)
@@ -1452,7 +1444,7 @@ def test_kavita_does_not_stamp_when_only_the_total_changes_across_providers() ->
     client.book_chapters_result = []
     view = make_book_view(
         external=ExternalLink(provider="komga"),
-        progress=ExternalProgress(position=0, total=65, completed=False),
+        progress=ExternalProgress(position=0, total=65),
     )
 
     svc = service(client, now=lambda: FIXED_NOW)
@@ -1483,7 +1475,7 @@ def test_a_kavita_sync_that_leaves_the_position_unchanged_does_not_stamp_externa
     # Book starts with external_progress_at stamped
     view_initial = make_book_view(
         external=ExternalLink(provider="kavita"),
-        progress=ExternalProgress(position=0, total=2, completed=False, percent=0.0),
+        progress=ExternalProgress(position=0, total=2, percent=0.0),
     )
     # Manually set the initial state as if it were already in the DB with a timestamp
     # (simulating a prior sync that stamped the field)
@@ -1532,7 +1524,6 @@ def test_a_kavita_restore_lands_on_the_migrated_chapter() -> None:
         chapter_number=None,
         chapter_title="Chapter 3",
         chapter_href="c3.xhtml",
-        completed=False,
         total_chapters=10,
         chapter_key="c3.xhtml",
     )
@@ -1557,7 +1548,7 @@ def test_a_kavita_restore_lands_on_the_migrated_chapter() -> None:
         # A provider move zeroes progress rather than leaving it None (_FORGET_LINK_FIELDS in
         # src/services/provider_move_service.py) — match that so the view is one the real
         # composition root could actually produce.
-        progress=ExternalProgress(position=0, total=0, completed=False, percent=0.0),
+        progress=ExternalProgress(position=0, total=0, percent=0.0),
         restore_target=restore_target,
     )
 
@@ -1663,7 +1654,6 @@ def test_the_dead_toc_diagnostic_is_gone(caplog: Any, tmp_path: Any) -> None:
         chapter_number=2,
         chapter_title="Ch 2",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -2890,7 +2880,6 @@ def test_a_lost_kavita_position_is_re_anchored_from_the_stored_history() -> None
             chapter_number=3,
             chapter_title="The 12th Key - Ch 3",
             chapter_href=None,
-            completed=False,
             total_chapters=5,
         ),
     )
@@ -2921,7 +2910,6 @@ def test_a_resolving_kavita_page_is_never_re_anchored() -> None:
             chapter_number=1,
             chapter_title="The 12th Key - Ch 1",
             chapter_href=None,
-            completed=False,
             total_chapters=5,
         ),
     )
@@ -2948,7 +2936,6 @@ def test_a_sync_with_a_restore_target_does_not_also_re_anchor() -> None:
             chapter_number=2,
             chapter_title="The 12th Key - Ch 2",
             chapter_href=None,
-            completed=False,
             total_chapters=2,
         ),
     )
@@ -2959,7 +2946,6 @@ def test_a_sync_with_a_restore_target_does_not_also_re_anchor() -> None:
         chapter_number=1,
         chapter_title="The 12th Key - Ch 1",
         chapter_href=None,
-        completed=False,
         total_chapters=2,
     )
 
@@ -2986,7 +2972,6 @@ def test_a_re_anchor_re_reads_the_page_before_capture(caplog: Any) -> None:
             chapter_number=3,
             chapter_title="The 12th Key - Ch 3",
             chapter_href=None,
-            completed=False,
             total_chapters=5,
         ),
     )
