@@ -97,7 +97,7 @@ _MANIFEST = PluginManifest(
         "Publishes your books to a Komga server and reads your reading progress back. "
         "Only one library server can be enabled at a time."
     ),
-    version="1.1.0",
+    version="1.2.0",
     plugin_type=PluginType.BOOK,
     settings_schema=_SCHEMA,
     headless=True,
@@ -330,8 +330,9 @@ def _sync_book(
 
     ``BookImported`` takes the read-only ``KomgaService.enrich`` path; every other event
     calls ``KomgaService.sync``. A failed attempt is reported through
-    ``ctx.report_failure`` (SPI 2.12) and a detected backward read-position move through
-    ``ctx.notify``. A refused link is reported to the core as a skip, never a failure (``EXP-243``).
+    ``ctx.report_failure`` (SPI 2.12) and a weak-facet re-anchor notice through
+    ``ctx.notify`` (``RPH-ANC-5``). A refused link is reported to the core as a skip, never
+    a failure (``EXP-243``).
     A pending ``view.restore_target`` passes through to ``sync``, and the
     one-shot restore marker is consumed in the same patch only when ``result.restore_attempted``
     is ``True`` — the marker survives a read-only ``enrich`` or any other call that could not
@@ -371,9 +372,9 @@ def _sync_book(
     elif not result.attempted and result.unreachable:
         # Breaker was open: as-designed skip, never silent (DFT-FR-17, SPI 2.24).
         ctx.report_skip(view.book_id, result.message)
-    if result.backward_move:
-        # Surface a backward read-position move as a durable notice plus toast (EXP-123, EXP-218).
-        ctx.notify("warning", result.backward_move, durable=True)
+    if result.reanchor_notice:
+        # A bookmark re-anchored on a facet weaker than key/title gets a durable notice (RPH-ANC-5).
+        ctx.notify("warning", result.reanchor_notice, durable=True)
     if view.restore_target is not None and result.restore_attempted and not result.restore_landed:
         ctx.report_failure(view.book_id, "read position could not be restored")
         ctx.logger.warning(

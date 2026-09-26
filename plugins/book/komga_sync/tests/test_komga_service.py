@@ -7175,7 +7175,7 @@ def test_a_dead_locator_on_a_finished_book_is_forgotten(
 ) -> None:
     """A finished book whose stored locator no longer resolves has that locator cleared once."""
     client = FakeKomga()
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA, read={"completed": True})
     client.series = {"metadata": MATCHING_SERIES_METADATA}
     client.positions = [
         {

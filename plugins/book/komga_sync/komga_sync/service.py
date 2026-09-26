@@ -51,6 +51,12 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
 8. Capture the semantic read position from the just-refreshed book (``RP-CAP-5``)
    for the caller to change-gate and store.
 
+The service reports Komga's own fresh finished flag on every sync/enrich, read from the
+record refreshed this call, never from the pre-sync merged view (``RPH-SRC-4``), and returns
+its capture as ``SyncResult.read_position`` for the plugin to place on
+``BookPatch.read_position``; it decides nothing about history, backward moves or local
+backups — the core owns all three (``RPH-ARCH-3``).
+
 The service makes no DB writes itself: every outcome above is returned as
 ``SyncResult.fields`` (plus an optional ``SyncResult.read_position``) for the
 caller to persist. Komga being disabled/unreachable is non-fatal: ``sync``
@@ -72,7 +78,7 @@ import re
 import time
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -81,10 +87,13 @@ from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.metadata import sanitize, sanitize_multiline
 from ebookerr_sdk.domain.text_encoding import nfc
 from ebookerr_sdk.providers.anchoring import (
+    REANCHOR_ALREADY,
     REANCHOR_FINISHED,
     REANCHOR_NOT_APPLICABLE,
     REANCHOR_RESOLVED,
+    REANCHOR_WRITTEN,
     AnchorJoin,
+    ReanchorOutcome,
     capture_position,
     join_anchors,
     reanchor_bookmark,
@@ -95,12 +104,6 @@ from ebookerr_sdk.providers.link_attempt import file_changed_since_attempt
 from ebookerr_sdk.providers.link_refusal import LinkOwnerLookup, LinkRefusal
 from ebookerr_sdk.providers.scan_ledger import ScanLedger, file_changed_at
 from ebookerr_sdk.providers.urls import deep_link_base
-from ebookerr_sdk.readpos import (
-    backward_move_message,
-    db_backup_capture,
-    is_empty_position,
-    moves_backwards,
-)
 from ebookerr_sdk.spi import (
     BookView,
     CircuitGuard,
@@ -138,11 +141,9 @@ class SyncResult:
             or ``None`` when the progression was empty/unreliable.
         metadata_pushed: Whether a metadata PATCH was sent to Komga during
             this sync; used internally for batch run summaries.
-        backward_move: A user-safe message when the read position moved backwards
-            (``EXP-123``), built by
-            :func:`~ebookerr_sdk.readpos.backward_move_message` — both chapter
-            indices and both in-chapter percentages (``EXP-207``); ``None`` when no
-            backward move occurred.
+        reanchor_notice: A user-facing sentence when a restore or re-anchor placed the
+            bookmark on a facet weaker than key or title (``RPH-ANC-5``); ``None``
+            otherwise.
         restore_attempted: ``True`` when the sync reached the book and attempted the restore —
             an accepted write, a rejected write, or no chapter match alike — so the
             one-shot marker is consumed and the history entry stays for a manual retry;
@@ -177,7 +178,7 @@ class SyncResult:
     fields: Mapping[str, Any] = field(default_factory=dict)
     read_position: ReadPosition | None = None
     metadata_pushed: bool = False
-    backward_move: str | None = None
+    reanchor_notice: str | None = None
     restore_attempted: bool = False
     restore_landed: bool = False
     unreachable: bool = False
@@ -741,8 +742,13 @@ class KomgaService:
         )
 
     def _restore_semantic(
-        self, komga_book_id: str, book: BookView, target: ReadPosition, join: AnchorJoin
-    ) -> dict[str, Any]:
+        self,
+        komga_book_id: str,
+        book: BookView,
+        target: ReadPosition,
+        join: AnchorJoin,
+        provider_finished: bool,
+    ) -> tuple[dict[str, Any], ReanchorOutcome]:
         """Deliver a pending semantic restore through the core anchoring orchestrator.
 
         The durable, cross-pull restore layer (``RP-PLUG-4``) — survives the EPUB
@@ -752,47 +758,55 @@ class KomgaService:
         one sync, whenever :meth:`sync` receives a pending restore marker and the
         caller's join (built once in :meth:`_sync_reachable`, ``CHC-D12``) is consistent.
 
-        The match, the fail-closed rule and the candidate/re-anchor log lines belong to
-        :func:`~ebookerr_sdk.providers.anchoring.restore_to_target` (``RP-D9``) —
-        this method's job is to hand it this service's ``place_bookmark`` primitive
-        (``SPI 2.19``) through the pre-built join, turn the outcome back into the
-        ``external_locator`` field the caller persists, and log the persisted envelope
-        at DEBUG for anyone diffing what actually landed.
+        The match, the fail-closed rule, the compare-first check and the candidate/re-anchor
+        log lines belong to :func:`~ebookerr_sdk.providers.anchoring.restore_to_target`
+        (``RP-D9``, ``RPH-REST-5``) — this method's job is to hand it this service's
+        ``place_bookmark`` primitive (``SPI 2.19``) through the pre-built join and the fresh
+        finished flag, turn a written outcome back into the ``external_locator`` field the
+        caller persists, and log the persisted envelope at DEBUG for anyone diffing what
+        actually landed.
 
         Args:
             komga_book_id: The Komga book id to restore the position onto.
-            book: The merged book view being restored (title, output filename).
+            book: The merged book view being restored (title, output filename, whether it
+                reads as finished locally).
             target: The stored position to restore.
             join: The anchor join, already computed from the provider's anchors and the
                 book's chapter table (``CHC-D12``); the caller only reaches this method
                 when ``join.consistent`` is ``True``.
+            provider_finished: The provider's finished flag read during this sync
+                (``RPH-SRC-4``), forwarded to :func:`restore_to_target` so a restore whose
+                target the bookmark already stands at is not rewritten (``RPH-REST-5``).
 
         Returns:
-            ``{"external_locator": <JSON of the progression envelope just written — modified,
-            device, locator>}`` when the restore succeeds, or ``{}`` when no chapter matched
-            or Komga rejected the write — preserving the locator only when the reader actually
-            accepted the restore.
+            A tuple of the fields to persist and the raw ``ReanchorOutcome``:
+            ``({"external_locator": <JSON of the progression envelope just written —
+            modified, device, locator>}, outcome)`` when the restore wrote a new envelope,
+            or ``({}, outcome)`` when nothing was written — no chapter matched, Komga
+            rejected the write, or the bookmark already stood at the target.
         """
         outcome = restore_to_target(
             self,
             komga_book_id,
             target=target,
             join=join,
+            provider_finished=provider_finished,
+            book_read=book.progress.completed,
             book_title=book.title,
             provider_name="Komga",
         )
         if not outcome.written:
-            return {}
+            return {}, outcome
         written = self._written_progression.get(komga_book_id)
         if written is None:
-            return {}
+            return {}, outcome
         logger.debug(
             'Persisted the restored progression envelope for "%s": href=%s, modified=%s',
             book.title,
             (written.get("locator") or {}).get("href"),
             written.get("modified"),
         )
-        return {"external_locator": json.dumps(written)}
+        return {"external_locator": json.dumps(written)}, outcome
 
     def sync(  # noqa: C901
         self,
@@ -804,11 +818,7 @@ class KomgaService:
         """Push local-mastered metadata to Komga and read reading state back.
 
         See the module docstring for the full numbered sequence. Makes no DB write
-        itself — the caller persists ``SyncResult.fields``/``read_position``. On a
-        first link to a Komga book that reports no reading progress, the local
-        percent is backed up to RP history before the empty provider state is
-        adopted (:meth:`_first_link_backup`, EXP-002); a Komga book that already
-        carries progress still wins unconditionally, exactly as before.
+        itself — the caller persists ``SyncResult.fields``/``read_position``.
 
         Args:
             book: The merged book view to sync.
@@ -943,6 +953,8 @@ class KomgaService:
                 stale = info is None
                 komga_book = info or komga_book
 
+        provider_finished = bool((komga_book.get("readProgress") or {}).get("completed"))
+
         fields: dict[str, Any] = {}
         current_tags = (komga_book.get("metadata") or {}).get("tags") or []
         komga_tag = _rating_from_tags(current_tags)
@@ -1020,16 +1032,20 @@ class KomgaService:
         restore_attempted = False
         restore_landed = False
         reanchor_written = False
+        reanchor_notice: str | None = None
         if stale:
             pass  # restore_attempted stays False so the one-shot marker survives (EXP-155).
         elif restore_target is not None:
             # Two-layer restore (RP-PLUG-4): the semantic restore (durable, cross-pull) replaces
             # the raw-locator fast path below for this run; the raw path still covers ordinary
             # syncs where an analyze wiped a position mid-sync.
-            restored = self._restore_semantic(komga_book_id, book, restore_target, join)
+            restored, outcome = self._restore_semantic(
+                komga_book_id, book, restore_target, join, provider_finished=provider_finished
+            )
             fields.update(restored)
             restore_attempted = True
-            restore_landed = bool(restored)
+            restore_landed = outcome.action in (REANCHOR_WRITTEN, REANCHOR_ALREADY)
+            reanchor_notice = outcome.notice
         else:
             outcome = reanchor_bookmark(
                 self,
@@ -1039,7 +1055,9 @@ class KomgaService:
                 join=join,
                 book_title=book.title,
                 provider_name="Komga",
+                provider_finished=provider_finished,
             )
+            reanchor_notice = outcome.notice
             reanchor_written = outcome.written
             if outcome.written:
                 written = self._written_progression.get(komga_book_id)
@@ -1102,12 +1120,6 @@ class KomgaService:
             read_position, progression = self._semantic_position(
                 komga_book_id, refreshed, book, join
             )
-        positions = self._positions_for(komga_book_id)
-        backward = self._warn_on_backward_move(
-            book, read_position, progression, len(positions), restore_attempted=restore_attempted
-        )
-        if read_position is None:
-            read_position = self._first_link_backup(book, komga_book_id, refreshed)
         return SyncResult(
             True,
             "synced",
@@ -1116,7 +1128,7 @@ class KomgaService:
             fields=fields,
             read_position=read_position,
             metadata_pushed=metadata_pushed,
-            backward_move=backward,
+            reanchor_notice=reanchor_notice,
             restore_attempted=restore_attempted,
             restore_landed=restore_landed,
             relinked=path_mismatch,
@@ -1896,73 +1908,6 @@ class KomgaService:
             fields["external_progress_at"] = self._now()
         return fields
 
-    def _warn_on_backward_move(
-        self,
-        book: BookView,
-        read_position: ReadPosition | None,
-        progression: dict[str, Any],
-        positions_count: int,
-        *,
-        restore_attempted: bool = False,
-    ) -> str | None:
-        """Warn when a read position moves backwards, and return a user-safe summary (``RP-D18``).
-
-        An empty provider read-back is never a backward move: the provider is reporting that it
-        has no position, which the apply path never records (``RP-CAP-3``).
-        When ``restore_attempted`` is True and the move is backwards: INFO log only, no user
-        message, so no durable notice is created.
-
-        Args:
-            book: The merged book view (for prior stored position and title).
-            read_position: The newly-captured semantic read position, or ``None``.
-            progression: The raw Komga progression dict (carries device/modified info).
-            positions_count: The count of positions in Komga's table.
-            restore_attempted: Whether this sync performed a restore; ``True`` means the
-                backward move was requested by the user.
-
-        Returns:
-            A user-safe message when a backward move is detected and not requested, or ``None``.
-        """
-        prev = book.read_position
-        if read_position is not None and is_empty_position(read_position):
-            logger.debug(
-                'Read position for "%s" (book_id=%s) came back empty; the provider holds no '
-                "position, so this is not a backward move",
-                book.title,
-                book.book_id,
-            )
-            return None
-        if read_position is None or not moves_backwards(prev, read_position):
-            return None
-        if prev is None:
-            raise RuntimeError("moves_backwards returned True with prev=None")
-        if restore_attempted:
-            logger.info(
-                'Read position for "%s" moved backwards by the requested restore: '
-                "chapter_index %d -> %d, %.0f%% -> %.0f%%",
-                book.title,
-                prev.chapter_index,
-                read_position.chapter_index,
-                prev.chapter_progress * 100,
-                read_position.chapter_progress * 100,
-            )
-            return None
-        device = progression.get("device") or {}
-        logger.warning(
-            'Read position for "%s" moved backwards: chapter_index %d -> %d, %.0f%% -> %.0f%% '
-            "(written by device=%s name=%s at %s; %d positions in Komga's table)",
-            book.title,
-            prev.chapter_index,
-            read_position.chapter_index,
-            prev.chapter_progress * 100,
-            read_position.chapter_progress * 100,
-            device.get("id"),
-            device.get("name"),
-            progression.get("modified"),
-            positions_count,
-        )
-        return backward_move_message(book.title, prev, read_position)
-
     def _positions_for(self, item_id: str) -> list[dict[str, Any]]:
         """This call's Komga positions table, fetched at most once per sync or enrich."""
         cached = self._positions_cache.get(item_id)
@@ -2090,23 +2035,21 @@ class KomgaService:
         """Capture semantic read position from Komga progression and positions.
 
         Returns the semantic position and the raw progression dict, with device/modified
-        info preserved for backward-move warning and attribution. Refreshes
-        ``_progression_cache`` with this fetch: on a first link, the pre-discovery snapshot
-        cached at the top of ``_sync_reachable`` is an unconditional ``{}`` (there is no id to
-        query yet), and leaving it in place would make :meth:`read_bookmark`'s cache lookup
-        see a permanently-empty bookmark instead of Komga's real one.
+        info preserved for attribution. Refreshes ``_progression_cache`` with this fetch: on
+        a first link, the pre-discovery snapshot cached at the top of ``_sync_reachable`` is
+        an unconditional ``{}`` (there is no id to query yet), and leaving it in place would
+        make :meth:`read_bookmark`'s cache lookup see a permanently-empty bookmark instead of
+        Komga's real one.
 
-        ``capture_position``'s finished check reads ``book.progress.completed``, but ``book``
-        is the pre-sync merged view — on the exact sync where Komga first reports a book
-        complete, that flag is still stale. Komga's progression payload carries no completed
-        flag of its own for :meth:`read_bookmark` to surface instead (unlike a provider that
-        marks it on the bookmark itself), so this passes a copy of ``book`` with ``completed``
-        patched from this call's own freshly-read ``komga_book`` when it disagrees, mirroring
-        :meth:`_read_back`'s own reading of ``readProgress.completed``.
+        Passes ``komga_book``'s own ``readProgress.completed`` as ``capture_position``'s
+        ``provider_finished`` (``RPH-SRC-4``): the caller passes the just-refreshed record,
+        never the pre-sync ``book`` view, so a book Komga reports complete on this very sync
+        is captured as finished immediately, and a finished book that later grows a chapter
+        keeps the real bookmark instead of jumping to the new last chapter.
 
         Args:
             komga_book_id: The Komga book id.
-            komga_book: The current Komga book metadata dict.
+            komga_book: The current Komga book metadata dict, freshly read this sync.
             book: The merged book view, or ``None``.
             join: The anchor join, already computed from the provider's anchors and the
                 book's chapter table (``CHC-D12``); ``capture_position`` fails closed on its
@@ -2117,23 +2060,19 @@ class KomgaService:
         """
         progression = self._client.get_progression(komga_book_id)
         self._progression_cache[komga_book_id] = progression
-        capture_book = book
-        if book is not None and not book.progress.completed:
-            freshly_finished = bool((komga_book.get("readProgress") or {}).get("completed"))
-            if freshly_finished:
-                capture_book = replace(book, progress=replace(book.progress, completed=True))
+        provider_finished = bool((komga_book.get("readProgress") or {}).get("completed"))
         result = (
             capture_position(
                 self,
                 komga_book_id,
-                book=capture_book,
                 join=join,
-                stored=capture_book.read_position,
+                stored=book.read_position,
                 captured_at=self._now().isoformat(),
                 provider_name="Komga",
-                book_title=capture_book.title,
+                book_title=book.title,
+                provider_finished=provider_finished,
             )
-            if capture_book is not None
+            if book is not None
             else None
         )
         if result is not None:
@@ -2148,32 +2087,6 @@ class KomgaService:
                 progression.get("modified"),
             )
         return result, progression
-
-    def _first_link_backup(
-        self, book: BookView, komga_book_id: str, komga_book: dict[str, Any]
-    ) -> ReadPosition | None:
-        """DB-sourced RP-history backup on link/re-link to a progress-less provider (EXP-002).
-
-        Fires only when this sync links the book to a Komga id it was not linked to
-        before AND Komga reports no reading progress for it AND local state carries
-        progress. A provider *with* progress still wins exactly as before.
-        """
-        if book.external.item_id == komga_book_id:
-            return None  # ordinary re-sync of an existing link
-        progress = komga_book.get("readProgress") or {}
-        if progress.get("page") or progress.get("completed"):
-            return None  # provider has progress — provider wins
-        capture = db_backup_capture(book, captured_at=self._now().isoformat())
-        if capture is not None:
-            logger.info(
-                'Backing up local read state before first-link adoption for "%s": '
-                "chapter_index=%d of %s (local %.0f%%)",
-                book.title,
-                capture.chapter_index,
-                capture.total_chapters,
-                (book.progress.percent or 0.0) * 100,
-            )
-        return capture
 
     def _snapshot_with_db_fallback(
         self,
