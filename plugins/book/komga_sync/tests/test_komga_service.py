@@ -2995,7 +2995,6 @@ def test_restore_semantic_completed_targets_last_position(repo: _FakeBookReposit
         chapter_number=2,
         chapter_title="The 12th Key - Ch 2",
         chapter_href="file0002.xhtml",
-        completed=True,
     )
     client = FakeKomga()
     client.find_results = ["KB1"]
@@ -4589,7 +4588,6 @@ def test_a_restored_position_survives_the_provider_losing_its_progression(
         chapter_number=r1.read_position.chapter_number,
         chapter_title=r1.read_position.chapter_title,
         chapter_href=r1.read_position.chapter_href,
-        completed=r1.read_position.completed,
         total_chapters=r1.read_position.total_chapters,
     )
 
@@ -6436,7 +6434,6 @@ def test_a_komga_sync_reports_the_semantic_position_the_migration_restores(
     assert read_position.chapter_number is None
     assert read_position.chapter_title == "Chapter 3"
     assert read_position.chapter_href == "c3.xhtml"
-    assert read_position.completed is False
     assert read_position.total_chapters == 10
     assert read_position.chapter_key == "c3.xhtml"
     fields = dict(komga_result.fields)
@@ -6553,7 +6550,6 @@ def test_a_komga_sync_reports_the_semantic_position_the_migration_restores_after
     assert read_position.chapter_number == 1
     assert read_position.chapter_title == "Chapter 1"
     assert read_position.chapter_href == "c1.xhtml"
-    assert read_position.completed is False
     assert read_position.total_chapters == 10
     assert read_position.chapter_key == "https://x/1"
     fields = dict(komga_result.fields)
@@ -7184,7 +7180,6 @@ def test_a_dead_locator_on_a_finished_book_is_forgotten(
         chapter_number=3,
         chapter_title="Sitting for Sir - Ch 3",
         chapter_href="chapter_03_sitting_for_sir.xhtml",
-        completed=True,
         total_chapters=3,
     )
     locator_json = json.dumps(
@@ -7241,7 +7236,6 @@ def test_a_live_locator_on_a_finished_book_is_kept(
         chapter_number=2,
         chapter_title="The 12th Key - Ch 2",
         chapter_href="file0002.xhtml",
-        completed=True,
         total_chapters=2,
     )
     locator_json = json.dumps(
@@ -7290,7 +7284,6 @@ def test_a_finished_book_without_a_stored_locator_logs_nothing(
         chapter_number=3,
         chapter_title="Sitting for Sir - Ch 3",
         chapter_href="chapter_03_sitting_for_sir.xhtml",
-        completed=True,
         total_chapters=3,
     )
     view = make_book_view(

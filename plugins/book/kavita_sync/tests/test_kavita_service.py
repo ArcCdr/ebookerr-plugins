@@ -429,7 +429,6 @@ def test_restore_completed_marks_last_page(caplog: Any) -> None:
         chapter_number=2,
         chapter_title="The 12th Key - Ch 2",
         chapter_href=None,
-        completed=True,
         total_chapters=2,
     )
 
@@ -954,7 +953,6 @@ def test_capture_uses_the_page_it_just_read_to_decide_finished() -> None:
     assert result.ok is True
     assert result.read_position is not None
     assert result.read_position.chapter_index == 2
-    assert result.read_position.completed is False
 
 
 def test_a_position_at_the_last_page_captures_the_last_chapter_position(
@@ -994,7 +992,6 @@ def test_a_position_at_the_last_page_captures_the_last_chapter_position(
     assert result.read_position is not None
     assert result.read_position.chapter_index == 5  # Last chapter in BACKWARD_TOC
     assert result.read_position.chapter_title == "The 12th Key - Ch 5"
-    assert result.read_position.completed is False  # Not marked finished by provider
 
 
 def test_kavita_has_no_raw_locator_layer() -> None:
@@ -1617,7 +1614,6 @@ def test_a_kavita_sync_reports_the_semantic_position_the_migration_restores_afte
     assert read_position.chapter_number is None
     assert read_position.chapter_title == "Chapter 3"
     assert read_position.chapter_href is None
-    assert read_position.completed is False
     assert read_position.total_chapters == 10
     assert read_position.chapter_key == "Chapter 3"
     fields = dict(kavita_result.fields)
