@@ -387,7 +387,7 @@ def test_the_breaker_is_shared_with_the_document_sources(
         )
 
     # Should be refused by open breaker, not by a GET attempt
-    assert "is not reachable; retrying automatically" in str(exc_info.value)
+    assert "is not reachable right now; try again later" in str(exc_info.value)
     # GET count should still be 3 from EPUB source only
     assert fake_session.get.call_count == 3
 

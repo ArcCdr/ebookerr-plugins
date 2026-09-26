@@ -5,7 +5,7 @@
 
 [dependency-groups]
 dev = [
-    "ebookerr-sdk[text,generation]==2.30.0",  # the SDK every plugin runs on
+    "ebookerr-sdk[text,generation]==2.30.1",  # the SDK every plugin runs on
     # the plugins' own runtime requirements (each manifest.toml `requirements`)
     "fanficfare>=4.58.1",
     "pymupdf>=1.24",
@@ -68,9 +68,3 @@ mypy_path = [
 [[tool.mypy.overrides]]
 module = ["pymupdf", "docx", "striprtf.*", "tinycss2.*", "fanficfare", "fanficfare.*"]
 ignore_missing_imports = true
-
-# ebookerr-sdk 2.30.0 ships without a PEP 561 py.typed marker, so mypy would skip it as untyped.
-# Follow it anyway (full type checking of every SDK call); drop this once the SDK ships py.typed.
-[[tool.mypy.overrides]]
-module = ["ebookerr_sdk", "ebookerr_sdk.*"]
-follow_untyped_imports = true
