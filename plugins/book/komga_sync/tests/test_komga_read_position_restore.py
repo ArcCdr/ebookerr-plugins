@@ -6,8 +6,7 @@ nothing to go on for its first, most durable identity facet. These tests pin the
 the join built in :meth:`~komga_sync.service.KomgaService._sync_reachable`
 (``join_anchors``, ``CHC-D12``) now fills that gap from the book's own chapter table
 (``BookView.chapter_table``, ``SPI 2.22``/``CHC-D11``) — no EPUB read required for restore
-matching itself — and still cooperates with the pre-existing facet order and the
-backward-move warning.
+matching itself — and still cooperates with the pre-existing facet order.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ import json
 import logging
 
 import pytest
-from ebookerr_sdk.spi import BookView, ReadPosition
+from ebookerr_sdk.spi import BookView, ExternalLink, ReadPosition
 from ebookerr_sdk.testing import make_book_view
 from test_komga_service import (
     MATCHING_BOOK_METADATA,
@@ -120,57 +119,46 @@ def test_no_match_still_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
     assert any("no chapter matches among" in record.message for record in caplog.records)
 
 
-def test_backward_move_guard_still_applies() -> None:
-    """A title-matched restore that moves the reader backwards still trips EXP-123."""
+def test_a_restore_already_in_place_counts_as_landed() -> None:
+    """A restore whose target the provider's bookmark already stands at counts as landed.
+
+    Compare-first (``RPH-REST-5``): the provider is not asked to rewrite a bookmark that
+    already names the target chapter and progress, and the restore still counts as
+    delivered so the one-shot marker is consumed.
+    """
     client = FakeKomga()
-    client.find_results = ["KB1", "KB1"]
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
     client.positions = [
         {"href": "file0001.xhtml", "title": None, "locations": {"position": 1, "progression": 0.0}},
         {"href": "file0002.xhtml", "title": None, "locations": {"position": 2, "progression": 0.0}},
     ]
+    # The provider's live bookmark (read from the sync-start snapshot) already stands at
+    # the restore target — chapter 1, progression 0.5.
+    client.progression_sequence = [
+        {"locator": {"href": "file0001.xhtml", "locations": {"progression": 0.5}}}
+    ]
     chapter_table = _chapters(("file0001.xhtml", "Ch 1"), ("file0002.xhtml", "Ch 2"))
     book = make_book_view(
-        output_filename="book.epub",
+        external=ExternalLink(item_id="KB1"),
         chapter_table=chapter_table,
-        read_position=ReadPosition(
-            captured_at="2026-01-01T00:00:00+00:00",
-            chapter_index=2,
-            chapter_progress=0.5,
-            chapter_number=2,
-            chapter_title="Ch 2",
-            chapter_href="file0002.xhtml",
-            completed=False,
-            total_chapters=2,
-        ),
     )
     target = ReadPosition(
         captured_at="2026-01-01T00:00:00+00:00",
         chapter_index=1,
-        chapter_progress=0.0,
+        chapter_progress=0.5,
         chapter_number=None,
         chapter_title="Ch 1",
-        chapter_href=None,
+        chapter_href="file0001.xhtml",
         completed=False,
         total_chapters=2,
     )
-    client.progression_sequence = [{}]
 
-    svc = komga_service(client)
-    restore_result = svc.sync(book, restore_target=target)
-    assert restore_result.restore_landed is True
+    result = komga_service(client).sync(book, restore_target=target)
 
-    # Simulate the post-restore re-read the sync loop performs, now sitting at the
-    # earlier chapter the restore just wrote — every get_progression call this sync sees
-    # the same live bookmark (sync-start snapshot, the raw path's re-check, and capture).
-    live = {
-        "locator": {"href": "file0001.xhtml", "title": "Ch 1", "locations": {"progression": 0.1}}
-    }
-    client.progression_sequence = [live, live, live]
-    result = svc.sync(book)
-
-    assert result.backward_move is not None
+    assert result.restore_landed is True
+    assert result.restore_attempted is True
+    assert client.put_progressions == []
 
 
 def test_restore_semantic_still_returns_the_envelope_on_success() -> None:

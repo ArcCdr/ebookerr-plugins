@@ -1988,120 +1988,70 @@ class TestPerBookFailureReporting:
 
 
 # ---------------------------------------------------------------------------
-# Backward move toast notification tests (EXP-123)
+# Weak re-anchor notice tests (RPH-ANC-5)
 # ---------------------------------------------------------------------------
 
 
-class TestBackwardMoveNotification:
-    def test_a_backward_move_reaches_the_user_as_a_durable_notice(self) -> None:
-        """Backward move triggers ctx.notify with durable=True (EXP-123, EXP-218)."""
-        ctx = _FakeCtx(
-            event_type=None,
-            settings={
-                "server": "http://k",
-                "api_key": "s",
-                "library_id": "L",
-            },
-        )
+def test_a_weak_reanchor_notice_reaches_the_user() -> None:
+    """A weak-facet re-anchor notice reaches the user as a durable warning (RPH-ANC-5)."""
+    ctx = _FakeCtx(
+        event_type=None,
+        settings={
+            "server": "http://k",
+            "api_key": "s",
+            "library_id": "L",
+        },
+    )
 
-        # Create a fake notify to record calls
-        notify_calls: list[tuple[str, str, bool]] = []
+    # Create a fake notify to record calls
+    notify_calls: list[tuple[str, str, bool]] = []
 
-        def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
-            notify_calls.append((kind, message, durable))
+    def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
+        notify_calls.append((kind, message, durable))
 
-        ctx.notify = fake_notify  # type: ignore
+    ctx.notify = fake_notify  # type: ignore
 
-        plugin = KomgaSyncPlugin()
+    plugin = KomgaSyncPlugin()
+    notice = (
+        'The reading position for "X" was re-anchored by number rather than by chapter '
+        "title — check where your reader resumes."
+    )
 
-        class _BackwardMoveService:
-            def sync(
-                self,
-                book: api.BookView,
-                *,
-                allow_scan: bool = True,
-                restore_target: api.ReadPosition | None = None,
-            ) -> Any:
-                from komga_sync.service import SyncResult
+    class _WeakReanchorService:
+        def sync(
+            self,
+            book: api.BookView,
+            *,
+            allow_scan: bool = True,
+            restore_target: api.ReadPosition | None = None,
+        ) -> Any:
+            from komga_sync.service import SyncResult
 
-                return SyncResult(
-                    True,
-                    "synced",
-                    fields={"external_item_id": "KB1"},
-                    backward_move='Read position for "Test Book" moved backwards: chapter 124 → 43',
-                )
+            return SyncResult(
+                True,
+                "synced",
+                fields={"external_item_id": "KB1"},
+                reanchor_notice=notice,
+            )
 
-            def enrich(self, book: api.BookView) -> Any:
-                from komga_sync.service import SyncResult
+        def enrich(self, book: api.BookView) -> Any:
+            from komga_sync.service import SyncResult
 
-                return SyncResult(True, "enriched", fields={"external_item_id": "KB1"})
+            return SyncResult(True, "enriched", fields={"external_item_id": "KB1"})
 
-            def delete_remote_book(self, external_item_id: str) -> None:
-                pass
+        def delete_remote_book(self, external_item_id: str) -> None:
+            pass
 
-        with mock.patch.object(komga_sync, "_build_service", return_value=_BackwardMoveService()):
-            view = _make_book_view("b1", title="Test Book")
-            plugin.enrich((view,), ctx)
+    with mock.patch.object(komga_sync, "_build_service", return_value=_WeakReanchorService()):
+        view = _make_book_view("b1", title="Test Book")
+        plugin.enrich((view,), ctx)
 
-        # Should have called ctx.notify with warning, the backward_move message, and durable=True
-        assert len(notify_calls) == 1
-        kind, message, durable = notify_calls[0]
-        assert kind == "warning"
-        assert "chapter 124 → 43" in message
-        assert durable is True
-
-    def test_a_forward_move_records_nothing(self) -> None:
-        """A forward or neutral move (backward_move=None) does not trigger a notify call."""
-        ctx = _FakeCtx(
-            event_type=None,
-            settings={
-                "server": "http://k",
-                "api_key": "s",
-                "library_id": "L",
-            },
-        )
-
-        # Create a fake notify to record calls
-        notify_calls: list[tuple[str, str, bool]] = []
-
-        def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
-            notify_calls.append((kind, message, durable))
-
-        ctx.notify = fake_notify  # type: ignore
-
-        plugin = KomgaSyncPlugin()
-
-        class _NoBackwardMoveService:
-            def sync(
-                self,
-                book: api.BookView,
-                *,
-                allow_scan: bool = True,
-                restore_target: api.ReadPosition | None = None,
-            ) -> Any:
-                from komga_sync.service import SyncResult
-
-                return SyncResult(
-                    True,
-                    "synced",
-                    fields={"external_item_id": "KB1"},
-                    backward_move=None,
-                )
-
-            def enrich(self, book: api.BookView) -> Any:
-                from komga_sync.service import SyncResult
-
-                return SyncResult(True, "enriched", fields={"external_item_id": "KB1"})
-
-            def delete_remote_book(self, external_item_id: str) -> None:
-                pass
-
-        with mock.patch.object(komga_sync, "_build_service", return_value=_NoBackwardMoveService()):
-            view = _make_book_view("b1", title="Test Book")
-            plugin.enrich((view,), ctx)
-
-        # Should not have called ctx.notify
-        assert len(notify_calls) == 0
+    # Should have called ctx.notify with warning, the notice verbatim, and durable=True
+    assert len(notify_calls) == 1
+    kind, message, durable = notify_calls[0]
+    assert kind == "warning"
+    assert message == notice
+    assert durable is True
 
 
 class TestLinkAttempt:

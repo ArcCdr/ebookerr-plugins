@@ -2958,101 +2958,6 @@ def test_sync_returns_read_position(repo: _FakeBookRepository) -> None:
     assert result.read_position.chapter_index == 1
 
 
-def _ten_chapters() -> tuple[ChapterLink, ...]:
-    """Ten chapters titled "Chapter 1".."Chapter 10", for first-link backup tests (EXP-002)."""
-    return tuple(ChapterLink(url=f"https://x/{i}", title=f"Chapter {i}") for i in range(1, 11))
-
-
-def _ten_chapter_views() -> tuple[ChapterView, ...]:
-    """Ten chapters as ChapterView objects for first-link backup tests (EXP-002)."""
-    return tuple(
-        ChapterView(
-            ordinal=i,
-            key=f"https://x/{i}",
-            title=f"Chapter {i}",
-            number=str(i),
-            role="content",
-            href=f"file{i:04d}.xhtml",
-        )
-        for i in range(1, 11)
-    )
-
-
-def test_first_link_backs_up_local_read_state_before_adoption() -> None:
-    """First Komga link with empty provider progress backs up local state (EXP-002)."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(read={})
-    view = make_book_view(
-        progress=ExternalProgress(percent=0.42),
-        chapter_table=_ten_chapter_views(),
-    )
-
-    result = service(client, now=lambda: FIXED_NOW).sync(view)
-
-    assert result.ok is True
-    assert result.read_position is not None
-    assert result.read_position.chapter_index == 5
-    assert result.read_position.chapter_title == "Chapter 5"
-    assert result.read_position.total_chapters == 10
-    assert result.fields["external_read_percent"] == 0.0
-
-
-def test_first_link_with_provider_progress_does_not_back_up(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A Komga book that already has progress wins — no backup capture, no backup log."""
-    progression = {
-        "locator": {
-            "href": "OEBPS/file0001.xhtml",
-            "title": "The 12th Key - Ch 1",
-            "locations": {"progression": 0.5, "position": 3, "totalProgression": 0.4},
-        }
-    }
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(read={"page": 7})
-    client.get_progression = lambda bid: progression  # type: ignore
-    client.get_positions = lambda bid: POSITIONS_FIXTURE  # type: ignore
-    view = make_book_view(
-        progress=ExternalProgress(percent=0.42),
-        num_chapters=10,
-        chapters=_ten_chapters(),
-        chapter_table=_DEFAULT_CHAPTER_TABLE,
-    )
-
-    with caplog.at_level(logging.INFO, logger="komga_sync.service"):
-        result = service(client, now=lambda: FIXED_NOW).sync(view)
-
-    assert result.ok is True
-    assert result.read_position is not None
-    assert result.read_position.chapter_index == 1
-    assert result.read_position.chapter_title == "The 12th Key - Ch 1"
-    assert not any("Backing up local read state" in r.message for r in caplog.records)
-
-
-def test_linked_resync_with_empty_provider_progress_does_not_back_up(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """An ordinary re-sync of an already-linked book is not treated as a first link."""
-    client = FakeKomga()
-    client.book_exists_result = True
-    client.book = komga_book(read={})
-    view = make_book_view(
-        external=ExternalLink(item_id="KB1"),
-        progress=ExternalProgress(percent=0.42),
-        num_chapters=10,
-        chapters=_ten_chapters(),
-    )
-
-    with caplog.at_level(logging.INFO, logger="komga_sync.service"):
-        result = service(client, now=lambda: FIXED_NOW).sync(view)
-
-    assert result.ok is True
-    assert result.read_position is None
-    assert not any("Backing up local read state" in r.message for r in caplog.records)
-
-
 # ---  Semantic read-position restore (RP-REST-3/5/7, RP-PLUG-4, RP-LOG-2/3) --- #
 
 
@@ -4518,174 +4423,6 @@ def test_sync_summary_counts_a_failure(
 # --- backward read-position moves and device attribution ---------------------- #
 
 
-def test_backward_move_within_a_chapter_warns_with_the_writer(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Prior position index 2 @ 0.14; new progression 0.111 at same href warns with writer."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    # Positions fixture with chapters aligned to our test
-    kb = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.book_sequence = [kb, kb]
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-    # Progression: backward move from 0.14 to 0.111 in same chapter (index 2, file0002.xhtml)
-    progression = {
-        "locator": {
-            "href": "OEBPS/file0002.xhtml",
-            "locations": {"position": 5, "progression": 0.111},
-        },
-        "device": {"id": "komic-ios", "name": "Komic"},
-        "modified": "2026-08-08T10:00:00Z",
-    }
-    # Three progression calls: sync-start snapshot, restore-check, semantic capture
-    client.progression_sequence = [progression, progression, progression]
-    # Use the standard POSITIONS_FIXTURE which has file0002.xhtml at index 2
-    client.positions = POSITIONS_FIXTURE
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    # Create a BookView with an existing read_position (chapter_index=2, progress=0.14)
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        author=book.author,
-        story_url=book.story_url,
-        output_filename=book.output_filename,
-        status=book.status,
-        rating=book.rating,
-        category=book.category,
-        erotica_tags=book.erotica_tags,
-        site=book.site,
-        description=book.description,
-        date_published=book.date_published,
-        author_url=book.author_url,
-        series=book.series,
-        series_url=book.series_url,
-        section_url=book.section_url,
-        external=ExternalLink(
-            item_id=book.external_item_id,
-            collection_id=book.external_collection_id,
-            provider=book.external_provider,
-            library_id=book.external_library_id,
-        ),
-        progress=ExternalProgress(
-            position=book.external_read_position,
-            completed=book.external_read_completed,
-            total=book.external_read_total,
-            locator=book.external_locator,
-        ),
-        read_position=ReadPosition(
-            captured_at="2026-08-01T10:00:00Z",
-            chapter_index=2,
-            chapter_progress=0.14,
-            chapter_number=2,
-            chapter_title="The 12th Key - Ch 2",
-            chapter_href="OEBPS/file0002.xhtml",
-            completed=False,
-            total_chapters=2,
-        ),
-        chapter_table=_DEFAULT_CHAPTER_TABLE,
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    # Look for the warning about backward move
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 1
-    msg = warnings[0].message
-    assert "moved backwards: chapter_index 2 -> 2" in msg
-    assert "14%" in msg
-    assert "11%" in msg
-    assert "device=komic-ios" in msg
-    assert "name=Komic" in msg
-
-
-def test_forward_move_does_not_warn(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Forward move from 0.14 → 0.40 in same chapter produces no WARNING."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    kb = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.book_sequence = [kb, kb]
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-    # Forward move: progression 0.40 in same chapter (index 2)
-    progression = {
-        "locator": {
-            "href": "OEBPS/file0002.xhtml",
-            "locations": {"position": 5, "progression": 0.40},
-        },
-        "device": {"id": "komic-ios", "name": "Komic"},
-        "modified": "2026-08-08T10:00:00Z",
-    }
-    # Three progression calls: sync-start snapshot, restore-check, semantic capture
-    client.progression_sequence = [progression, progression, progression]
-    client.positions = POSITIONS_FIXTURE
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        author=book.author,
-        story_url=book.story_url,
-        output_filename=book.output_filename,
-        status=book.status,
-        rating=book.rating,
-        category=book.category,
-        erotica_tags=book.erotica_tags,
-        site=book.site,
-        description=book.description,
-        date_published=book.date_published,
-        author_url=book.author_url,
-        series=book.series,
-        series_url=book.series_url,
-        section_url=book.section_url,
-        external=ExternalLink(
-            item_id=book.external_item_id,
-            collection_id=book.external_collection_id,
-            provider=book.external_provider,
-            library_id=book.external_library_id,
-        ),
-        progress=ExternalProgress(
-            position=book.external_read_position,
-            completed=book.external_read_completed,
-            total=book.external_read_total,
-            locator=book.external_locator,
-        ),
-        read_position=ReadPosition(
-            captured_at="2026-08-01T10:00:00Z",
-            chapter_index=2,
-            chapter_progress=0.14,
-            chapter_number=2,
-            chapter_title="The 12th Key - Ch 2",
-            chapter_href="OEBPS/file0002.xhtml",
-            completed=False,
-            total_chapters=2,
-        ),
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    # No warnings about backward move
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 0
-
-
 def test_capture_debug_line_names_device_and_modified(
     repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -5263,316 +5000,6 @@ def test_the_persisted_locator_is_logged_at_debug(
 
 
 # --- backward move warnings (EXP-123) ----------------------------------- #
-
-
-def test_a_cross_chapter_backward_move_warns(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A read position moving to an earlier chapter warns and surfaces in result."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-
-    # Set up: previously at chapter 124
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=124,
-        chapter_progress=0.5,
-        chapter_number=124,
-        chapter_title="Chapter 124",
-        chapter_href="file0124.xhtml",
-        completed=False,
-        total_chapters=200,
-    )
-
-    # Progression that carries the href for chapter 43
-    progression = {
-        "device": {"id": "test-device", "name": "Test Device"},
-        "modified": "2026-01-02T00:00:00+00:00",
-        "locator": {
-            "href": "OEBPS/file0043.xhtml",
-            "title": "Chapter 43",
-            "locations": {"position": 43, "progression": 0.3, "totalProgression": 0.215},
-        },
-    }
-    # Called 3 times: sync start snapshot, restore check, semantic capture
-    client.progression_sequence = [progression, {}, progression]
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    # Read back: chapter 43 (backward move)
-    client.book_sequence = [
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 6, "completed": False}),
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 6, "completed": False}),
-    ]
-    # Provide a range of positions to properly classify chapter indices
-    client.positions = [
-        {
-            "href": "OEBPS/file0000.xhtml",
-            "title": "Title Page",
-            "type": "application/xhtml+xml",
-            "locations": {"position": 1, "progression": 0.0, "totalProgression": 0.0},
-        },
-    ] + [
-        {
-            "href": f"OEBPS/file{i:04d}.xhtml",
-            "title": f"Chapter {i}",
-            "type": "application/xhtml+xml",
-            "locations": {
-                "position": i + 1,
-                "progression": 0.0 if i != 43 else 0.3,
-                "totalProgression": (i + 1) / 200,
-            },
-        }
-        for i in range(1, 51)
-    ]
-
-    # Create BookView with prev_position set
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        external=ExternalLink(item_id="KB1"),
-        read_position=prev_position,
-        chapter_table=_chapters(*[(f"file{i:04d}.xhtml", f"Chapter {i}") for i in range(1, 51)]),
-    )
-
-    svc = service(client)
-    svc._document_hrefs = lambda b: tuple(  # type: ignore[method-assign]
-        ["file0000.xhtml"] + [f"file{i:04d}.xhtml" for i in range(1, 51)]
-    )
-    with caplog.at_level(logging.WARNING, logger="komga_sync.service"):
-        result = svc.sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is not None
-    assert "chapter 124 → 43" in result.backward_move
-    assert any(
-        "moved backwards: chapter_index 124 -> 43" in r.message
-        for r in caplog.records
-        if r.levelname == "WARNING"
-    )
-
-
-def test_a_forward_move_does_not_warn(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A read position moving to a later chapter does not warn."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-
-    # Previously at chapter 43
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=43,
-        chapter_progress=0.5,
-        chapter_number=43,
-        chapter_title="Chapter 43",
-        chapter_href="file0043.xhtml",
-        completed=False,
-        total_chapters=200,
-    )
-
-    # Progression for chapter 124
-    progression = {
-        "device": {"id": "test-device", "name": "Test Device"},
-        "modified": "2026-01-02T00:00:00+00:00",
-        "locator": {
-            "href": "OEBPS/file0124.xhtml",
-            "title": "Chapter 124",
-            "locations": {"position": 124, "progression": 0.3, "totalProgression": 0.62},
-        },
-    }
-    # Called 3 times: sync start snapshot, restore check, semantic capture
-    client.progression_sequence = [progression, {}, progression]
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    # Read back: chapter 124 (forward move)
-    client.book_sequence = [
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 20, "completed": False}),
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 20, "completed": False}),
-    ]
-    # Provide a range of positions to properly classify chapter indices
-    client.positions = [
-        {
-            "href": "OEBPS/file0000.xhtml",
-            "title": "Title Page",
-            "type": "application/xhtml+xml",
-            "locations": {"position": 1, "progression": 0.0, "totalProgression": 0.0},
-        },
-    ] + [
-        {
-            "href": f"OEBPS/file{i:04d}.xhtml",
-            "title": f"Chapter {i}",
-            "type": "application/xhtml+xml",
-            "locations": {
-                "position": i + 1,
-                "progression": 0.3 if i == 124 else 0.0,
-                "totalProgression": (i + 1) / 200,
-            },
-        }
-        for i in range(1, 151)
-    ]
-
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        external=ExternalLink(item_id="KB1"),
-        read_position=prev_position,
-    )
-
-    with caplog.at_level(logging.WARNING, logger="komga_sync.service"):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is None
-    assert not any(
-        "moved backwards" in r.message for r in caplog.records if r.levelname == "WARNING"
-    )
-
-
-def test_finishing_the_book_does_not_warn(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A read position with completed=True does not warn, even if chapter index regresses."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=50,
-        chapter_progress=0.5,
-        chapter_number=50,
-        chapter_title="Chapter 50",
-        chapter_href="file0050.xhtml",
-        completed=False,
-        total_chapters=200,
-    )
-
-    # Progression for completed (all chapters)
-    progression = {
-        "device": {"id": "test-device", "name": "Test Device"},
-        "modified": "2026-01-02T00:00:00+00:00",
-        "locator": {
-            "href": "OEBPS/file0200.xhtml",
-            "title": "Chapter 200",
-            "locations": {"position": 200, "progression": 1.0, "totalProgression": 1.0},
-        },
-    }
-    # Called 3 times: sync start snapshot, restore check, semantic capture
-    client.progression_sequence = [progression, {}, progression]
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    # Read back: completed (no matter the chapter index)
-    client.book_sequence = [
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 200, "completed": True}),
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 200, "completed": True}),
-    ]
-    client.positions = [
-        {
-            "href": "OEBPS/file0200.xhtml",
-            "title": "Chapter 200",
-            "type": "application/xhtml+xml",
-            "locations": {"position": 200, "progression": 1.0, "totalProgression": 1.0},
-        },
-    ]
-
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        external=ExternalLink(item_id="KB1"),
-        read_position=prev_position,
-    )
-
-    with caplog.at_level(logging.WARNING, logger="komga_sync.service"):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is None
-
-
-def test_a_within_chapter_regression_still_warns(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A read position at the same chapter but lower progress warns."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-
-    # Previously at chapter 50, 80% progress
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=50,
-        chapter_progress=0.80,
-        chapter_number=50,
-        chapter_title="Chapter 50",
-        chapter_href="file0050.xhtml",
-        completed=False,
-        total_chapters=200,
-    )
-
-    # Progression for chapter 50, 20% progress (backward within chapter)
-    progression = {
-        "device": {"id": "test-device", "name": "Test Device"},
-        "modified": "2026-01-02T00:00:00+00:00",
-        "locator": {
-            "href": "OEBPS/file0050.xhtml",
-            "title": "Chapter 50",
-            "locations": {"position": 50, "progression": 0.20, "totalProgression": 0.25},
-        },
-    }
-    # Called 3 times: sync start snapshot, restore check, semantic capture
-    client.progression_sequence = [progression, {}, progression]
-
-    book = make_book(repo)
-    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
-    book = repo.get(book.book_id)
-    assert book is not None
-
-    # Read back: same chapter, 20% progress (backward within chapter)
-    client.book_sequence = [
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 10, "completed": False}),
-        komga_book(metadata=MATCHING_BOOK_METADATA, read={"page": 10, "completed": False}),
-    ]
-    client.positions = [
-        {
-            "href": "OEBPS/file0050.xhtml",
-            "title": "Chapter 50",
-            "type": "application/xhtml+xml",
-            "locations": {"position": 50, "progression": 0.20, "totalProgression": 0.25},
-        },
-    ]
-
-    view = make_book_view(
-        book_id=book.book_id,
-        title=book.title,
-        external=ExternalLink(item_id="KB1"),
-        read_position=prev_position,
-        chapter_table=_chapters(("file0050.xhtml", "Chapter 50")),
-    )
-
-    with caplog.at_level(logging.WARNING, logger="komga_sync.service"):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is not None
-    assert "chapter 50" in result.backward_move
 
 
 def test_the_raw_replay_warns_when_the_app_has_a_record(
@@ -8260,225 +7687,81 @@ def test_the_per_call_memos_are_cleared_between_syncs(
     assert client.get_positions_call_count == 2
 
 
-FRONT_MATTER_POSITIONS = [
-    {
-        "href": "OEBPS/title_page.xhtml",
-        "type": "application/xhtml+xml",
-        "locations": {"position": 1, "progression": 0.0, "totalProgression": 0.0},
-    },
-    {
-        "href": "OEBPS/file0001.xhtml",
-        "type": "application/xhtml+xml",
-        "locations": {"position": 2, "progression": 0.0, "totalProgression": 0.1},
-    },
-    {
-        "href": "OEBPS/file0002.xhtml",
-        "type": "application/xhtml+xml",
-        "locations": {"position": 3, "progression": 0.0, "totalProgression": 0.2},
-    },
-    {
-        "href": "OEBPS/file0003.xhtml",
-        "type": "application/xhtml+xml",
-        "locations": {"position": 4, "progression": 0.0, "totalProgression": 0.3},
-    },
-]
+def test_capture_uses_the_fresh_completed_flag_in_both_directions() -> None:
+    """Regression (reported on Komga): capture reads this sync's fresh flag, not the stale one.
 
-
-@pytest.mark.pins("EXP-243")
-def test_an_empty_komga_read_back_is_not_a_backward_move(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """An empty provider read-back (chapter_index 0, 0% progress) is not a backward move."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    kb = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.book_sequence = [kb, kb]
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-    progression = {
-        "device": {"id": "ebookerr", "name": "ebookerr"},
-        "modified": "2026-08-27T23:33:57.052Z",
-        "locator": {
-            "href": "OEBPS/title_page.xhtml",
-            "locations": {"position": 1, "progression": 0.0, "totalProgression": 0.0},
+    A merged view whose stored ``progress.completed`` disagrees with the freshly-read
+    Komga record must not let the stale flag win in either direction (``RPH-SRC-4``):
+    a stale-finished view must not force the last chapter at 1.0 over a live bookmark
+    elsewhere, and a stale-unfinished view must not suppress a live bookmark just
+    because Komga now reports the book finished.
+    """
+    positions = [
+        {
+            "href": "file0001.xhtml",
+            "title": "Ch 1",
+            "locations": {"position": 1, "progression": 0.0},
         },
-    }
-    client.progression_sequence = [progression, progression, progression]
-    client.positions = FRONT_MATTER_POSITIONS
-
-    view = make_book_view(
-        num_chapters=3,
-        external=ExternalLink(item_id="KB1"),
-        read_position=ReadPosition(
-            captured_at="2026-08-27T23:29:03+00:00",
-            chapter_index=1,
-            chapter_progress=0.0,
-            chapter_number=None,
-            chapter_title="Title Page",
-            chapter_href="title_page.xhtml",
-            completed=False,
-            total_chapters=3,
-        ),
-        chapter_table=_chapters(
-            ("file0001.xhtml", "Ch 1"), ("file0002.xhtml", "Ch 2"), ("file0003.xhtml", "Ch 3")
-        ),
-    )
-
-    svc = service(client)
-    svc._document_hrefs = lambda b: (  # type: ignore[method-assign]
-        "title_page.xhtml",
-        "file0001.xhtml",
-        "file0002.xhtml",
-        "file0003.xhtml",
-    )
-    with caplog.at_level(logging.DEBUG):
-        result = svc.sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 0
-    # A bookmark that resolves to a non-chapter document is never recorded at all (RP-CAP-3),
-    # so capture returns None outright rather than an empty ReadPosition; that DEBUG line
-    # (not the book-level "came back empty" one, which needs an actual captured position)
-    # is the trail explaining why nothing was recorded here.
-    debug_records = [
-        r
-        for r in caplog.records
-        if r.levelno == logging.DEBUG and "is on a non-chapter document" in r.message
-    ]
-    assert len(debug_records) == 1
-
-
-@pytest.mark.pins("EXP-243")
-def test_a_real_komga_backward_move_still_warns(
-    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A real backward move (non-empty position) still warns."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    kb = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.book_sequence = [kb, kb]
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-    progression = {
-        "device": {"id": "ebookerr", "name": "ebookerr"},
-        "modified": "2026-08-27T23:33:57.052Z",
-        "locator": {
-            "href": "OEBPS/file0001.xhtml",
-            "locations": {"position": 2, "progression": 0.5, "totalProgression": 0.15},
+        {
+            "href": "file0002.xhtml",
+            "title": "Ch 2",
+            "locations": {"position": 2, "progression": 0.0},
         },
-    }
-    client.progression_sequence = [progression, progression, progression]
-    client.positions = FRONT_MATTER_POSITIONS
-
-    view = make_book_view(
-        num_chapters=3,
-        external=ExternalLink(item_id="KB1"),
-        read_position=ReadPosition(
-            captured_at="2026-08-27T23:29:03+00:00",
-            chapter_index=2,
-            chapter_progress=0.5,
-            chapter_number=2,
-            chapter_title="Ch 2",
-            chapter_href="file0002.xhtml",
-            completed=False,
-            total_chapters=3,
-        ),
-        chapter_table=_chapters(
-            ("file0001.xhtml", "Ch 1"), ("file0002.xhtml", "Ch 2"), ("file0003.xhtml", "Ch 3")
-        ),
-    )
-
-    svc = service(client)
-    svc._document_hrefs = lambda b: (  # type: ignore[method-assign]
-        "title_page.xhtml",
-        "file0001.xhtml",
-        "file0002.xhtml",
-        "file0003.xhtml",
-    )
-    with caplog.at_level(logging.DEBUG):
-        result = svc.sync(view)
-
-    assert result.backward_move is not None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 1
-    assert "chapter_index 2 -> 1" in warnings[0].message
-
-
-def test_a_requested_restore_is_not_a_backward_move(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A requested restore (restore_attempted=True) with backward move is silent (RP-D18)."""
-    client = FakeKomga()
-    client.find_results = ["KB1"]
-    kb = komga_book(metadata=MATCHING_BOOK_METADATA)
-    client.book_sequence = [kb, kb]
-    client.series = {"metadata": MATCHING_SERIES_METADATA}
-    progression = {
-        "device": {"id": "ebookerr", "name": "ebookerr"},
-        "modified": "2026-08-27T23:33:57.052Z",
-        "locator": {
-            "href": "OEBPS/file0001.xhtml",
-            "locations": {"position": 2, "progression": 0.5, "totalProgression": 0.15},
+        {
+            "href": "file0003.xhtml",
+            "title": "Ch 3",
+            "locations": {"position": 3, "progression": 0.0},
         },
-    }
-    client.progression_sequence = [progression, progression, progression]
-    client.positions = FRONT_MATTER_POSITIONS
-
-    view = make_book_view(
-        num_chapters=3,
-        external=ExternalLink(item_id="KB1"),
-        read_position=ReadPosition(
-            captured_at="2026-08-27T23:29:03+00:00",
-            chapter_index=2,
-            chapter_progress=0.5,
-            chapter_number=2,
-            chapter_title="Ch 2",
-            chapter_href="file0002.xhtml",
-            completed=False,
-            total_chapters=3,
-        ),
-        chapter_table=_chapters(
-            ("file0001.xhtml", "Ch 1"), ("file0002.xhtml", "Ch 2"), ("file0003.xhtml", "Ch 3")
-        ),
-    )
-
-    # Restore target is two chapters back
-    restore_target = ReadPosition(
-        captured_at="2026-08-27T23:00:00+00:00",
-        chapter_index=0,
-        chapter_progress=0.5,
-        chapter_number=0,
-        chapter_title="Ch 1",
-        chapter_href="file0001.xhtml",
-        completed=False,
-        total_chapters=3,
-    )
-
-    svc = service(client)
-    svc._document_hrefs = lambda b: (  # type: ignore[method-assign]
-        "title_page.xhtml",
-        "file0001.xhtml",
-        "file0002.xhtml",
-        "file0003.xhtml",
-    )
-    with caplog.at_level(logging.DEBUG):
-        result = svc.sync(view, restore_target=restore_target)
-
-    assert result.backward_move is None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
+        {
+            "href": "file0004.xhtml",
+            "title": "Ch 4",
+            "locations": {"position": 4, "progression": 0.0},
+        },
     ]
-    assert len(warnings) == 0
-    infos = [
-        r
-        for r in caplog.records
-        if r.levelno == logging.INFO and "moved backwards by the requested restore" in r.message
+    chapter_table = _chapters(
+        ("file0001.xhtml", "Ch 1"),
+        ("file0002.xhtml", "Ch 2"),
+        ("file0003.xhtml", "Ch 3"),
+        ("file0004.xhtml", "Ch 4"),
+    )
+
+    # Stale-finished merged view; Komga's fresh record says otherwise — chapter 3 wins.
+    client_a = FakeKomga()
+    client_a.find_results = ["KB1"]
+    client_a.book = komga_book(metadata=MATCHING_BOOK_METADATA, read={"completed": False})
+    client_a.series = {"metadata": MATCHING_SERIES_METADATA}
+    client_a.positions = positions
+    client_a.progression_sequence = [
+        {"locator": {"href": "file0003.xhtml", "locations": {"progression": 0.4}}}
     ]
-    assert len(infos) == 1
+    view_a = make_book_view(
+        num_chapters=4, progress=ExternalProgress(completed=True), chapter_table=chapter_table
+    )
+
+    result_a = service(client_a).sync(view_a)
+
+    assert result_a.read_position is not None
+    assert result_a.read_position.chapter_index == 3
+
+    # Stale-unfinished merged view; Komga's fresh record now says finished — the live
+    # bookmark on chapter 1 is still captured verbatim, not forced to the last chapter.
+    client_b = FakeKomga()
+    client_b.find_results = ["KB1"]
+    client_b.book = komga_book(metadata=MATCHING_BOOK_METADATA, read={"completed": True})
+    client_b.series = {"metadata": MATCHING_SERIES_METADATA}
+    client_b.positions = positions
+    client_b.progression_sequence = [
+        {"locator": {"href": "file0001.xhtml", "locations": {"progression": 0.1}}}
+    ]
+    view_b = make_book_view(
+        num_chapters=4, progress=ExternalProgress(completed=False), chapter_table=chapter_table
+    )
+
+    result_b = service(client_b).sync(view_b)
+
+    assert result_b.read_position is not None
+    assert result_b.read_position.chapter_index == 1
+    assert result_b.read_position.chapter_progress == pytest.approx(0.1)
 
 
 def test_semantic_from_progression_is_gone() -> None:
