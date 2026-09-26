@@ -141,9 +141,9 @@ class TestManifest:
         )
 
     def test_manifest_version_and_group(self) -> None:
-        """Manifest version is 1.1.0 with correct exclusive_group and events."""
+        """Manifest version is 1.2.0 with correct exclusive_group and events."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.version == "1.1.0"
+        assert plugin.manifest.version == "1.2.0"
         assert plugin.manifest.exclusive_group == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -1869,80 +1869,50 @@ class TestPerBookFailureReporting:
 
 
 # ---------------------------------------------------------------------------
-# Backward move toast notification tests (EXP-123)
+# Weak re-anchor notice tests (RPH-ANC-5)
 # ---------------------------------------------------------------------------
 
 
-class TestBackwardMoveNotification:
-    def test_a_backward_move_reaches_the_user_as_a_durable_notice(self) -> None:
-        """Backward move triggers ctx.notify with durable=True (EXP-123, EXP-218)."""
-        plugin = KavitaSyncPlugin()
-        view = _make_book_view("b1", "Test Book")
-        ctx = _FakeCtx(
-            settings={
-                "server": "http://kavita.local:5000",
-                "api_key": "test_key",
-            },
-            event_type=api.PluginEventType.BOOK_UPDATED,
-        )
+def test_a_weak_reanchor_notice_reaches_the_user() -> None:
+    """A weak-facet re-anchor notice reaches the user as a durable warning (RPH-ANC-5)."""
+    plugin = KavitaSyncPlugin()
+    view = _make_book_view("b1", "Test Book")
+    ctx = _FakeCtx(
+        settings={
+            "server": "http://kavita.local:5000",
+            "api_key": "test_key",
+        },
+        event_type=api.PluginEventType.BOOK_UPDATED,
+    )
 
-        notify_calls: list[tuple[str, str, bool]] = []
+    notify_calls: list[tuple[str, str, bool]] = []
 
-        def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
-            notify_calls.append((kind, message, durable))
+    def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
+        notify_calls.append((kind, message, durable))
 
-        ctx.notify = fake_notify  # type: ignore[attr-defined]
+    ctx.notify = fake_notify  # type: ignore[attr-defined]
 
-        mock_service = MagicMock()
-        mock_service.sync.return_value = SyncResult(
-            ok=True,
-            message="synced",
-            fields={},
-            backward_move='Read position for "Test Book" moved backwards: chapter 30 → 4',
-        )
+    notice = (
+        'The reading position for "Test Book" was re-anchored by number rather than by '
+        "chapter title — check where your reader resumes."
+    )
+    mock_service = MagicMock()
+    mock_service.sync.return_value = SyncResult(
+        ok=True,
+        message="synced",
+        fields={},
+        reanchor_notice=notice,
+    )
 
-        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
-            plugin.enrich((view,), ctx)
+    with patch("kavita_sync.plugin._build_service", return_value=mock_service):
+        plugin.enrich((view,), ctx)
 
-        # Should have called ctx.notify with warning, the backward_move message, and durable=True
-        assert len(notify_calls) == 1
-        kind, message, durable = notify_calls[0]
-        assert kind == "warning"
-        assert "chapter 30 → 4" in message
-        assert durable is True
-
-    def test_a_forward_move_records_nothing(self) -> None:
-        """A forward or neutral move (backward_move=None) does not trigger a notify call."""
-        plugin = KavitaSyncPlugin()
-        view = _make_book_view("b1", "Test Book")
-        ctx = _FakeCtx(
-            settings={
-                "server": "http://kavita.local:5000",
-                "api_key": "test_key",
-            },
-            event_type=api.PluginEventType.BOOK_UPDATED,
-        )
-
-        notify_calls: list[tuple[str, str, bool]] = []
-
-        def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
-            notify_calls.append((kind, message, durable))
-
-        ctx.notify = fake_notify  # type: ignore[attr-defined]
-
-        mock_service = MagicMock()
-        mock_service.sync.return_value = SyncResult(
-            ok=True,
-            message="synced",
-            fields={},
-            backward_move=None,
-        )
-
-        with patch("kavita_sync.plugin._build_service", return_value=mock_service):
-            plugin.enrich((view,), ctx)
-
-        # Should not have called ctx.notify
-        assert len(notify_calls) == 0
+    # Should have called ctx.notify with warning, the notice verbatim, and durable=True
+    assert len(notify_calls) == 1
+    kind, message, durable = notify_calls[0]
+    assert kind == "warning"
+    assert message == notice
+    assert durable is True
 
 
 # ---------------------------------------------------------------------------

@@ -101,3 +101,32 @@ def test_backward_move_guard_still_applies() -> None:
 
     assert result.restore_landed is True
     assert len(client.save_progress_calls) == 1
+
+
+def test_a_restore_already_in_place_counts_as_landed() -> None:
+    """A restore whose target already matches Kavita's own bookmark lands without a write.
+
+    The core's compare-first check (RPH-REST-5) finds nothing to do; the caller must count
+    that as landed, not as an unattempted or failed restore.
+    """
+    client = FakeKavita()
+    ref = _ref(chapter_id=11, total_pages=4)
+    client.find_chapter_result = ref
+    client.get_progress_result = {"pageNum": 3}
+    client.book_chapters_result = _build_toc(["Ch 1", "Ch 2"])
+    view = make_book_view(chapter_table=_chapters("Ch 1", "Ch 2"))
+    target = ReadPosition(
+        captured_at="2026-01-01T00:00:00+00:00",
+        chapter_index=2,
+        chapter_progress=0.5,
+        chapter_number=None,
+        chapter_title="Ch 2",
+        chapter_href=None,
+        completed=False,
+        total_chapters=2,
+    )
+
+    result = service(client).sync(view, restore_target=target)
+
+    assert result.restore_landed is True
+    assert client.save_progress_calls == []

@@ -758,68 +758,6 @@ def test_sync_returns_read_position() -> None:
     assert result.read_position.chapter_index == 1
 
 
-def _ten_chapters() -> tuple[ChapterLink, ...]:
-    """Ten chapters titled "Chapter 1".."Chapter 10", for first-link backup tests (EXP-002)."""
-    return tuple(ChapterLink(url=f"https://x/{i}", title=f"Chapter {i}") for i in range(1, 11))
-
-
-def _ten_chapter_views() -> tuple[ChapterView, ...]:
-    """Ten chapters as ChapterView objects for first-link backup tests (EXP-002)."""
-    return tuple(
-        ChapterView(
-            ordinal=i,
-            key=f"https://x/{i}",
-            title=f"Chapter {i}",
-            number=str(i),
-            role="content",
-            href=f"file{i:04d}.xhtml",
-        )
-        for i in range(1, 11)
-    )
-
-
-def test_first_link_backs_up_local_read_state_before_adoption() -> None:
-    """First Kavita link with page 0 backs up local read state (EXP-002)."""
-    client = FakeKavita()
-    client.find_chapter_result = _ref()
-    client.get_progress_result = {"pageNum": 0}
-    view = make_book_view(
-        progress=ExternalProgress(percent=0.42),
-        chapter_table=_ten_chapter_views(),
-    )
-
-    result = service(client, now=lambda: FIXED_NOW).sync(view)
-
-    assert result.ok is True
-    assert result.read_position is not None
-    assert result.read_position.chapter_index == 5
-    assert result.read_position.chapter_title == "Chapter 5"
-    assert result.read_position.total_chapters == 10
-    assert result.fields["external_read_position"] == 0
-
-
-def test_first_link_with_kavita_progress_does_not_back_up(caplog: Any) -> None:
-    """A Kavita chapter that already has progress wins — no backup capture, no backup log."""
-    client = FakeKavita()
-    client.find_chapter_result = _ref()
-    client.get_progress_result = {"pageNum": 12}
-    client.book_chapters_result = TOC_FIXTURE
-    view = make_book_view(
-        progress=ExternalProgress(percent=0.42),
-        num_chapters=10,
-        chapters=_ten_chapters(),
-        chapter_table=TOC_FIXTURE_CHAPTERS,
-    )
-
-    with caplog.at_level(logging.INFO):
-        result = service(client, now=lambda: FIXED_NOW).sync(view)
-
-    assert result.ok is True
-    assert result.read_position is not None
-    assert result.read_position.chapter_title != "Chapter 5"
-    assert "Backing up local read state" not in caplog.text
-
-
 def test_sync_uses_the_merged_title(caplog: Any) -> None:
     """sync() uses BookView.title, not original book title."""
     client = FakeKavita()
@@ -974,7 +912,7 @@ def test_completion_date_does_not_disturb_the_other_fields() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Backward move warnings (EXP-123)
+# Fresh finished-flag capture (RPH-SRC-4, RPH-FACT-7)
 # ---------------------------------------------------------------------------
 
 BACKWARD_TOC = [
@@ -996,67 +934,30 @@ BACKWARD_TOC_CHAPTERS = _chapters(
 )
 
 
-def test_a_cross_chapter_backward_move_warns(caplog: Any) -> None:
-    """A read position moving to an earlier chapter warns and surfaces in the result."""
-    from ebookerr_sdk.spi import ReadPosition
+def test_capture_uses_the_page_it_just_read_to_decide_finished() -> None:
+    """A stale ``completed`` flag never overrides this sync's own fresh page read.
 
+    Regression (EVIDENCE E2): a book marked finished before a re-index added a chapter used
+    to have its stale ``progress.completed`` flag stand in for Kavita's own finished state, so
+    a fresh page still inside chapter 2 was captured as the (finished) last chapter instead of
+    chapter 2 (``RPH-SRC-4``).
+    """
     ref = _ref(chapter_id=11, total_pages=60)
     client = FakeKavita()
     client.find_chapter_result = ref
-    client.get_progress_result = {"pageNum": 45}
+    client.get_progress_result = {"pageNum": 25}
     client.book_chapters_result = BACKWARD_TOC
-
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=30,
-        chapter_progress=0.5,
-        chapter_number=30,
-        chapter_title="Chapter 30",
-        chapter_href=None,
-        completed=False,
-        total_chapters=100,
+    view = make_book_view(
+        progress=ExternalProgress(completed=True),
+        chapter_table=BACKWARD_TOC_CHAPTERS,
     )
-    view = make_book_view(read_position=prev_position, chapter_table=BACKWARD_TOC_CHAPTERS)
 
-    with caplog.at_level(logging.WARNING):
-        result = service(client).sync(view)
+    result = service(client).sync(view)
 
     assert result.ok is True
-    assert result.backward_move is not None
-    assert "chapter 30 → 4" in result.backward_move
-    assert any("moved backwards" in r.message for r in caplog.records if r.levelname == "WARNING")
-
-
-def test_a_forward_move_does_not_warn(caplog: Any) -> None:
-    """A read position moving to a later chapter does not warn."""
-    from ebookerr_sdk.spi import ReadPosition
-
-    ref = _ref(chapter_id=11, total_pages=60)
-    client = FakeKavita()
-    client.find_chapter_result = ref
-    client.get_progress_result = {"pageNum": 45}
-    client.book_chapters_result = BACKWARD_TOC
-
-    prev_position = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=2,
-        chapter_progress=0.5,
-        chapter_number=2,
-        chapter_title="Chapter 2",
-        chapter_href=None,
-        completed=False,
-        total_chapters=100,
-    )
-    view = make_book_view(read_position=prev_position, chapter_table=BACKWARD_TOC_CHAPTERS)
-
-    with caplog.at_level(logging.WARNING):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is None
-    assert not any(
-        "moved backwards" in r.message for r in caplog.records if r.levelname == "WARNING"
-    )
+    assert result.read_position is not None
+    assert result.read_position.chapter_index == 2
+    assert result.read_position.completed is False
 
 
 def test_a_position_at_the_last_page_captures_the_last_chapter_position(
@@ -2617,7 +2518,7 @@ def test_place_bookmark_computes_the_page_from_the_span() -> None:
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("10", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {"completed": False})
+    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2626,9 +2527,9 @@ def test_place_bookmark_computes_the_page_from_the_span() -> None:
 
 
 def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() -> None:
-    """place_bookmark writes total_pages when completed is True and the anchor is last.
+    """place_bookmark writes total_pages at progression 1.0 when the anchor is last.
 
-    ``RP-D20``: a completed position still clamps to its own chapter's span, so this
+    ``RP-D20``: progression 1.0 still clamps to its own chapter's span, so this
     only lands on ``total_pages`` because Ch 5 is genuinely the book's last chapter —
     see ``test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last``
     for the case where it is not.
@@ -2641,7 +2542,7 @@ def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() ->
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("50", "The 12th Key - Ch 5", 5)
-    bookmark = ProviderBookmark("50", None, 1.0, {"completed": True})
+    bookmark = ProviderBookmark("50", None, 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2659,7 +2560,7 @@ def test_place_bookmark_uses_the_book_end_for_the_last_anchor() -> None:
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("50", "The 12th Key - Ch 5", 5)
-    bookmark = ProviderBookmark("50", None, 1.0, {"completed": False})
+    bookmark = ProviderBookmark("50", None, 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2677,7 +2578,7 @@ def test_place_bookmark_refuses_an_anchor_the_toc_does_not_have() -> None:
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("999", None, 9)
-    bookmark = ProviderBookmark("999", None, 0.5, {"completed": False})
+    bookmark = ProviderBookmark("999", None, 0.5, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2693,7 +2594,7 @@ def test_place_bookmark_refuses_without_a_resolved_ref() -> None:
     svc = service(client)  # Empty _ref_cache
 
     anchor = ProviderAnchor("10", None, 1)
-    bookmark = ProviderBookmark("10", None, 0.5, {"completed": False})
+    bookmark = ProviderBookmark("10", None, 0.5, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2758,7 +2659,7 @@ def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("10", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {"completed": False})
+    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {})
 
     with caplog.at_level(logging.DEBUG, logger="kavita_sync.service"):
         svc.place_bookmark("11", anchor, bookmark)
@@ -2787,7 +2688,7 @@ def test_place_bookmark_at_full_progress_stays_in_the_chapter() -> None:
 
     # Place bookmark at Ch 1 with progression 1.0
     anchor = ProviderAnchor("5", "Ch 1", 1)
-    bookmark = ProviderBookmark("5", "Ch 1", 1.0, {"completed": False})
+    bookmark = ProviderBookmark("5", "Ch 1", 1.0, {})
 
     # Should place on page 19 (last page of Ch 1), not page 20 (first page of Ch 2)
     result = svc.place_bookmark("11", anchor, bookmark)
@@ -2805,11 +2706,38 @@ def test_place_bookmark_at_full_progress_stays_in_the_chapter() -> None:
     assert abs(read_back.progression - (14 / 15)) < 0.01
 
 
+@pytest.mark.pins("RPH-ANC-7")
+def test_place_bookmark_at_full_progress_lands_on_the_chapter_end() -> None:
+    """A bookmark at progression 1.0 lands on the chapter's own last page (RPH-ANC-7).
+
+    No ``completed`` flag is involved any more — the plain progression arithmetic alone
+    must clamp to ``start + span - 1`` on a non-last chapter, never bleeding into the next
+    chapter's first page.
+    """
+    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+
+    client = FakeKavita()
+    client.book_chapters_result = [
+        {"title": "Ch 1", "page": 0},
+        {"title": "Ch 2", "page": 10},
+    ]
+    ref = _ref(chapter_id=11, total_pages=20)
+    svc = _anchoring_service(client, ref)
+
+    anchor = ProviderAnchor("0", "Ch 1", 0)
+    bookmark = ProviderBookmark("0", "Ch 1", 1.0, {})
+
+    result = svc.place_bookmark("11", anchor, bookmark)
+
+    assert result is True
+    assert client.save_progress_calls == [(ref, 9)]  # start(0) + span(10) - 1
+
+
 @pytest.mark.pins("RP-D20")
 def test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last() -> None:
-    """A completed position restored onto a chapter later stripped of "last" still clamps.
+    """A position at progression 1.0 restored onto a chapter later stripped of "last" still clamps.
 
-    A position captured as ``completed`` when its chapter was the book's last one must not
+    A position captured at progression 1.0 when its chapter was the book's last one must not
     jump to the book's current last page once a later append (e.g. a merge) adds a chapter
     after it — it must still land within its own chapter's span (RP-D20).
     """
@@ -2831,7 +2759,7 @@ def test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last
     # Restore a completed Ch 3 position — Ch 4 now follows it, so page 4 (the book's current
     # last page) would land past Ch 3's own single-page span [2, 3).
     anchor = ProviderAnchor("2", "Ch 3", 2)
-    bookmark = ProviderBookmark("2", "Ch 3", 1.0, {"completed": True})
+    bookmark = ProviderBookmark("2", "Ch 3", 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2866,7 +2794,7 @@ def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() 
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("2", "Ch 3", 2)
-    bookmark = ProviderBookmark("2", "Ch 3", 1.0, {"completed": False})
+    bookmark = ProviderBookmark("2", "Ch 3", 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2890,7 +2818,7 @@ def test_place_bookmark_at_zero_lands_on_the_start_page() -> None:
     svc = _anchoring_service(client, ref)
 
     anchor = ProviderAnchor("5", "Ch 1", 1)
-    bookmark = ProviderBookmark("5", "Ch 1", 0.0, {"completed": False})
+    bookmark = ProviderBookmark("5", "Ch 1", 0.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2920,7 +2848,7 @@ def test_place_bookmark_round_trip_stays_within_one_page() -> None:
         # Clear save calls for this iteration
         client.save_progress_calls.clear()
 
-        bookmark = ProviderBookmark("5", "Ch 1", test_progression, {"completed": False})
+        bookmark = ProviderBookmark("5", "Ch 1", test_progression, {})
         result = svc.place_bookmark("11", anchor, bookmark)
 
         assert result is True
@@ -3087,143 +3015,6 @@ def test_a_book_with_no_stored_position_is_never_re_anchored() -> None:
 
     assert result.ok is True
     assert client.save_progress_calls == []
-
-
-EMPTY_CAPTURE_TOC = [
-    {"title": "Title Page", "page": 1},
-    {"title": "The 12th Key - Ch 1", "page": 10},
-    {"title": "The 12th Key - Ch 2", "page": 20},
-]
-
-# EMPTY_CAPTURE_TOC's two content chapters (its "Title Page" front-matter entry excluded).
-EMPTY_CAPTURE_TOC_CHAPTERS = _chapters("The 12th Key - Ch 1", "The 12th Key - Ch 2")
-
-
-@pytest.mark.pins("EXP-243")
-def test_an_empty_kavita_read_back_is_not_a_backward_move(caplog: Any) -> None:
-    """An empty provider read-back (chapter_index 0, 0% progress) is not a backward move."""
-    ref = _ref(chapter_id=11, total_pages=60)
-    client = FakeKavita()
-    client.find_chapter_result = ref
-    client.get_progress_result = {"pageNum": 1}
-    client.book_chapters_result = EMPTY_CAPTURE_TOC
-    view = make_book_view(
-        num_chapters=2,
-        chapter_table=EMPTY_CAPTURE_TOC_CHAPTERS,
-        read_position=ReadPosition(
-            captured_at="2026-01-01T00:00:00+00:00",
-            chapter_index=1,
-            chapter_progress=0.0,
-            chapter_number=1,
-            chapter_title="The 12th Key - Ch 1",
-            chapter_href=None,
-            completed=False,
-            total_chapters=2,
-        ),
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        result = service(client).sync(view)
-
-    assert result.ok is True
-    assert result.backward_move is None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 0
-    # A bookmark that resolves to a non-chapter document is never recorded at all (RP-CAP-3),
-    # so capture returns None outright rather than an empty ReadPosition; that DEBUG line
-    # (not the book-level "came back empty" one, which needs an actual captured position) is
-    # the trail explaining why nothing was recorded here.
-    debug_records = [
-        r
-        for r in caplog.records
-        if r.levelno == logging.DEBUG and "is on a non-chapter document" in r.message
-    ]
-    assert len(debug_records) == 1
-
-
-@pytest.mark.pins("EXP-243")
-def test_a_real_kavita_backward_move_still_warns(caplog: Any) -> None:
-    """A real backward move (non-empty position) still warns."""
-    ref = _ref(chapter_id=11, total_pages=60)
-    client = FakeKavita()
-    client.find_chapter_result = ref
-    client.get_progress_result = {"pageNum": 15}
-    client.book_chapters_result = EMPTY_CAPTURE_TOC
-    view = make_book_view(
-        num_chapters=2,
-        chapter_table=EMPTY_CAPTURE_TOC_CHAPTERS,
-        read_position=ReadPosition(
-            captured_at="2026-01-01T00:00:00+00:00",
-            chapter_index=2,
-            chapter_progress=0.5,
-            chapter_number=2,
-            chapter_title="The 12th Key - Ch 2",
-            chapter_href=None,
-            completed=False,
-            total_chapters=2,
-        ),
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        result = service(client).sync(view)
-
-    assert result.backward_move is not None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) >= 1
-
-
-def test_a_requested_restore_is_not_a_backward_move(caplog: Any) -> None:
-    """A requested restore (restore_attempted=True) with backward move is silent (RP-D18)."""
-    ref = _ref(chapter_id=11, total_pages=60)
-    client = FakeKavita()
-    client.find_chapter_result = ref
-    client.get_progress_result = {"pageNum": 15}
-    client.book_chapters_result = EMPTY_CAPTURE_TOC
-    view = make_book_view(
-        num_chapters=2,
-        chapter_table=EMPTY_CAPTURE_TOC_CHAPTERS,
-        read_position=ReadPosition(
-            captured_at="2026-01-01T00:00:00+00:00",
-            chapter_index=2,
-            chapter_progress=0.5,
-            chapter_number=2,
-            chapter_title="The 12th Key - Ch 2",
-            chapter_href=None,
-            completed=False,
-            total_chapters=2,
-        ),
-    )
-
-    # Restore target is at a different chapter
-    restore_target = ReadPosition(
-        captured_at="2026-01-01T00:00:00+00:00",
-        chapter_index=0,
-        chapter_progress=0.3,
-        chapter_number=0,
-        chapter_title="The 12th Key - Ch 1",
-        chapter_href=None,
-        completed=False,
-        total_chapters=2,
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        result = service(client).sync(view, restore_target=restore_target)
-
-    assert result.backward_move is None
-    warnings = [
-        r for r in caplog.records if r.levelno == logging.WARNING and "moved backwards" in r.message
-    ]
-    assert len(warnings) == 0
-    infos = [
-        r
-        for r in caplog.records
-        if r.levelno == logging.INFO and "moved backwards by the requested restore" in r.message
-    ]
-    assert len(infos) == 1
 
 
 # ---------------------------------------------------------------------------
