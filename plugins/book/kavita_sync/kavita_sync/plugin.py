@@ -127,6 +127,7 @@ _SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.31",
     id="kavita_sync",
     name="Kavita Sync",
     description=(

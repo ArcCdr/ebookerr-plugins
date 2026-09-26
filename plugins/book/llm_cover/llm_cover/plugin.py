@@ -223,6 +223,7 @@ _SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="llm_cover",
     name="Cover generator",
     version="1.1.0",

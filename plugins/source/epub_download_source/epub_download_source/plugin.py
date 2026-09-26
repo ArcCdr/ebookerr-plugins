@@ -70,6 +70,7 @@ _UA = (
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="epub_download_source",
     name="EPUB download",
     version="1.1.0",

@@ -71,6 +71,7 @@ def personal_ini_path() -> Path:
 
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="fanficfare_source",
     name="FanFicFare",
     description=(

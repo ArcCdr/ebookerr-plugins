@@ -33,6 +33,7 @@ from docx_download_source.docx_to_epub import convert_docx_to_epub
 __all__ = ["DocxDownloadSourcePlugin"]
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="docx_download_source",
     name="DOCX download",
     version="1.1.0",

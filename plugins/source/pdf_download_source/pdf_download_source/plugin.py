@@ -43,6 +43,7 @@ from pdf_download_source.pdf_to_epub import convert_pdf_to_epub
 __all__ = ["PdfDownloadSourcePlugin"]
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="pdf_download_source",
     name="PDF download",
     version="1.1.0",

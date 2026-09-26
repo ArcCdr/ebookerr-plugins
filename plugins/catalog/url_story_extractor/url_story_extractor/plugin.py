@@ -49,6 +49,7 @@ __all__ = ["UrlStoryExtractorPlugin", "default_pages"]
 logger = logging.getLogger(__name__)
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="url_story_extractor",
     name="URL Story Extractor",
     version="1.1.0",

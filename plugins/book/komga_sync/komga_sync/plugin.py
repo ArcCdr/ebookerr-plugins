@@ -91,6 +91,7 @@ _SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.31",
     id="komga_sync",
     name="Komga Sync",
     description=(

@@ -36,6 +36,7 @@ __all__ = ["RtfDownloadSourcePlugin"]
 logger = logging.getLogger(__name__)
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="rtf_download_source",
     name="RTF download",
     version="1.1.0",

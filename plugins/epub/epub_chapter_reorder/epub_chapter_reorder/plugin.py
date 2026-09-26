@@ -316,6 +316,7 @@ def _build_view(
 
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="epub_chapter_reorder",
     name="Chapter Reorder",
     description=(

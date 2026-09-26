@@ -78,6 +78,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="epub_validate",
     name="EPUB Validate",
     version="1.1.0",

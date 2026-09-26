@@ -131,6 +131,7 @@ _SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="llm_synopsis",
     name="Synopsis generator",
     version="1.1.0",

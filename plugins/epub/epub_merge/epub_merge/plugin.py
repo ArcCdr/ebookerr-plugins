@@ -93,6 +93,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.31",
     id="epub_merge",
     name="EPUB Merge",
     description=(

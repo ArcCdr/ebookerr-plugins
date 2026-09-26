@@ -34,6 +34,7 @@ from ebookerr_sdk.spi import (
 logger = logging.getLogger(__name__)
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="epub_chapter_url",
     name="Chapter URL Stamp",
     description=(

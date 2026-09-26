@@ -34,6 +34,7 @@ __all__ = ["TextDownloadSourcePlugin"]
 logger = logging.getLogger(__name__)
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="text_download_source",
     name="Text download",
     version="1.1.0",

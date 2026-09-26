@@ -188,6 +188,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
 )
 
 _MANIFEST = PluginManifest(
+    spi_version="2.30",
     id="epub_normalize",
     name="EPUB Normalize",
     version="1.1.0",
