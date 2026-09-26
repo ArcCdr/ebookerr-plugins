@@ -65,7 +65,7 @@ def test_no_match_still_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
     assert any("Read-position restore failed" in r.message for r in caplog.records)
 
 
-def test_backward_move_guard_still_applies() -> None:
+def test_a_restore_still_lands_when_it_moves_the_reader_earlier() -> None:
     """A title-matched restore still lands even though it moves the reader backwards.
 
     Restoration is decided by the caller of a pending marker, not by the anchoring core —
