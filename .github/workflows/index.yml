@@ -33,7 +33,7 @@ jobs:
       - name: Install the SDK
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "ebookerr-sdk==2.31.0"
+          python -m pip install "ebookerr-sdk==2.32.0"
       - name: Download every released package
         env:
           GH_TOKEN: ${{ github.token }}
