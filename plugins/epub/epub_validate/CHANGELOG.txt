@@ -1,2 +1,5 @@
+== 1.2.0 ==
+Declares its checker role and writes its report in the shared check-report format. Needs ebookerr 2.21 or later.
+
 == 1.1.0 ==
 Moved out of the ebookerr core.

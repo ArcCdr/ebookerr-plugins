@@ -303,7 +303,7 @@ class TestProcessBasics:
         assert result_patch.custom_values["error_count"].value_type == "int"
 
         # Check checker
-        assert result_patch.custom_values["checker"].value == "native"
+        assert result_patch.custom_values["checker"].value == "Built-in"
         assert result_patch.custom_values["checker"].value_type == "string"
 
         # Check checked_at is a valid datetime ISO string

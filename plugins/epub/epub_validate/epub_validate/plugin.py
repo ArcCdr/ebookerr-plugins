@@ -27,27 +27,24 @@ cancellations propagate immediately.
 
 from __future__ import annotations
 
-import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from ebookerr_sdk.spi import (
     BookPatch,
-    CustomValueWrite,
+    CheckFinding,
     EpubItem,
     InvocationMode,
     PluginContext,
     SettingsField,
     SettingsSchema,
+    check_report_values,
 )
 from ebookerr_sdk.spi.manifest import package_manifest
 from ebookerr_sdk.validate import validate_epub
-from ebookerr_sdk.validate.model import Finding
 
 logger = logging.getLogger(__name__)
-
-_REPORT_BYTE_LIMIT = 32 * 1024  # 32 KB (VAL-D2)
 
 _SETTINGS_SCHEMA = SettingsSchema(
     fields=(
@@ -98,57 +95,6 @@ def _fallback_suffix(reason: str | None) -> str:
     if not reason:
         return ""
     return f" — {_FALLBACK_COPY.get(reason, reason)}, used the built-in checker"
-
-
-def _report_json(
-    findings: Sequence[Finding],
-    *,
-    fallback_reason: str | None = None,
-    limit: int = _REPORT_BYTE_LIMIT,
-) -> str:
-    """Serialise findings and fallback reason to JSON, dropping findings to fit byte limit.
-
-    Args:
-        findings: The findings to serialize.
-        fallback_reason: Why the external checker was not used, or None if no fallback.
-        limit: The byte limit for the JSON output.
-
-    Returns:
-        A JSON object string never exceeding ``limit`` bytes, always valid JSON. The object has
-        keys "findings" (array of findings) and "fallback_reason" (string or null).
-    """
-    # Serialize the fallback reason (human copy from _FALLBACK_COPY, or raw if unknown)
-    fallback_human = (
-        _FALLBACK_COPY.get(fallback_reason, fallback_reason) if fallback_reason else None
-    )
-
-    parts = [
-        json.dumps(
-            {"code": f.code, "severity": f.severity, "message": f.message, "location": f.location},
-            ensure_ascii=False,
-        )
-        for f in findings
-    ]
-    kept: list[str] = []
-    # Start with the wrapper size: {"findings": [...], "fallback_reason": null}
-    # This is roughly 39 bytes (wrapper overhead excluding the findings array content)
-    # We'll leave headroom for the actual final JSON serialization by using a reduced limit
-    effective_limit = limit - 50  # Reserve 50 bytes for wrapper and encoding overhead
-    findings_size = 2  # the enclosing "[" and "]"
-    for part in parts:
-        addition = len(part.encode("utf-8")) + (1 if kept else 0)  # +1 for the separating comma
-        if findings_size + addition > effective_limit:
-            break
-        kept.append(part)
-        findings_size += addition
-
-    findings_json = "[" + ",".join(kept) + "]"
-
-    obj = {
-        "findings": json.loads(findings_json),
-        "fallback_reason": fallback_human,
-    }
-    return json.dumps(obj, ensure_ascii=False)
 
 
 def _timeout_from(settings: Mapping[str, int | str]) -> int:
@@ -294,30 +240,24 @@ class EpubValidatePlugin:
         )
 
         now = datetime.now(UTC).isoformat()
-
-        # Build the custom values write set
         patch = BookPatch(
             book_id=item.book.book_id,
-            custom_values={
-                "status": CustomValueWrite(
-                    value=report.status, value_type="string", updated_at=now
+            custom_values=check_report_values(
+                status=report.status,
+                checked_at=now,
+                checker="External EPUBCheck" if report.checker == "external" else "Built-in",
+                findings=[
+                    CheckFinding(
+                        severity=f.severity, code=f.code, message=f.message, location=f.location
+                    )
+                    for f in report.findings
+                ],
+                note=(
+                    _FALLBACK_COPY.get(report.fallback_reason, report.fallback_reason)
+                    if report.fallback_reason
+                    else None
                 ),
-                "checked_at": CustomValueWrite(value=now, value_type="datetime", updated_at=now),
-                "error_count": CustomValueWrite(
-                    value=report.error_count, value_type="int", updated_at=now
-                ),
-                "warning_count": CustomValueWrite(
-                    value=report.warning_count, value_type="int", updated_at=now
-                ),
-                "checker": CustomValueWrite(
-                    value=report.checker, value_type="string", updated_at=now
-                ),
-                "report": CustomValueWrite(
-                    value=_report_json(report.findings, fallback_reason=report.fallback_reason),
-                    value_type="string",
-                    updated_at=now,
-                ),
-            },
+            ),
         )
 
         # Log the INFO line

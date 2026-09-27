@@ -1,8 +1,8 @@
 id = "epub_validate"
 name = "EPUB Validate"
-version = "1.1.0"
+version = "1.2.0"
 type = "epub"
-spi_version = "2.30"
+spi_version = "2.32"
 description = "Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file."
 headed = true
 priority = 950
@@ -54,6 +54,8 @@ key = "report"
 type = "string"
 label = "EPUB validation report"
 display = "check_report"
+
+[roles.checker]
 
 [settings_schema]
 summary = "{external_checker_command|Built-in checks only}"
