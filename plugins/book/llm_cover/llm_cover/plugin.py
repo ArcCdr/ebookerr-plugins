@@ -39,17 +39,13 @@ from ebookerr_sdk.spi import (
     AssetWrite,
     BookPatch,
     BookView,
-    CustomValueDecl,
     CustomValueWrite,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsGroup,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 LEGACY_DEFAULT_IMAGE_PROMPT_TEMPLATE = (
     'Write one text-to-image prompt for a vertical book cover illustration for "{title}", '
@@ -222,53 +218,6 @@ _SCHEMA = SettingsSchema(
     summary="{model|No text model set} · {image_models|No image models}",
 )
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="llm_cover",
-    name="Cover generator",
-    version="1.1.0",
-    plugin_type=PluginType.BOOK,
-    settings_schema=_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=510,
-    events=(PluginEventType.BOOK_CREATED, PluginEventType.BOOK_IMPORTED),
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="imagesmode",
-            label="Generate cover candidates",
-            description=(
-                "Create candidate covers for each selected book with the configured image models."
-            ),
-            min_books=1,
-        ),
-    ),
-    custom_values=(
-        CustomValueDecl(
-            key="prompt_model", type="string", label="Image prompt model", filterable=True
-        ),
-    ),
-    network=True,
-    testable=True,
-    deferred=True,
-    long_running=True,
-    default_enabled=False,
-    run_timeout_s=3600,
-    icon="image",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    description=(
-        "Creates candidate covers for a book with image models you run or subscribe to: a "
-        "language model first writes an image prompt from the opening chapters. Candidates "
-        "are never set as the cover automatically."
-    ),
-    stage_labels=(("", "Image prompt"), ("image:", "Image")),
-)
-
 
 def _own_asset(view: BookView, kind: str, name: str) -> AssetView | None:
     """Return the first asset with the given kind and name in the llm_cover namespace."""
@@ -346,7 +295,7 @@ def _read_text(asset: AssetView | None) -> str:
 class LlmCoverPlugin:
     """The Cover generator (``GEN-D1``)."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the generator's settings schema."""

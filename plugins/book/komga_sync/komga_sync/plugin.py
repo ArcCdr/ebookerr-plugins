@@ -23,12 +23,10 @@ from ebookerr_sdk.spi import (
     InvocationMode,
     PluginContext,
     PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from komga_sync.client import RequestsKomgaClient
 from komga_sync.service import KomgaService, SyncResult
@@ -88,56 +86,6 @@ _SCHEMA = SettingsSchema(
     summary=(
         "{server|No server URL} · library {library_id|No library id} · API key {api_key|No API key}"
     ),
-)
-
-_MANIFEST = PluginManifest(
-    spi_version="2.31",
-    id="komga_sync",
-    name="Komga Sync",
-    description=(
-        "Publishes your books to a Komga server and reads your reading progress back. "
-        "Only one library server can be enabled at a time."
-    ),
-    version="1.2.0",
-    plugin_type=PluginType.BOOK,
-    settings_schema=_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=900,
-    accepts_list=True,
-    exclusive_group="library_server",
-    provider="komga",
-    delete_mode="purge",
-    default_enabled=False,
-    deferred=True,  # SPI 2.24 — held while the server is unreachable, never failed (DFT-D13)
-    network=True,
-    run_timeout_s=1800,
-    events=(
-        PluginEventType.BOOK_CREATED,
-        PluginEventType.BOOK_UPDATED,
-        PluginEventType.BOOK_IMPORTED,
-        PluginEventType.BOOK_DELETED,
-        PluginEventType.EPUB_MODIFIED,  # DFT-D20: a count-preserving EPUB edit reaches the server
-    ),
-    # The provider's name lives in the provider plugin's own manifest, never in the core
-    # (DEC-81): "Sync" alone was one noun away from the sidecar plugin's "Sync files", and
-    # the core cannot tell them apart because it must not know either (2.18.25, EXP-262 P2).
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="sync",
-            label="Sync to Komga",
-            description="Push this book's metadata and cover to your library server.",
-        ),
-    ),
-    testable=True,
-    reader_url_template="{external_url}/book/{book_id}/read-epub",
-    icon="collections_bookmark",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
 )
 
 
@@ -418,7 +366,7 @@ def _sync_book(
 class KomgaSyncPlugin:
     """Sync book metadata with Komga via the KomgaService (``EDIT-FR-14``)."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the Komga connection settings schema (server, key, library, retries)."""

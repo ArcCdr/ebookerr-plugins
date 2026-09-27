@@ -22,17 +22,13 @@ from ebookerr_sdk.spi import (
     AssetWrite,
     BookPatch,
     BookView,
-    CustomValueDecl,
     CustomValueWrite,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsGroup,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 LEGACY_DEFAULT_SYNOPSIS_TEMPLATE = (
     'Write a back-cover synopsis of at most 200 words for the book "{title}" by {author}, '
@@ -130,50 +126,11 @@ _SCHEMA = SettingsSchema(
     summary="{model|No model set} · {prompt_template} prompt",
 )
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="llm_synopsis",
-    name="Synopsis generator",
-    version="1.1.0",
-    plugin_type=PluginType.BOOK,
-    settings_schema=_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=500,
-    events=(PluginEventType.BOOK_CREATED, PluginEventType.BOOK_IMPORTED),
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="auto_awesome",
-            label="Generate synopsis",
-            description="Write a synopsis for each selected book with the configured model.",
-            min_books=1,
-        ),
-    ),
-    custom_values=(
-        CustomValueDecl(key="model", type="string", label="Synopsis model", filterable=True),
-    ),
-    network=True,
-    testable=True,
-    deferred=True,
-    long_running=True,
-    default_enabled=False,
-    run_timeout_s=1800,
-    icon="summarize",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    description="Writes a book's synopsis from its opening chapters with a language model you run "
-    "or subscribe to. Only books without a synopsis from the configured model are processed.",
-)
-
 
 class LlmSynopsisPlugin:
     """The Synopsis generator (``GEN-D1``)."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the generator's settings schema."""

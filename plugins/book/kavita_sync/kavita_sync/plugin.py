@@ -60,12 +60,10 @@ from ebookerr_sdk.spi import (
     BookView,
     PluginContext,
     PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from kavita_sync.client import RequestsKavitaClient
 from kavita_sync.service import KavitaService, SyncResult
@@ -124,56 +122,6 @@ _SCHEMA = SettingsSchema(
         "{server|No server URL} · folder {library_path|No library folder} · "
         "API key {api_key|No API key}"
     ),
-)
-
-_MANIFEST = PluginManifest(
-    spi_version="2.31",
-    id="kavita_sync",
-    name="Kavita Sync",
-    description=(
-        "Publishes your books to a Kavita server and reads your reading progress back. "
-        "Only one library server can be enabled at a time."
-    ),
-    version="1.2.0",
-    plugin_type=PluginType.BOOK,
-    settings_schema=_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=900,
-    exclusive_group="library_server",
-    provider="kavita",
-    delete_mode="rescan",
-    default_enabled=False,
-    deferred=True,  # SPI 2.24 — held while the server is unreachable, never failed (DFT-D13)
-    accepts_list=True,
-    events=(
-        PluginEventType.BOOK_CREATED,
-        PluginEventType.BOOK_UPDATED,
-        PluginEventType.BOOK_IMPORTED,
-        PluginEventType.BOOK_DELETED,
-        PluginEventType.EPUB_MODIFIED,  # DFT-D20: a count-preserving EPUB edit reaches the server
-    ),
-    # The provider's name lives in the provider plugin's own manifest, never in the core
-    # (DEC-81): "Sync" alone was one noun away from the sidecar plugin's "Sync files", and
-    # the core cannot tell them apart because it must not know either (2.18.25, EXP-262 P2).
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="sync",
-            label="Sync to Kavita",
-            description="Push this book's metadata and cover to your library server.",
-        ),
-    ),
-    testable=True,
-    reader_url_template="{external_url}/library/{library_id}/series/{series_id}/book/{book_id}",
-    network=True,
-    run_timeout_s=1800,
-    icon="library_books",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
 )
 
 
@@ -470,7 +418,7 @@ def _sync_book(ctx: PluginContext, service: KavitaService, view: BookView) -> Bo
 class KavitaSyncPlugin:
     """Sync book metadata with Kavita via the KavitaService."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(self) -> None:
         """Initialize the plugin (no dependencies; uses the SPI only)."""
