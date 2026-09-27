@@ -513,7 +513,7 @@ class UrlStoryExtractorPlugin:
     manifest = _MANIFEST
 
     def __init__(self, *, pages: FanFicFarePagesGateway | None = None) -> None:
-        """Store the injected gateway and compile the manifest's claim patterns.
+        """Store the injected gateway and compile the manifest's story_extractor role patterns.
 
         Args:
             pages: The gateway used to list story URLs and fetch metadata; built by
@@ -522,7 +522,8 @@ class UrlStoryExtractorPlugin:
         self._pages = pages if pages is not None else default_pages()
         # One source of truth: the claim patterns are the manifest's, compiled once, exactly as
         # ExecCatalogPlugin does for a local_exec catalog (EXT-TR-4).
-        patterns = self.manifest.extract_url_patterns
+        role = self.manifest.roles.story_extractor
+        patterns = role.url_patterns if role is not None else ()
         self._patterns = tuple(re.compile(pattern) for pattern in patterns)
 
     def _patches_for_listing(self, url: str, ctx: PluginContext) -> list[StoryPatch]:

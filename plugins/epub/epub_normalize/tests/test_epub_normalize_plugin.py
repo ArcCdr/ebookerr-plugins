@@ -100,7 +100,7 @@ class TestManifest:
 
     def test_manifest_declares_no_exclusive_group(self) -> None:
         plugin = EpubNormalizePlugin()
-        assert plugin.manifest.exclusive_group is None
+        assert plugin.manifest.roles.exclusive() is None
 
     def test_settings_schema_keys_and_defaults(self) -> None:
         plugin = EpubNormalizePlugin()

@@ -19,9 +19,9 @@ def test_fanficfare_source_manifest_matches_the_in_image_manifest() -> None:
 
 
 def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
-    """The manifest declares update_check, catch_all, and fanficfare requirement."""
+    """The manifest declares update_check and fallback_source role, and fanficfare requirement."""
     from fanficfare_source.plugin import FanFicFareSourcePlugin
 
     assert FanFicFareSourcePlugin.manifest.update_check is True
-    assert FanFicFareSourcePlugin.manifest.catch_all is True
+    assert FanFicFareSourcePlugin.manifest.roles.fallback_source is True
     assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.58.1",)

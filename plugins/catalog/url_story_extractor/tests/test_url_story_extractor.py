@@ -73,7 +73,7 @@ class TestManifest:
     def test_manifest_declares_the_catch_all_pattern(self) -> None:
         """Assert manifest declares the catch-all URL pattern."""
         plugin = UrlStoryExtractorPlugin(pages=FakePages())
-        assert plugin.manifest.extract_url_patterns == (r"^https?://",)
+        assert plugin.manifest.roles.story_extractor.url_patterns == (r"^https?://",)
 
     def test_manifest_declares_the_extract_urls_setting(self) -> None:
         """Assert the extract_urls url_list setting is declared."""
@@ -126,13 +126,13 @@ class TestClaimsUrl:
         assert plugin.claims_url("literotica.com/s/a") is False
 
     def test_claims_url_uses_the_manifest_patterns(self) -> None:
-        """Assert claims_url matches patterns from manifest.extract_url_patterns."""
+        """Assert claims_url matches patterns from manifest.roles.story_extractor.url_patterns."""
         plugin = UrlStoryExtractorPlugin(pages=FakePages())
         # Test the match
         assert plugin.claims_url("https://x.test/a") is True
         assert plugin.claims_url("ftp://x.test/a") is False
         # Verify the patterns are compiled from the manifest
-        assert [p.pattern for p in plugin._patterns] == list(plugin.manifest.extract_url_patterns)
+        assert [p.pattern for p in plugin._patterns] == list(plugin.manifest.roles.story_extractor.url_patterns)
 
     def test_module_has_no_second_pattern_constant(self) -> None:
         """Assert no _COMPILED_PATTERNS constant exists in the module."""

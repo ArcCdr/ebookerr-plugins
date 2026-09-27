@@ -192,10 +192,10 @@ class TestManifest:
         assert plugin.manifest.accepts_list is True
 
     def test_manifest_is_book_provider(self) -> None:
-        """Manifest has correct plugin_type and exclusive_group."""
+        """Manifest has correct plugin_type and exclusive library_server role."""
         plugin = KomgaSyncPlugin()
         assert plugin.manifest.plugin_type == api.PluginType.BOOK
-        assert plugin.manifest.exclusive_group == "library_server"
+        assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.id == "komga_sync"
 
     def test_manifest_events_and_schedule(self) -> None:
@@ -240,10 +240,10 @@ class TestManifest:
         assert fields_by_key["scan_retry_delay"].default == "2"
 
     def test_the_manifest_declares_its_provider_and_delete_mode(self) -> None:
-        """Manifest declares provider=komga and delete_mode=purge."""
+        """Manifest declares library_server role with provider=komga and delete_mode=purge."""
         plugin = KomgaSyncPlugin()
-        assert plugin.manifest.provider == "komga"
-        assert plugin.manifest.delete_mode == "purge"
+        assert plugin.manifest.roles.library_server.provider == "komga"
+        assert plugin.manifest.roles.library_server.delete_mode == "purge"
 
 
 # ---------------------------------------------------------------------------

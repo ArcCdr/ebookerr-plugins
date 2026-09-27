@@ -127,10 +127,10 @@ class TestManifest:
         assert plugin.manifest.priority == 900
 
     def test_manifest_is_exclusive_provider(self) -> None:
-        """Manifest has correct plugin_type and exclusive_group."""
+        """Manifest has correct plugin_type and exclusive library_server role."""
         plugin = KavitaSyncPlugin()
         assert plugin.manifest.plugin_type == api.PluginType.BOOK
-        assert plugin.manifest.exclusive_group == "library_server"
+        assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.id == "kavita_sync"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -141,10 +141,10 @@ class TestManifest:
         )
 
     def test_manifest_version_and_group(self) -> None:
-        """Manifest version is 1.2.0 with correct exclusive_group and events."""
+        """Manifest version is 1.2.0 with correct exclusive library_server role and events."""
         plugin = KavitaSyncPlugin()
         assert plugin.manifest.version == "1.2.0"
-        assert plugin.manifest.exclusive_group == "library_server"
+        assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
             api.PluginEventType.BOOK_UPDATED,
@@ -169,10 +169,10 @@ class TestManifest:
         assert trigger.label == "Sync to Kavita"
 
     def test_the_manifest_declares_its_provider_and_delete_mode(self) -> None:
-        """Manifest declares provider=kavita and delete_mode=rescan."""
+        """Manifest declares library_server role with provider=kavita and delete_mode=rescan."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.provider == "kavita"
-        assert plugin.manifest.delete_mode == "rescan"
+        assert plugin.manifest.roles.library_server.provider == "kavita"
+        assert plugin.manifest.roles.library_server.delete_mode == "rescan"
 
 
 class TestSettingsSchema:

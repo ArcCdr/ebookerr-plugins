@@ -4105,6 +4105,6 @@ def test_created_at_reaches_the_election(
 
 
 def test_epub_merge_declares_the_capability() -> None:
-    """EpubMergePlugin declares handles_merge_proposals=True."""
+    """EpubMergePlugin declares merge_proposals role."""
     plugin = EpubMergePlugin()
-    assert plugin.manifest.handles_merge_proposals is True
+    assert plugin.manifest.roles.merge_proposals is True
