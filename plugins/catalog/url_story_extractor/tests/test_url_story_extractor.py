@@ -132,7 +132,9 @@ class TestClaimsUrl:
         assert plugin.claims_url("https://x.test/a") is True
         assert plugin.claims_url("ftp://x.test/a") is False
         # Verify the patterns are compiled from the manifest
-        assert [p.pattern for p in plugin._patterns] == list(plugin.manifest.roles.story_extractor.url_patterns)
+        assert [p.pattern for p in plugin._patterns] == list(
+            plugin.manifest.roles.story_extractor.url_patterns
+        )
 
     def test_module_has_no_second_pattern_constant(self) -> None:
         """Assert no _COMPILED_PATTERNS constant exists in the module."""
