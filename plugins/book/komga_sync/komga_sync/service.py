@@ -1068,9 +1068,9 @@ class KomgaService:
                 and not outcome.resolves
                 and book.progress.locator
             ):
-                # RPH-ANC-3: a finished book is never re-anchored, so the reader is not moved — but the
-                # locator names nothing the provider still has, and replaying or warning about it
-                # every sync forever is noise. Forget it once, and say so once.
+                # RPH-ANC-3: finished book is never re-anchored (reader not moved), but locator
+                # names nothing the provider still has. Replaying/warning is noise. Forget once.
+
                 fields["external_locator"] = None
                 logger.info(
                     'Forgot the dead read-position locator for "%s" (book_id=%s): the book '
