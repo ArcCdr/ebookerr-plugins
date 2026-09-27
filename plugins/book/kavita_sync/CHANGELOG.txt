@@ -1,3 +1,6 @@
+== 1.3.0 ==
+Declares its library-server role in the new manifest format. Needs ebookerr 2.21 or later.
+
 == 1.2.0 ==
 Reading positions follow the book's own finished state: a finished book that gains a chapter keeps your place and is no longer shown as read. Restoring a position that is already where your reader stands no longer rewrites it. Backward-move warnings and first-link backups are now handled by ebookerr itself, and a bookmark re-anchored on weak evidence now tells you so.
 

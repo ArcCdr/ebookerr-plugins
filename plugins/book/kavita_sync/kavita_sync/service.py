@@ -83,6 +83,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ebookerr_sdk.domain.dates import log_clock, parse_datetime
+from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 from ebookerr_sdk.providers.anchoring import (
     REANCHOR_ALREADY,
     REANCHOR_WRITTEN,
@@ -101,8 +102,6 @@ from ebookerr_sdk.spi import (
     BookView,
     CircuitGuard,
     CircuitOpenError,
-    ProviderAnchor,
-    ProviderBookmark,
     ReadPosition,
 )
 

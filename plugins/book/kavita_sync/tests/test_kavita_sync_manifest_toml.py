@@ -13,14 +13,14 @@ def test_the_provider_asks_for_the_network_and_names_its_required_settings() -> 
 
 
 def test_the_manifest_declares_the_library_server_role() -> None:
-    """The manifest's roles.library_server table equals expected values, no legacy top-level keys, spi_version == 2.32."""
+    """The manifest declares the library_server role with expected values and spi_version 2.32."""
     manifest = KavitaSyncPlugin.manifest
-    assert manifest.roles.library_server == {
-        "provider": "kavita",
-        "delete_mode": "rescan",
-        "reader_url_template": "{external_url}/library/{library_id}/series/{series_id}/book/{book_id}",
-        "server_url_setting": "server",
-        "public_url_setting": "external_url",
-    }
-    assert not hasattr(manifest, "exclusive_group") or manifest.exclusive_group is None
+    role = manifest.roles.library_server
+    assert role is not None
+    assert role.provider == "kavita"
+    assert role.delete_mode == "rescan"
+    reader_url = "{external_url}/library/{library_id}/series/{series_id}/book/{book_id}"
+    assert role.reader_url_template == reader_url
+    assert role.server_url_setting == "server"
+    assert role.public_url_setting == "external_url"
     assert manifest.spi_version == "2.32"
