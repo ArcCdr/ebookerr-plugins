@@ -6,7 +6,6 @@ spi_version = "2.30"
 description = "Downloads a TXT/Markdown file and converts it to EPUB in the library."
 url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.(?:txt|md)(?:[?#]|$)"]
 update_check = true
-default_enabled = true
 run_timeout_s = 900
 icon = "article"
 author = "ArcCdr"

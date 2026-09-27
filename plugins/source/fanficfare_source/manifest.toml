@@ -9,7 +9,6 @@ priority = 1000
 url_patterns = ["^https?://"]
 catch_all = true
 update_check = true
-default_enabled = true
 run_timeout_s = 3600
 icon = "auto_stories"
 author = "ArcCdr"

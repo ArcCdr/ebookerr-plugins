@@ -32,12 +32,11 @@ from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
     PluginContext,
-    PluginManifest,
-    PluginType,
     SettingsSchema,
     SourcePullError,
     UpdateCheck,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 if TYPE_CHECKING:
     from fanficfare_source.pull import FanFicFarePull
@@ -70,39 +69,10 @@ def personal_ini_path() -> Path:
     return target
 
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="fanficfare_source",
-    name="FanFicFare",
-    description=(
-        "Downloads stories from any site FanFicFare supports. This is the fallback source: "
-        "it handles every web address no more specific source claims first."
-    ),
-    version="1.1.0",
-    plugin_type=PluginType.SOURCE,
-    settings_schema=SettingsSchema(),
-    headless=True,
-    events=(),
-    priority=1000,
-    url_patterns=(r"^https?://",),
-    catch_all=True,
-    update_check=True,
-    default_enabled=True,
-    run_timeout_s=3600,
-    icon="auto_stories",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    requirements=("fanficfare>=4.58.1",),
-)
-
-
 class FanFicFareSourcePlugin:
     """Catch-all Source plugin for FanFicFare downloads."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(self, *, pull: FanFicFarePull | None = None) -> None:
         """Store the injected pull engine.

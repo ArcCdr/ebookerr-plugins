@@ -23,11 +23,10 @@ from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
     PluginContext,
-    PluginManifest,
-    PluginType,
     SettingsSchema,
     UpdateCheck,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from rtf_download_source.rtf_to_epub import convert_rtf_to_epub
 
@@ -35,35 +34,11 @@ __all__ = ["RtfDownloadSourcePlugin"]
 
 logger = logging.getLogger(__name__)
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="rtf_download_source",
-    name="RTF download",
-    version="1.1.0",
-    plugin_type=PluginType.SOURCE,
-    settings_schema=SettingsSchema(),
-    priority=100,
-    events=(),
-    url_patterns=(r"(?i)^[^:/?#]+://[^/?#]*/[^?#]*\.rtf(?:[?#]|$)",),
-    description="Downloads an RTF and converts it to EPUB in the library.",
-    update_check=True,
-    default_enabled=True,
-    run_timeout_s=900,
-    icon="text_snippet",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    requirements=("striprtf>=0.0.26", "charset-normalizer>=3.3"),
-    formats=("rtf",),
-)
-
 
 class RtfDownloadSourcePlugin:
     """Direct Source plugin for RTF downloads with site authentication."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(
         self,

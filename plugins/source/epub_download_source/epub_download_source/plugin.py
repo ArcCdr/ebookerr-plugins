@@ -50,12 +50,11 @@ from ebookerr_sdk.spi import (
     ContentTypeMismatchError,
     CustomValueWrite,
     PluginContext,
-    PluginManifest,
-    PluginType,
     SettingsSchema,
     SourcePullError,
     UpdateCheck,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 if TYPE_CHECKING:
     pass
@@ -67,29 +66,6 @@ logger = logging.getLogger(__name__)
 _UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
-
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="epub_download_source",
-    name="EPUB download",
-    version="1.1.0",
-    plugin_type=PluginType.SOURCE,
-    settings_schema=SettingsSchema(),
-    priority=100,
-    events=(),
-    url_patterns=(r"(?i)^[^:/?#]+://[^/?#]*/[^?#]*\.epub(?:[?#]|$)",),
-    description="Downloads a story EPUB from a direct download URL.",
-    update_check=True,
-    default_enabled=True,
-    run_timeout_s=900,
-    icon="download",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    formats=("epub",),
 )
 
 
@@ -141,7 +117,7 @@ def _guard(circuit: CircuitGuard | None, key: str, host: str) -> AbstractContext
 class EpubDownloadSourcePlugin:
     """Direct Source plugin for EPUB downloads with site authentication."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(
         self,

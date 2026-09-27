@@ -2,21 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
-
-from ebookerr_sdk.spi.manifest import parse_manifest
-
-_MANIFEST_TOML = Path(__file__).resolve().parents[1] / "manifest.toml"
-
-
-def test_fanficfare_source_manifest_matches_the_in_image_manifest() -> None:
-    """``manifest.toml`` parses to the class's own manifest; the two are equal."""
-    from fanficfare_source.plugin import FanFicFareSourcePlugin
-
-    parsed = parse_manifest(tomllib.loads(_MANIFEST_TOML.read_text(encoding="utf-8")))
-    assert parsed == FanFicFareSourcePlugin.manifest
-
 
 def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
     """The manifest declares update_check and fallback_source role, and fanficfare requirement."""

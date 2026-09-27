@@ -23,45 +23,20 @@ from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
     PluginContext,
-    PluginManifest,
-    PluginType,
     SettingsSchema,
     UpdateCheck,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 __all__ = ["TextDownloadSourcePlugin"]
 
 logger = logging.getLogger(__name__)
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="text_download_source",
-    name="Text download",
-    version="1.1.0",
-    plugin_type=PluginType.SOURCE,
-    settings_schema=SettingsSchema(),
-    priority=100,
-    events=(),
-    url_patterns=(r"(?i)^[^:/?#]+://[^/?#]*/[^?#]*\.(?:txt|md)(?:[?#]|$)",),
-    description="Downloads a TXT/Markdown file and converts it to EPUB in the library.",
-    update_check=True,
-    default_enabled=True,
-    run_timeout_s=900,
-    icon="article",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_source",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_source",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    requirements=("charset-normalizer>=3.3",),
-    formats=("txt",),
-)
-
 
 class TextDownloadSourcePlugin:
     """Direct Source plugin for TXT/Markdown downloads with site authentication."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(
         self,
