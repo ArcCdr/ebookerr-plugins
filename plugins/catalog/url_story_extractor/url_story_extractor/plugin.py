@@ -34,80 +34,17 @@ from ebookerr_sdk.domain.story_url import (
 from ebookerr_sdk.spi import (
     KNOWN_URLS_KEY,
     PluginContext,
-    PluginManifest,
-    PluginType,
-    SettingsField,
     SettingsSchema,
     StoryPatch,
     decode_known_urls,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from url_story_extractor.pages import FanFicFarePagesGateway
 
 __all__ = ["UrlStoryExtractorPlugin", "default_pages"]
 
 logger = logging.getLogger(__name__)
-
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="url_story_extractor",
-    name="URL Story Extractor",
-    version="1.1.0",
-    plugin_type=PluginType.CATALOG,
-    settings_schema=SettingsSchema(
-        fields=(
-            SettingsField(
-                key="extract_urls",
-                type="url_list",
-                label="Watched URLs",
-                default=[],
-                help=(
-                    "Listing pages re-scanned on every catalog refresh - an author's works page, "
-                    "a series page, a favourites list. Add one from the Stories page with "
-                    '"Keep watching" ticked.'
-                ),
-            ),
-            SettingsField(
-                key="max_new_metadata_per_scan",
-                type="int",
-                label="Metadata fetches per scan",
-                default="25",
-                help=(
-                    "How many newly-found stories may have their full metadata fetched in one "
-                    "scan. A story already listed is never re-fetched."
-                ),
-            ),
-            SettingsField(
-                key="request_delay_ms",
-                type="int",
-                label="Delay between metadata fetches (ms)",
-                default="750",
-                help="Spacing between metadata requests, to stay a polite visitor.",
-            ),
-        ),
-        summary=(
-            "{extract_urls|No watched URLs} watched URL(s) · "
-            "{max_new_metadata_per_scan} metadata lookup(s) per scan"
-        ),
-    ),
-    headless=True,
-    priority=1000,
-    network=True,
-    extract_url_patterns=(r"^https?://",),
-    default_enabled=True,
-    run_timeout_s=1800,
-    icon="travel_explore",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    requirements=("fanficfare>=4.58.1",),
-    description=(
-        "Extracts the stories listed on any page — an author's works, a series, a favourites "
-        "list — using FanFicFare's site adapters, falling back to generic link scraping."
-    ),
-)
 
 
 @dataclass
@@ -510,7 +447,7 @@ class UrlStoryExtractorPlugin:
     already-extracted URLs without re-listing their pages.
     """
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def __init__(self, *, pages: FanFicFarePagesGateway | None = None) -> None:
         """Store the injected gateway and compile the manifest's story_extractor role patterns.
