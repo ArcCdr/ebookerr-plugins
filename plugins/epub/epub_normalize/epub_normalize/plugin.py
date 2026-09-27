@@ -185,7 +185,6 @@ _SETTINGS_SCHEMA = SettingsSchema(
 )
 
 
-
 def _log_outcome(report: Any, item: EpubItem, elapsed: float) -> None:
     """Log one book's normalization outcome at the appropriate level.
 

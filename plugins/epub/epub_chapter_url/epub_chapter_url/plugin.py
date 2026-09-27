@@ -31,6 +31,7 @@ from ebookerr_sdk.spi.manifest import package_manifest
 
 logger = logging.getLogger(__name__)
 
+
 class EpubChapterUrlPlugin:
     """Declare a chapter URL inside every staged EPUB chapter that lacks one."""
 

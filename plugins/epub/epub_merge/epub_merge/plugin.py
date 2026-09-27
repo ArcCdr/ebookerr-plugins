@@ -90,6 +90,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
     ),
 )
 
+
 def _build_view(
     survivor: EpubItem, items: Sequence[EpubItem], elected_survivor_id: str
 ) -> PluginView:
