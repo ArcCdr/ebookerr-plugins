@@ -367,9 +367,7 @@ class TestCheckReportFormat:
 
         assert patches[0].custom_values["checker"].value == "Built-in"
 
-    def test_checker_value_is_external_epubcheck_for_external_runs(
-        self, temp_epub: Path
-    ) -> None:
+    def test_checker_value_is_external_epubcheck_for_external_runs(self, temp_epub: Path) -> None:
         """Checker value is 'External EPUBCheck' when report.checker is 'external'."""
         from epub_validate.plugin import EpubValidatePlugin
 
