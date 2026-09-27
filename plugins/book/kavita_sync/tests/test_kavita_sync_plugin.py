@@ -1598,7 +1598,7 @@ class TestPluginNoDependencies:
             assert received_view[0] is view
 
     def test_restore_marker_is_still_consumed(self) -> None:
-        """One-shot consume of read_position_restore (RP-PULL-4) still works."""
+        """One-shot consume of read_position_restore (RPH-STR-5) still works."""
         plugin = KavitaSyncPlugin()
         restore_pos = api.ReadPosition(
             captured_at="2026-01-01T00:00:00+00:00",

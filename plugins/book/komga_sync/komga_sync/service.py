@@ -35,7 +35,7 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
 5. Restore the read progression via one of two independently-maintained layers,
    never both in the same sync: the **raw locator fast path**
    (:meth:`KomgaService._restore_progress_if_lost`) runs when the core's anchor check
-   (``RP-D9``) reports the provider's bookmark still resolves, and protects this sync's
+   (``RPH-ANC-3``) reports the provider's bookmark still resolves, and protects this sync's
    own in-flight analyse/scan reset using the exact pre-sync snapshot; the
    **semantic restore**
    (:meth:`KomgaService._restore_semantic`) runs instead, only when a
@@ -48,7 +48,7 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
    rating adoption (see :meth:`KomgaService._read_back` and the decision table
    on :meth:`KomgaService._resolve_rating`).
 7. Record the Komga ids + sync timestamps.
-8. Capture the semantic read position from the just-refreshed book (``RP-CAP-5``)
+8. Capture the semantic read position from the just-refreshed book (``RPH-ARCH-3``)
    for the caller to change-gate and store.
 
 The service reports Komga's own fresh finished flag on every sync/enrich, read from the
@@ -137,7 +137,7 @@ class SyncResult:
         total_pages: Komga page count after the sync, or ``None``.
         fields: Column -> value mapping of outcome fields for the caller to
             persist (ids, timestamps, reading state, rating).
-        read_position: Semantic read position captured post-sync (``RP-CAP-5``),
+        read_position: Semantic read position captured post-sync (``RPH-ARCH-3``),
             or ``None`` when the progression was empty/unreliable.
         metadata_pushed: Whether a metadata PATCH was sent to Komga during
             this sync; used internally for batch run summaries.
@@ -751,7 +751,7 @@ class KomgaService:
     ) -> tuple[dict[str, Any], ReanchorOutcome]:
         """Deliver a pending semantic restore through the core anchoring orchestrator.
 
-        The durable, cross-pull restore layer (``RP-PLUG-4``) — survives the EPUB
+        The durable, cross-pull restore layer (``RPH-ANC-6``) — survives the EPUB
         having been replaced entirely, unlike the raw locator fast path
         (:meth:`_restore_progress_if_lost`), since a replaced EPUB gets new
         Komga-internal position ids on re-analyse. Runs instead of the raw path, for
@@ -760,7 +760,7 @@ class KomgaService:
 
         The match, the fail-closed rule, the compare-first check and the candidate/re-anchor
         log lines belong to :func:`~ebookerr_sdk.providers.anchoring.restore_to_target`
-        (``RP-D9``, ``RPH-REST-5``) — this method's job is to hand it this service's
+        (``RPH-ANC-3``, ``RPH-REST-5``) — this method's job is to hand it this service's
         ``place_bookmark`` primitive (``SPI 2.19``) through the pre-built join and the fresh
         finished flag, turn a written outcome back into the ``external_locator`` field the
         caller persists, and log the persisted envelope at DEBUG for anyone diffing what
@@ -869,10 +869,10 @@ class KomgaService:
         ``output_filename`` on every sync; a mismatch re-links and additionally clears
         ``external_locator``, because that locator was captured from the other book.
 
-        With no pending restore marker, the core anchor check (``RP-D9``) runs first on
-        every sync; the raw locator fast path (``RP-PLUG-4``) runs only when the core
+        With no pending restore marker, the core anchor check (``RPH-ANC-3``) runs first on
+        every sync; the raw locator fast path (``RPH-ANC-6``) runs only when the core
         reports the bookmark still resolves or had nothing to decide. A finished book whose
-        stored locator no longer resolves has that locator cleared (``RP-D9``) once, rather
+        stored locator no longer resolves has that locator cleared (``RPH-ANC-3``) once, rather
         than being replayed or warned about on every sync. All of that — restore, re-anchor,
         raw fast path and capture alike — is skipped for this sync when Komga's chapter table
         does not describe the file on disk: a file-changed re-read that timed out, or an
@@ -1036,7 +1036,7 @@ class KomgaService:
         if stale:
             pass  # restore_attempted stays False so the one-shot marker survives (EXP-155).
         elif restore_target is not None:
-            # Two-layer restore (RP-PLUG-4): the semantic restore (durable, cross-pull) replaces
+            # Two-layer restore (RPH-ANC-6): the semantic restore (durable, cross-pull) replaces
             # the raw-locator fast path below for this run; the raw path still covers ordinary
             # syncs where an analyze wiped a position mid-sync.
             restored, outcome = self._restore_semantic(
@@ -1068,7 +1068,7 @@ class KomgaService:
                 and not outcome.resolves
                 and book.progress.locator
             ):
-                # RP-D9: a finished book is never re-anchored, so the reader is not moved — but the
+                # RPH-ANC-3: a finished book is never re-anchored, so the reader is not moved — but the
                 # locator names nothing the provider still has, and replaying or warning about it
                 # every sync forever is noise. Forget it once, and say so once.
                 fields["external_locator"] = None
@@ -1079,7 +1079,7 @@ class KomgaService:
                     book.book_id,
                 )
             elif outcome.action in (REANCHOR_RESOLVED, REANCHOR_NOT_APPLICABLE):
-                # The raw locator fast path (RP-PLUG-4) is kept, only gated: it runs when the
+                # The raw locator fast path (RPH-ANC-6) is kept, only gated: it runs when the
                 # bookmark still resolves, or when the core had nothing to decide. It must never
                 # run after the core wrote a correct bookmark, nor when the core has proven the
                 # bookmark dead and unmatchable — replaying it is a guaranteed HTTP 400.
@@ -1088,7 +1088,7 @@ class KomgaService:
                 )
                 fields.update(self._restore_progress_if_lost(komga_book_id, snapshot, book))
         refreshed = self._client.get_book(komga_book_id) or komga_book
-        # Repair Komga's page reset (RP-D17): when the re-anchor branch found nothing to write
+        # Repair Komga's page reset (RPH-ANC-6): when the re-anchor branch found nothing to write
         # and no semantic restore landed, check if Komga reset the page to 1 while keeping the
         # locator — re-PUT it with a fresh modified timestamp so Komga recomputes the page.
         if not stale and not restore_landed and not reanchor_written:
@@ -2161,7 +2161,7 @@ class KomgaService:
     def _repair_page_reset(
         self, komga_book_id: str, komga_book: dict[str, Any], book: BookView
     ) -> dict[str, Any]:
-        """Re-write a surviving locator whose page Komga reset to 1 (``RP-D17``).
+        """Re-write a surviving locator whose page Komga reset to 1 (``RPH-ANC-6``).
 
         Komga keeps the R2 locator across a re-analysis but resets ``readProgress.page`` to 1;
         re-PUTting the same locator with a fresh ``modified`` makes it recompute the page. Never
@@ -2230,7 +2230,7 @@ class KomgaService:
     def _restore_progress_if_lost(
         self, komga_book_id: str, snapshot: dict[str, Any], book: BookView | None = None
     ) -> dict[str, Any]:
-        """Raw locator fast path (``RP-PLUG-4``): restore the pre-sync snapshot if lost.
+        """Raw locator fast path (``RPH-ANC-6``): restore the pre-sync snapshot if lost.
 
         Protects **this sync's own** in-flight analyse/scan reset using the exact
         pre-sync ``R2Progression`` snapshot — runs on every sync where no semantic restore

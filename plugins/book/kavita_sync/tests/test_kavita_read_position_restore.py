@@ -2,7 +2,7 @@
 
 Kavita's own TOC entries frequently carry no title at all. Restore no longer reads the
 EPUB on disk to fill that gap — the old EPUB-TOC-title fallback (``EXP-194``,
-``RP-REST-2``) was retired by ``TASK-21`` along with the ``_page_for_target`` adapter that
+``RPH-REST-3``) was retired by ``TASK-21`` along with the ``_page_for_target`` adapter that
 carried it. Instead ``KavitaService.sync`` joins Kavita's anchors onto
 ``book.chapter_table`` — the core's own chapter table, always supplied by the caller —
 before any restore is attempted
@@ -69,7 +69,7 @@ def test_a_restore_still_lands_when_it_moves_the_reader_earlier() -> None:
 
     Restoration is decided by the caller of a pending marker, not by the anchoring core —
     the core never refuses a marker-driven restore just because it looks backward
-    (``RP-REST-7``).
+    (``RPH-REST-4``).
     """
     client = FakeKavita()
     ref = _ref(chapter_id=11, total_pages=100)

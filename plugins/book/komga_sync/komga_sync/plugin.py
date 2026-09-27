@@ -147,7 +147,7 @@ def _build_service(ctx: PluginContext) -> KomgaService:
     Reads ``app_external_url`` from the plugin context's ``app_setting()`` method,
     decoupling the plugin from the data layer.
 
-    ``library_root`` (``SPI 2.15``) is what lets ``RP-REST-2``'s EPUB-TOC-title fallback
+    ``library_root`` (``SPI 2.15``) is what lets ``RPH-REST-3``'s EPUB-TOC-title fallback
     run (``EXP-194``). ``ctx.circuit`` (``SPI 2.21``) is forwarded straight through so an
     outage this plugin observes is remembered process-wide (``EXP-269``).
     """

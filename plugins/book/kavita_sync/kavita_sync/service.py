@@ -35,17 +35,17 @@ The sync, for one freshly-downloaded book (:meth:`KavitaService.sync`):
    unless the bookmark already stands at that exact target, in which case nothing is
    rewritten (``RPH-REST-5``); otherwise :func:`~ebookerr_sdk.providers.anchoring.reanchor_bookmark`
    checks whether Kavita's own bookmark still resolves and re-anchors it when it does not
-   (``RP-D9``). This is Kavita's **only** restore layer: its scan model never resets the page
+   (``RPH-ANC-3``). This is Kavita's **only** restore layer: its scan model never resets the page
    position within one sync the way a Komga re-analyse does, so there is no raw-locator
    snapshot/fast-path to maintain here — Kavita has no raw-locator layer at all (its API
-   exposes only a raw page number, never a resumable locator payload), so ``RP-PLUG-4``'s
+   exposes only a raw page number, never a resumable locator payload), so ``RPH-ANC-6``'s
    fast path does not apply and ``sync`` never sets ``external_locator``.
 5. Write the ``external_*`` fields (provider, ids, progress, deep link, timestamps) and
    capture the semantic read position through the core anchoring orchestrator
-   (:func:`~ebookerr_sdk.providers.anchoring.capture_position`, ``KAVITA-FACT-2``)
-   for the caller to change-gate and store (``RP-CAP-5``); the captured chapter's title and
+   (:func:`~ebookerr_sdk.providers.anchoring.capture_position`, ``RPH-FACT-6``)
+   for the caller to change-gate and store (``RPH-ARCH-3``); the captured chapter's title and
    key come from the joined chapter table, not from Kavita's own (often title-less) TOC
-   (``RP-D20``).
+   (``RPH-ANC-7``).
 
 The service reports Kavita's own fresh finished flag on every sync/enrich — Kavita has no
 completion flag of its own, so "finished" is ``pageNum >= total pages`` (``RPH-FACT-7``),
@@ -131,7 +131,7 @@ class SyncResult:
         fields: Column -> value mapping of outcome fields for the caller to persist
             (ids, timestamps, reading state, rating).
         read_position: Semantic read position captured from the TOC + current page
-            (``RP-CAP-5``), or ``None`` when the book has no usable TOC or is unread.
+            (``RPH-ARCH-3``), or ``None`` when the book has no usable TOC or is unread.
         reanchor_notice: A user-facing sentence when a restore or re-anchor placed the
             bookmark on a facet weaker than key or title (``RPH-ANC-5``); ``None``
             otherwise.
@@ -594,7 +594,7 @@ class KavitaService:
         chapter, the message says the stale link was kept and the outcome is recorded on the book
         (``F5c``).
         With no restore_target, the core anchoring orchestrator decides whether Kavita's bookmark
-        still resolves and re-anchors it when it does not (``RP-D9``). All of that — restore,
+        still resolves and re-anchors it when it does not (``RPH-ANC-3``). All of that — restore,
         re-anchor and capture alike — is skipped for this sync when Kavita's chapter table does
         not describe the file on disk: a file-changed re-index that timed out
         (:meth:`_wait_for_reindex`), or an anchor join that is inconsistent outright
@@ -769,7 +769,7 @@ class KavitaService:
         if stale:
             pass  # restore_attempted stays False so the one-shot marker survives (EXP-155).
         elif restore_target is not None:
-            # Semantic restore (RP-REST-4): replaces the pre-2.4 chapter_id-gated page restore,
+            # Semantic restore (RPH-REST-3): replaces the pre-2.4 chapter_id-gated page restore,
             # which broke across EPUB updates (the id gate and raw pageNum are both unstable).
             restore_attempted = True
             outcome = restore_to_target(
@@ -793,7 +793,7 @@ class KavitaService:
                     restore_target.chapter_index,
                 )
         else:
-            # RP-D9: outside the marker window the core decides whether Kavita's own
+            # RPH-ANC-3: outside the marker window the core decides whether Kavita's own
             # bookmark still resolves, and re-anchors it when it does not. Kavita's
             # bookmark can only be *lost* (it names a page, never an href) — the core
             # does not distinguish that from a dead one.
@@ -1128,8 +1128,8 @@ class KavitaService:
         """Put the reader at *anchor*, carrying *bookmark*'s progress across.
 
         Implements ``SPI 2.19`` ``ReadPositionAnchoring``. A page which still resolves is
-        deliberately **not** corrected: ``KAVITA-FACT-3`` drift (a re-scan recomputing page
-        counts) is indistinguishable from a genuine reader move and ``RP-PLUG-5`` still
+        deliberately **not** corrected: ``RPH-FACT-7`` drift (a re-scan recomputing page
+        counts) is indistinguishable from a genuine reader move and still
         forbids overwriting live provider progress. Progress 1.0 lands on the chapter's last
         page, never on the next chapter's first (``RPH-ANC-7``).
 

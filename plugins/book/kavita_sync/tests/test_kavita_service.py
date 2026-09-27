@@ -2515,7 +2515,7 @@ def test_place_bookmark_computes_the_page_from_the_span() -> None:
 def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() -> None:
     """place_bookmark writes total_pages at progression 1.0 when the anchor is last.
 
-    ``RP-D20``: progression 1.0 still clamps to its own chapter's span, so this
+    ``RPH-ANC-7``: progression 1.0 still clamps to its own chapter's span, so this
     only lands on ``total_pages`` because Ch 5 is genuinely the book's last chapter —
     see ``test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last``
     for the case where it is not.
@@ -2655,9 +2655,9 @@ def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
     )
 
 
-@pytest.mark.pins("RP-D20")
+@pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_at_full_progress_stays_in_the_chapter() -> None:
-    """At 100% progression, land on chapter's last page, never next chapter's first (RP-D20)."""
+    """At 100% progression, land on chapter's last page, never next chapter's first (RPH-ANC-7)."""
     from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
 
     # Probe TOC: Title Page@1, Ch 1@5, Ch 2@20; total_pages=25
@@ -2719,13 +2719,13 @@ def test_place_bookmark_at_full_progress_lands_on_the_chapter_end() -> None:
     assert client.save_progress_calls == [(ref, 9)]  # start(0) + span(10) - 1
 
 
-@pytest.mark.pins("RP-D20")
+@pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last() -> None:
     """A position at progression 1.0 restored onto a chapter later stripped of "last" still clamps.
 
     A position captured at progression 1.0 when its chapter was the book's last one must not
     jump to the book's current last page once a later append (e.g. a merge) adds a chapter
-    after it — it must still land within its own chapter's span (RP-D20).
+    after it — it must still land within its own chapter's span (RPH-ANC-7).
     """
     from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
 
@@ -2753,7 +2753,7 @@ def test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last
     assert client.save_progress_calls == [(ref, 2)]
 
 
-@pytest.mark.pins("RP-D20")
+@pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() -> None:
     """ "Last chapter" is asked of the anchor list, never inferred from ref.total_pages.
 
@@ -2761,7 +2761,7 @@ def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() 
     can still report a book's pre-merge page count right after its chapter list has already
     grown — understating ``total_pages`` down to exactly this chapter's own last page, which
     used to read as "this is the last chapter" and clamp to the book's stale end instead of
-    this chapter's real span (RP-D20).
+    this chapter's real span (RPH-ANC-7).
     """
     from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
 
@@ -2788,9 +2788,9 @@ def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() 
     assert client.save_progress_calls == [(ref, 2)]
 
 
-@pytest.mark.pins("RP-D20")
+@pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_at_zero_lands_on_the_start_page() -> None:
-    """Restore at 0% progression lands on the chapter's start page (RP-D20)."""
+    """Restore at 0% progression lands on the chapter's start page (RPH-ANC-7)."""
     from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
 
     probe_toc = [
@@ -2812,9 +2812,9 @@ def test_place_bookmark_at_zero_lands_on_the_start_page() -> None:
     assert client.save_progress_calls == [(ref, 5)]
 
 
-@pytest.mark.pins("RP-D20")
+@pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_round_trip_stays_within_one_page() -> None:
-    """Round-trip place→read stays within one page for any progression (RP-D20)."""
+    """Round-trip place→read stays within one page for any progression (RPH-ANC-7)."""
     from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
 
     probe_toc = [
@@ -3182,7 +3182,7 @@ def test_capture_logs_under_the_kavita_provider_name(
 
 
 def test_a_never_read_book_captures_nothing(build_epub: Any, tmp_path: Any, caplog: Any) -> None:
-    """A book with pageNum=0 (never read) captures no position (RP-CAP-3)."""
+    """A book with pageNum=0 (never read) captures no position (RPH-SRC-5)."""
     # Build EPUB with matching titles
     epub_path = build_epub(
         [("Chapter 1", ""), ("Chapter 2", "")],
@@ -3221,7 +3221,7 @@ def test_a_never_read_book_captures_nothing(build_epub: Any, tmp_path: Any, capl
     assert result.ok is True
     # Never-read books capture nothing
     assert result.read_position is None
-    # No capture log line (RP-CAP-3)
+    # No capture log line (RPH-SRC-5)
     capture_lines = [r for r in caplog.records if "Captured the Kavita read position" in r.message]
     assert len(capture_lines) == 0
 
@@ -3592,7 +3592,7 @@ def test_kavita_an_unchanged_count_is_not_logged_at_info(caplog: pytest.LogCaptu
 
 # ---------------------------------------------------------------------------
 # TASK-21: retry settings, file-changed wait, stale skip, restore through the
-# core (CHC-D12, RP-D20)
+# core (CHC-D12, RPH-ANC-7)
 # ---------------------------------------------------------------------------
 
 

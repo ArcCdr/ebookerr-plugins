@@ -33,12 +33,12 @@ sync waits for Kavita to re-index a changed file before giving up, ``CHC-D12``).
 
 **Semantic read-position capture/restore** (SPI 1.4): every call threads
 ``SyncResult.read_position`` straight into the returned ``BookPatch(read_position=...)``
-unchanged — this plugin performs no comparison or storage itself (``RP-CAP-5``,
-``RP-PLUG-2``). When ``view.restore_target`` is set, it is passed straight through to
+unchanged — this plugin performs no comparison or storage itself (``RPH-ARCH-3``,
+``RPH-REST-3``). When ``view.restore_target`` is set, it is passed straight through to
 ``service.sync``. A pending ``restore_target`` is consumed only when the call actually
 attempted the provider write (:func:`~ebookerr_sdk.providers.restore_marker.restore_marker_patch`,
 ``EXP-155``); a read-only ``enrich`` leaves it pending for the next sync, and an
-attempted-but-failed restore still consumes it (``RP-PULL-4``), leaving the entry in history
+attempted-but-failed restore still consumes it (``RPH-STR-5``), leaving the entry in history
 for a manual retry — it does not retry itself.
 
 **Seeded disabled**: unlike the other bundled in-image plugins, ``kavita_sync`` is seeded

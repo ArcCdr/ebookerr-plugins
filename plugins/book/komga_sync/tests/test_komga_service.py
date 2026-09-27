@@ -64,7 +64,7 @@ MATCHING_SERIES_METADATA = {
     "links": [{"label": "Story", "url": STORY_URL}],
 }
 
-# Positions fixture for semantic capture tests (RP-CAP-5, RP-SEM-1/3)
+# Positions fixture for semantic capture tests (RPH-ARCH-3, RPH-MOD-1/3)
 POSITIONS_FIXTURE = [
     {
         "href": "OEBPS/titlepage.xhtml",
@@ -920,7 +920,7 @@ def test_restore_failure_logs_warning_and_sync_remains_ok(
 def test_a_reset_page_is_repaired_by_re_writing_the_locator(
     repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Komga resets page to 1 after re-analyze; re-PUT the locator to fix it (RP-D17)."""
+    """Komga resets page to 1 after re-analyze; re-PUT the locator to fix it (RPH-ANC-6)."""
     locator_payload = {
         "locator": {"locations": {"position": 118, "progression": 0.64, "totalProgression": 0.64}},
         "device": {"id": "komga", "name": "Komga"},
@@ -2919,7 +2919,7 @@ def test_delete_remote_book_poll_timeout_still_empties(
     assert "empty_trash_for" in call_order
 
 
-# ---  Semantic read position capture (RP-CAP-5, RP-SEM-1/3/5) -------- #
+# ---  Semantic read position capture (RPH-ARCH-3, RPH-MOD-1/3/5) -------- #
 
 
 def test_chapter_table_orders_and_titles() -> None:
@@ -2954,7 +2954,7 @@ def test_sync_returns_read_position(repo: _FakeBookRepository) -> None:
     assert result.read_position.chapter_index == 1
 
 
-# ---  Semantic read-position restore (RP-REST-3/5/7, RP-PLUG-4, RP-LOG-2/3) --- #
+# ---  Semantic read-position restore (RPH-REST-3/5/7, RPH-ANC-6, RPH-LOG-1/3) --- #
 
 
 def test_restore_semantic_puts_nearest_valid_position(repo: _FakeBookRepository) -> None:
@@ -3340,7 +3340,7 @@ def test_recapture_after_restore_keeps_title(
 
 def test_restore_candidates_honour_the_packaged_count(repo: _FakeBookRepository) -> None:
     """A restore target matched purely by index honours book.chapter_table's own count."""
-    # Positions with no titles, no title page (index-only matching, per RP-D19 facet order).
+    # Positions with no titles, no title page (index-only matching, per RPH-ANC-4 facet order).
     positions_no_titles = [
         {
             "href": "OEBPS/file0001.xhtml",
@@ -3538,7 +3538,7 @@ def test_relink_without_a_persisted_locator_writes_nothing(
     assert client.put_progressions == []
 
 
-# ---  Semantic read-position restore telemetry (RP-LOG-2/3) ---- #
+# ---  Semantic read-position restore telemetry (RPH-LOG-1/3) ---- #
 
 
 class TestRestoreTelemetry:
@@ -4423,7 +4423,7 @@ def test_capture_debug_line_names_device_and_modified(
 ) -> None:
     """DEBUG log line names device id/name; the anchor count now logs via capture_position.
 
-    ``eb207530`` (2.18.26, ``RP-D10``) dropped the Komga-only ``positions=%d`` segment from
+    ``eb207530`` (2.18.26, ``RPH-ANC-1``) dropped the Komga-only ``positions=%d`` segment from
     this line: the anchor count is no longer computed here at all, since capture now goes
     through the shared, provider-agnostic ``capture_position``, which already logs its own
     anchor and TOC-title counts (``read_position_anchoring.py``) — restating it here would be
@@ -4469,7 +4469,7 @@ def test_capture_debug_line_names_device_and_modified(
     msg = debug_logs[0].message
     assert "device=komic-ios/Komic" in msg
 
-    # The anchor count moved to capture_position's own INFO-level log line (RP-D10).
+    # The anchor count moved to capture_position's own INFO-level log line (RPH-ANC-1).
     capture_logs = [
         r.message
         for r in caplog.records
@@ -5047,7 +5047,7 @@ def test_the_raw_replay_warns_when_the_app_has_a_record(
     assert len(replay_logs) > 0
 
 
-# --- TASK-33: the raw fast path is gated on the bookmark still resolving (RP-D9) --- #
+# --- TASK-33: the raw fast path is gated on the bookmark still resolving (RPH-ANC-3) --- #
 
 
 def test_a_dead_locator_is_never_replayed(caplog: pytest.LogCaptureFixture) -> None:
@@ -5100,7 +5100,7 @@ def test_a_dead_locator_is_never_replayed(caplog: pytest.LogCaptureFixture) -> N
 
 
 def test_a_live_locator_still_takes_the_raw_fast_path(caplog: pytest.LogCaptureFixture) -> None:
-    """A bookmark that still resolves still takes the raw fast path (RP-PLUG-4 kept, gated)."""
+    """A bookmark that still resolves still takes the raw fast path (RPH-ANC-6 kept, gated)."""
     client = FakeKomga()
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
