@@ -1,2 +1,5 @@
+== 1.2.0 ==
+Declares its story-extraction role in the new manifest format. Needs ebookerr 2.21 or later.
+
 == 1.1.0 ==
 Moved out of the ebookerr core.

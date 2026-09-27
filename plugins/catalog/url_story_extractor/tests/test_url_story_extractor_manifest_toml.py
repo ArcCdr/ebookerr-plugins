@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 from url_story_extractor.plugin import default_pages
 
 
@@ -33,7 +33,7 @@ def test_the_default_gateway_falls_back_to_the_packaged_copy(
 def test_the_manifest_declares_the_story_extractor_role() -> None:
     """The manifest declares the story-extractor role with url patterns and settings reference."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
-    with open(manifest_path, "rb") as f:
+    with manifest_path.open("rb") as f:
         data = tomllib.load(f)
 
     assert "roles" in data

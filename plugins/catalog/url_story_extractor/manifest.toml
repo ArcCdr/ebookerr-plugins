@@ -1,12 +1,11 @@
 id = "url_story_extractor"
 name = "URL Story Extractor"
-version = "1.1.0"
+version = "1.2.0"
 type = "catalog"
-spi_version = "2.30"
+spi_version = "2.32"
 description = "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping."
 priority = 1000
 network = true
-extract_url_patterns = ["^https?://"]
 run_timeout_s = 1800
 icon = "travel_explore"
 author = "ArcCdr"
@@ -16,6 +15,10 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extract
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["fanficfare>=4.58.1"]
 entrypoint = "entrypoint.py"
+
+[roles.story_extractor]
+url_patterns = ["^https?://"]
+urls_setting = "extract_urls"
 
 [settings_schema]
 summary = "{extract_urls|No watched URLs} watched URL(s) · {max_new_metadata_per_scan} metadata lookup(s) per scan"
