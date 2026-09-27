@@ -343,6 +343,103 @@ class TestProcessBasics:
         assert result_patch.emit_followup is False
 
 
+class TestCheckReportFormat:
+    """Verify the plugin writes the shared check-report format (SPI 2.32)."""
+
+    def test_checker_value_is_built_in_for_native_runs(self, temp_epub: Path) -> None:
+        """Checker value is 'Built-in' when report.checker is 'native'."""
+        from epub_validate.plugin import EpubValidatePlugin
+
+        plugin = EpubValidatePlugin()
+        ctx = FakeContext(logger=_LOGGER)
+        item = _item(temp_epub)
+
+        with patch("epub_validate.plugin.validate_epub") as mock_validate:
+            mock_validate.return_value = ValidationReport(
+                status="valid",
+                findings=(),
+                checker="native",
+                error_count=0,
+                warning_count=0,
+                duration_s=0.1,
+            )
+            patches = plugin.process((item,), ctx)
+
+        assert patches[0].custom_values["checker"].value == "Built-in"
+
+    def test_checker_value_is_external_epubcheck_for_external_runs(
+        self, temp_epub: Path
+    ) -> None:
+        """Checker value is 'External EPUBCheck' when report.checker is 'external'."""
+        from epub_validate.plugin import EpubValidatePlugin
+
+        plugin = EpubValidatePlugin()
+        ctx = FakeContext(logger=_LOGGER)
+        item = _item(temp_epub)
+
+        with patch("epub_validate.plugin.validate_epub") as mock_validate:
+            mock_validate.return_value = ValidationReport(
+                status="valid",
+                findings=(),
+                checker="external",
+                error_count=0,
+                warning_count=0,
+                duration_s=0.1,
+            )
+            patches = plugin.process((item,), ctx)
+
+        assert patches[0].custom_values["checker"].value == "External EPUBCheck"
+
+    def test_report_has_findings_and_note_keys(self, temp_epub: Path) -> None:
+        """Report JSON has 'findings' and 'note' keys (not 'fallback_reason')."""
+        from epub_validate.plugin import EpubValidatePlugin
+
+        plugin = EpubValidatePlugin()
+        ctx = FakeContext(logger=_LOGGER)
+        item = _item(temp_epub)
+
+        with patch("epub_validate.plugin.validate_epub") as mock_validate:
+            mock_validate.return_value = ValidationReport(
+                status="valid",
+                findings=(),
+                checker="native",
+                error_count=0,
+                warning_count=0,
+                duration_s=0.1,
+            )
+            patches = plugin.process((item,), ctx)
+
+        report_value = patches[0].custom_values["report"].value
+        parsed = json.loads(report_value)
+        assert "findings" in parsed
+        assert "note" in parsed
+        assert "fallback_reason" not in parsed
+
+    def test_fallback_run_has_human_copy_as_note(self, temp_epub: Path) -> None:
+        """Fallback run's note is the human copy (e.g., 'external checker not found')."""
+        from epub_validate.plugin import EpubValidatePlugin
+
+        plugin = EpubValidatePlugin()
+        ctx = FakeContext(logger=_LOGGER)
+        item = _item(temp_epub)
+
+        with patch("epub_validate.plugin.validate_epub") as mock_validate:
+            mock_validate.return_value = ValidationReport(
+                status="valid",
+                findings=(),
+                checker="native",
+                error_count=0,
+                warning_count=0,
+                duration_s=0.1,
+                fallback_reason="not found",
+            )
+            patches = plugin.process((item,), ctx)
+
+        report_value = patches[0].custom_values["report"].value
+        parsed = json.loads(report_value)
+        assert parsed["note"] == "external checker not found"
+
+
 class TestReportJson:
     """Verify report JSON serialization and truncation."""
 
@@ -369,7 +466,7 @@ class TestReportJson:
         parsed = json.loads(report_value)
         assert isinstance(parsed, dict)
         assert "findings" in parsed
-        assert "fallback_reason" in parsed
+        assert "note" in parsed
 
     def test_report_is_an_empty_array_for_a_clean_book(self, temp_epub: Path) -> None:
         """Report has empty findings array for a book with no findings."""
@@ -394,7 +491,7 @@ class TestReportJson:
         parsed = json.loads(report_value)
         assert isinstance(parsed, dict)
         assert parsed.get("findings") == []
-        assert parsed.get("fallback_reason") is None
+        assert parsed.get("note") is None
 
     def test_report_entries_carry_the_four_keys(self, temp_epub: Path) -> None:
         """Report findings have exactly the four keys: code, severity, message, location."""
