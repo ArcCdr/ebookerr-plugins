@@ -4990,7 +4990,7 @@ def test_the_persisted_locator_is_logged_at_debug(
     )
 
 
-# --- backward move warnings (EXP-123) ----------------------------------- #
+# --- same-sync replay warnings (RPH-ANC-6) ------------------------------ #
 
 
 def test_the_raw_replay_warns_when_the_app_has_a_record(
