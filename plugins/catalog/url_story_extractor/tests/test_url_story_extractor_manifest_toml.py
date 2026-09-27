@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import tomllib
 from url_story_extractor.plugin import default_pages
 
 
@@ -27,3 +28,19 @@ def test_the_default_gateway_falls_back_to_the_packaged_copy(
     packaged = Path(__file__).resolve().parents[1] / "url_story_extractor" / "personal.ini"
     assert default_pages()._personal_ini == packaged
     assert packaged.is_file()
+
+
+def test_the_manifest_declares_the_story_extractor_role() -> None:
+    """The manifest declares the story-extractor role with url patterns and settings reference."""
+    manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
+    with open(manifest_path, "rb") as f:
+        data = tomllib.load(f)
+
+    assert "roles" in data
+    assert "story_extractor" in data["roles"]
+    assert data["roles"]["story_extractor"] == {
+        "url_patterns": ["^https?://"],
+        "urls_setting": "extract_urls",
+    }
+    assert "extract_url_patterns" not in data
+    assert data["spi_version"] == "2.32"
