@@ -8,7 +8,6 @@ headed = true
 priority = 950
 accepts_list = true
 events = ["EpubCreated", "EpubModified"]
-default_enabled = true
 run_timeout_s = 600
 icon = "fact_check"
 author = "ArcCdr"

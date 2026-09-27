@@ -6,7 +6,6 @@ spi_version = "2.30"
 description = "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched."
 headed = true
 events = ["EpubCreated", "EpubModified"]
-default_enabled = true
 run_timeout_s = 600
 icon = "reorder"
 author = "ArcCdr"

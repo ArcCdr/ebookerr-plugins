@@ -34,18 +34,14 @@ from datetime import UTC, datetime
 
 from ebookerr_sdk.spi import (
     BookPatch,
-    CustomValueDecl,
     CustomValueWrite,
     EpubItem,
     InvocationMode,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 from ebookerr_sdk.validate import validate_epub
 from ebookerr_sdk.validate.model import Finding
 
@@ -77,59 +73,6 @@ _SETTINGS_SCHEMA = SettingsSchema(
     summary="{external_checker_command|Built-in checks only}",
 )
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="epub_validate",
-    name="EPUB Validate",
-    version="1.1.0",
-    plugin_type=PluginType.EPUB,
-    settings_schema=_SETTINGS_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=950,
-    accepts_list=True,
-    events=(PluginEventType.EPUB_CREATED, PluginEventType.EPUB_MODIFIED),
-    default_enabled=True,
-    run_timeout_s=600,
-    icon="fact_check",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="rule",
-            label="Validate",
-            description="Check the EPUB for structural errors and warnings.",
-            min_books=1,
-        ),
-    ),
-    custom_values=(
-        CustomValueDecl(
-            key="status",
-            type="string",
-            label="EPUB validation",
-            display="check_report",
-            filterable=True,
-            aggregatable=True,
-        ),
-        CustomValueDecl(
-            key="checked_at", type="datetime", label="EPUB checked", display="check_report"
-        ),
-        CustomValueDecl(key="error_count", type="int", label="EPUB errors", display="check_report"),
-        CustomValueDecl(
-            key="warning_count", type="int", label="EPUB warnings", display="check_report"
-        ),
-        CustomValueDecl(key="checker", type="string", label="EPUB checker", display="check_report"),
-        CustomValueDecl(
-            key="report", type="string", label="EPUB validation report", display="check_report"
-        ),
-    ),
-    description="Check every EPUB ebookerr writes for structural problems, and report what "
-    "it finds without ever changing the file.",
-)
 
 _FALLBACK_COPY: Mapping[str, str] = {
     "not absolute": "external checker path is not absolute",
@@ -318,7 +261,7 @@ class EpubValidatePlugin:
     Isolates validation crashes (VAL-FR-7): a single item's failure never aborts the batch.
     """
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the settings schema the manifest declares (one schema, never a second copy).
@@ -326,7 +269,7 @@ class EpubValidatePlugin:
         Returns:
             The plugin's settings schema.
         """
-        return _SETTINGS_SCHEMA
+        return self.manifest.settings_schema
 
     def _validate_one(
         self, item: EpubItem, ctx: PluginContext

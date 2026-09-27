@@ -44,21 +44,17 @@ from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
     ChapterLink,
-    CustomValueDecl,
     CustomValueWrite,
     EpubItem,
     InvocationMode,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     PluginView,
     SettingsSchema,
-    UiTrigger,
     ViewItem,
     ViewSection,
     ViewSectionKind,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from epub_chapter_reorder.book_display import display_title
 from epub_chapter_reorder.reorder_step import automatic_key_order, reorder_epub
@@ -315,52 +311,10 @@ def _build_view(
     return view
 
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="epub_chapter_reorder",
-    name="Chapter Reorder",
-    description=(
-        "Puts an EPUB's chapters back into numbered order when the source delivered them "
-        "shuffled. A file already in order is left untouched."
-    ),
-    version="2.1.0",
-    plugin_type=PluginType.EPUB,
-    settings_schema=SettingsSchema(),
-    headless=True,
-    headed=True,
-    priority=100,
-    events=(PluginEventType.EPUB_CREATED, PluginEventType.EPUB_MODIFIED),
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="low_priority",
-            label="Chapters",
-            description="Reorder chapters or set a manual order for this book.",
-            min_books=1,
-        ),
-    ),
-    custom_values=(
-        CustomValueDecl(
-            key="manual_order_at",
-            type="datetime",
-            label="Manual chapter order set",
-        ),
-    ),
-    default_enabled=True,
-    run_timeout_s=600,
-    icon="reorder",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-)
-
-
 class EpubChapterReorderPlugin:
     """Reorder out-of-order EPUB chapters (NCX navMap + OPF spine)."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the (empty) settings schema — this plugin has no user-configurable options."""

@@ -6,7 +6,6 @@ spi_version = "2.30"
 description = "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from."
 priority = 60
 events = ["EpubCreated", "EpubModified"]
-default_enabled = true
 run_timeout_s = 600
 icon = "link"
 author = "ArcCdr"

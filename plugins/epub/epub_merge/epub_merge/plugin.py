@@ -44,16 +44,14 @@ from ebookerr_sdk.spi import (
     EpubItem,
     InvocationMode,
     PluginContext,
-    PluginManifest,
-    PluginType,
     PluginView,
     SettingsField,
     SettingsSchema,
-    UiTrigger,
     ViewItem,
     ViewSection,
     ViewSectionKind,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from epub_merge.merge import (
     EpubMergeError,
@@ -91,43 +89,6 @@ _SETTINGS_SCHEMA = SettingsSchema(
         "Rewrite title page: {rewrite_title_page} · Chapter range in title: {rewrite_book_title}"
     ),
 )
-
-_MANIFEST = PluginManifest(
-    spi_version="2.31",
-    id="epub_merge",
-    name="EPUB Merge",
-    description=(
-        "Combines several books into one, moving every chapter into the first book and "
-        "deleting the others. Run it from the Merge action; there is no undo."
-    ),
-    version="2.2.0",
-    plugin_type=PluginType.EPUB,
-    settings_schema=_SETTINGS_SCHEMA,
-    headless=False,
-    headed=True,
-    priority=50,
-    accepts_list=True,
-    events=(),
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="merge",
-            label="Merge",
-            description="Combine multiple selected books into one.",
-            min_books=2,
-        ),
-    ),
-    handles_merge_proposals=True,
-    default_enabled=True,
-    run_timeout_s=900,
-    icon="merge",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-)
-
 
 def _build_view(
     survivor: EpubItem, items: Sequence[EpubItem], elected_survivor_id: str
@@ -377,7 +338,7 @@ def _announce_outcome(
 class EpubMergePlugin:
     """Merge every selected book's chapters into the first, then delete the rest."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the settings schema with title page and book title rewrite options."""

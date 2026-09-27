@@ -9,7 +9,6 @@ headed = true
 priority = 50
 accepts_list = true
 handles_merge_proposals = true
-default_enabled = true
 run_timeout_s = 900
 icon = "merge"
 author = "ArcCdr"

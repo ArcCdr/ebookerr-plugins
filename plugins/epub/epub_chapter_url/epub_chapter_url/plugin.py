@@ -25,43 +25,16 @@ from ebookerr_sdk.spi import (
     ChapterLink,
     EpubItem,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsSchema,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 logger = logging.getLogger(__name__)
-
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="epub_chapter_url",
-    name="Chapter URL Stamp",
-    description=(
-        "Records each chapter's own web address inside the EPUB, so a chapter can be "
-        "traced back to the page it came from."
-    ),
-    version="1.1.0",
-    plugin_type=PluginType.EPUB,
-    settings_schema=SettingsSchema(),
-    headless=True,
-    priority=60,
-    events=(PluginEventType.EPUB_CREATED, PluginEventType.EPUB_MODIFIED),
-    default_enabled=True,
-    run_timeout_s=600,
-    icon="link",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-)
-
 
 class EpubChapterUrlPlugin:
     """Declare a chapter URL inside every staged EPUB chapter that lacks one."""
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the (empty) settings schema — this plugin has no user-configurable options."""

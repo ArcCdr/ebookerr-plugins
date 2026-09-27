@@ -7,7 +7,6 @@ description = "Strip publisher styling that stops your reader applying its own f
 headed = true
 priority = 70
 events = ["EpubCreated", "EpubModified"]
-default_enabled = true
 run_timeout_s = 600
 icon = "format_paint"
 author = "ArcCdr"

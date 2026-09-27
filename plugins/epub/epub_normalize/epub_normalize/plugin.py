@@ -102,13 +102,10 @@ from ebookerr_sdk.spi import (
     BookPatch,
     EpubItem,
     PluginContext,
-    PluginEventType,
-    PluginManifest,
-    PluginType,
     SettingsField,
     SettingsSchema,
-    UiTrigger,
 )
+from ebookerr_sdk.spi.manifest import package_manifest
 
 from epub_normalize.normalize import NormalizeOptions, normalize_epub
 from epub_normalize.normalize.normalize import FIXED_LAYOUT_REASON
@@ -187,39 +184,6 @@ _SETTINGS_SCHEMA = SettingsSchema(
     )
 )
 
-_MANIFEST = PluginManifest(
-    spi_version="2.30",
-    id="epub_normalize",
-    name="EPUB Normalize",
-    version="1.1.0",
-    plugin_type=PluginType.EPUB,
-    settings_schema=_SETTINGS_SCHEMA,
-    headless=True,
-    headed=True,
-    priority=70,
-    events=(PluginEventType.EPUB_CREATED, PluginEventType.EPUB_MODIFIED),
-    ui_triggers=(
-        UiTrigger(
-            scope="book_selection_action",
-            icon="sweep",
-            label="Normalize styling",
-            description=(
-                "Remove publisher CSS that overrides your reader's font, theme and text size."
-            ),
-            min_books=1,
-        ),
-    ),
-    description="Strip publisher styling that stops your reader applying its own fonts, "
-    "colours, spacing and margins.",
-    default_enabled=True,
-    run_timeout_s=600,
-    icon="format_paint",
-    author="ArcCdr",
-    license="MIT",
-    homepage="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize",
-    source="https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize",
-    issues="https://github.com/ArcCdr/ebookerr-plugins/issues",
-)
 
 
 def _log_outcome(report: Any, item: EpubItem, elapsed: float) -> None:
@@ -273,7 +237,7 @@ class EpubNormalizePlugin:
     only the file; a no-op run leaves the file byte-identical.
     """
 
-    manifest = _MANIFEST
+    manifest = package_manifest(__file__)
 
     def settings_schema(self) -> SettingsSchema:
         """Return the settings schema for this plugin.
@@ -281,7 +245,7 @@ class EpubNormalizePlugin:
         Returns:
             The settings schema.
         """
-        return _SETTINGS_SCHEMA
+        return self.manifest.settings_schema
 
     def _options(self, settings: Mapping[str, Any]) -> NormalizeOptions:
         """Build NormalizeOptions from resolved settings.
