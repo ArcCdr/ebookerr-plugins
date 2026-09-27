@@ -86,6 +86,7 @@ from typing import Any
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.metadata import sanitize, sanitize_multiline
 from ebookerr_sdk.domain.text_encoding import nfc
+from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 from ebookerr_sdk.providers.anchoring import (
     REANCHOR_ALREADY,
     REANCHOR_FINISHED,
@@ -108,8 +109,6 @@ from ebookerr_sdk.spi import (
     BookView,
     CircuitGuard,
     CircuitOpenError,
-    ProviderAnchor,
-    ProviderBookmark,
     ReadPosition,
 )
 
