@@ -1,13 +1,12 @@
 id = "fanficfare_source"
 name = "FanFicFare"
-version = "1.1.0"
+version = "1.2.0"
 type = "source"
-spi_version = "2.30"
+spi_version = "2.32"
 description = "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first."
 headless = true
 priority = 1000
 url_patterns = ["^https?://"]
-catch_all = true
 update_check = true
 run_timeout_s = 3600
 icon = "auto_stories"
@@ -18,3 +17,5 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["fanficfare>=4.58.1"]
 entrypoint = "entrypoint.py"
+
+[roles.fallback_source]

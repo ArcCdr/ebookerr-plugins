@@ -9,7 +9,7 @@ from pathlib import Path
 def test_the_manifest_declares_the_fallback_source_role() -> None:
     """The manifest declares the fallback_source role and SPI 2.32, no legacy catch_all."""
     manifest_path = Path(__file__).parent.parent / "manifest.toml"
-    with open(manifest_path, "rb") as f:
+    with manifest_path.open("rb") as f:
         data = tomllib.load(f)
 
     assert data["roles"] == {"fallback_source": {}}
