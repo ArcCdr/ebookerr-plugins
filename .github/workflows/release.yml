@@ -22,9 +22,14 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install the SDK
+        # The pinned version lives once in pyproject.toml's dev group; every runner reads it
+        # from there instead of hardcoding it a second time (a hardcoded copy is exactly what
+        # drifted out of sync with PyPI and broke this workflow before).
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install "ebookerr-sdk==2.32.0"
+          sdk_version="$(python -c "import re, tomllib; dev = tomllib.load(open('pyproject.toml', 'rb'))['dependency-groups']['dev']; dep = next(d for d in dev if d.startswith('ebookerr-sdk')); print(re.search(r'==([0-9][0-9A-Za-z.]*)', dep).group(1))")"
+          python -m pip install "ebookerr-sdk==$sdk_version"
       - name: Check, build and publish the tagged plugin
         env:
           TAG: ${{ github.ref_name }}
