@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-09-25T22:16:27Z",
+  "generated_at": "2026-09-27T20:14:26Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -189,6 +189,26 @@
       "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.2.0",
+          "published_at": "2026-09-27T20:14:21Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_merge-2.2.0/epub_merge-2.2.0.zip",
+          "sha256": "3369efe95eb9b9e806b5cb8f05937989d300c289e0d149016af6ec7ed8de5957",
+          "size": 53982,
+          "spi_version": "2.31",
+          "min_app_version": "",
+          "changelog": "Reading positions are no longer rearranged by the merge itself: ebookerr now carries every merged book's reading history into the merged book, and your current position is the one you read most recently.",
+          "sites": [],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [],
+            "deferred": false,
+            "catch_all": false
+          },
+          "requirements": []
+        },
         {
           "version": "2.1.0",
           "published_at": "2026-09-25T22:11:02Z",
@@ -400,6 +420,32 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.2.0",
+          "published_at": "2026-09-27T20:14:24Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.2.0/kavita_sync-1.2.0.zip",
+          "sha256": "ef939bb43cd53bd36fee1bf2d434978b563aea0b110b6755ab2b33d1106f29a0",
+          "size": 31172,
+          "spi_version": "2.31",
+          "min_app_version": "",
+          "changelog": "Reading positions follow the book's own finished state: a finished book that gains a chapter keeps your place and is no longer shown as read. Restoring a position that is already where your reader stands no longer rewrites it. Backward-move warnings and first-link backups are now handled by ebookerr itself, and a bookmark re-anchored on weak evidence now tells you so.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        },
+        {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:12:52Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.1.0/kavita_sync-1.1.0.zip",
@@ -444,6 +490,32 @@
       "exclusive_group": "library_server",
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-09-27T20:14:26Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.2.0/komga_sync-1.2.0.zip",
+          "sha256": "6c83cf637239ba4788f278d23e3b15de15721710075ad5d72111c6499e626ec7",
+          "size": 44103,
+          "spi_version": "2.31",
+          "min_app_version": "",
+          "changelog": "Reading positions follow the book's own finished state: a finished book that gains a chapter keeps your place and is no longer shown as read. Restoring a position that is already where your reader stands no longer rewrites it. Backward-move warnings and first-link backups are now handled by ebookerr itself, and a bookmark re-anchored on weak evidence now tells you so.",
+          "sites": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "catch_all": false
+          },
+          "requirements": []
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:13:15Z",
