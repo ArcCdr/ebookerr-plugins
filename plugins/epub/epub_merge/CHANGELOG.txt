@@ -1,3 +1,6 @@
+== 2.3.0 ==
+Declares that it accepts merge suggestions in the new manifest format. Needs ebookerr 2.21 or later.
+
 == 2.2.0 ==
 Reading positions are no longer rearranged by the merge itself: ebookerr now carries every merged book's reading history into the merged book, and your current position is the one you read most recently.
 
