@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 
 import ebookerr_sdk.spi as p
@@ -24,7 +25,7 @@ def test_manifest_identity_and_flags() -> None:
     assert m.network is True
     assert m.testable is True
     assert m.headed is True
-    assert m.default_enabled is False
+    assert "default_enabled" not in {f.name for f in dataclasses.fields(type(m))}
     assert set(m.events) == {p.PluginEventType.BOOK_CREATED, p.PluginEventType.BOOK_IMPORTED}
 
 
