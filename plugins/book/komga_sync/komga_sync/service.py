@@ -23,7 +23,7 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
    is inconsistent — including a re-read that timed out — Komga's chapter table does not
    describe the file on disk, and every read-position operation below (restore, re-anchor,
    capture) is skipped for this sync; metadata, reading state and ids are still synced.
-4. Import any Komga-only tags into ``erotica_tags``, compose a canonical ordered
+4. Import any Komga-only tags into ``tags``, compose a canonical ordered
    tag list (star tag → categories → other tags A→Z; see :func:`_compose_tags`
    for the exact rule), and push local-mastered metadata, PATCHing only changed
    fields (book: title/summary/releaseDate/authors/tags/links; series:
@@ -252,7 +252,7 @@ def _is_rating_like(tag: str) -> bool:
 
 
 def _compose_tags(
-    category: str | None, erotica_tags: str | None, desired_rating: int | None
+    category: str | None, tags: str | None, desired_rating: int | None
 ) -> list[str]:
     """Canonical Komga book tag list — the exact ordering rule (behavioural contract).
 
@@ -268,12 +268,12 @@ def _compose_tags(
     form as well as case (``TXE-D3``).
 
     Example:
-        ``category="Het, Slash"``, ``erotica_tags="Noncon, Supernatural"``,
+        ``category="Het, Slash"``, ``tags="Noncon, Supernatural"``,
         ``desired_rating=3`` → ``["★★★☆☆", "Het", "Slash", "Noncon", "Supernatural"]``.
 
     Args:
         category: The book's local ``category`` field (CSV).
-        erotica_tags: The book's local ``erotica_tags`` field (CSV).
+        tags: The book's local ``tags`` field (CSV).
         desired_rating: The rating to encode as a star tag, or ``None``/outside
             1–5 to omit it.
 
@@ -283,7 +283,7 @@ def _compose_tags(
     cats = _dedupe_ci(_split_csv(category))
     cats_ci = _ci_set(cats)
     others = sorted(
-        (t for t in _dedupe_ci(_split_csv(erotica_tags)) if nfc(t).casefold() not in cats_ci),
+        (t for t in _dedupe_ci(_split_csv(tags)) if nfc(t).casefold() not in cats_ci),
         key=str.lower,
     )
     out: list[str] = []
@@ -293,32 +293,32 @@ def _compose_tags(
 
 
 def _komga_only_tags(
-    current_tags: list[Any], category: str | None, erotica_tags: str | None
+    current_tags: list[Any], category: str | None, tags: str | None
 ) -> list[str]:
     """Import rule (Komga → lit, every sync): Komga tags not already known locally.
 
     Before composing the outgoing tag list, filters the current Komga tag list
     for tags that are: not rating-like (:func:`_is_rating_like`), not a category
-    (case- and Unicode-form-insensitive, ``TXE-D3``), not already in ``erotica_tags``
+    (case- and Unicode-form-insensitive, ``TXE-D3``), not already in ``tags``
     (same fold), and free of the literal ``", "`` CSV separator — such a tag could not
     round-trip the column encoding. The caller appends any surviving tags to
-    ``erotica_tags`` for the apply path to persist; ``external_progress_at`` is
+    ``tags`` for the apply path to persist; ``external_progress_at`` is
     **not** bumped by an import (it tracks reading-state changes only).
     :meth:`KomgaService.enrich` remains strictly read-only and never imports.
-    The caller patches ``erotica_tags`` only — ``category`` is never part of the
-    import — and, per ``EDIT-D14``, the core drops the patch when ``erotica_tags``
+    The caller patches ``tags`` only — ``category`` is never part of the
+    import — and, per ``EDIT-D14``, the core drops the patch when ``tags``
     is user-overridden, so an import lands only once the override is reverted.
 
     Args:
         current_tags: The book's current tag list as read from Komga.
         category: The book's local ``category`` field (CSV).
-        erotica_tags: The book's local ``erotica_tags`` field (CSV).
+        tags: The book's local ``tags`` field (CSV).
 
     Returns:
         Order-preserving, case-insensitively de-duplicated tags to add to
-        ``erotica_tags``.
+        ``tags``.
     """
-    known = _ci_set(_split_csv(category)) | _ci_set(_split_csv(erotica_tags))
+    known = _ci_set(_split_csv(category)) | _ci_set(_split_csv(tags))
     return _dedupe_ci(
         [
             t
@@ -509,10 +509,10 @@ def _rating_from_tags(tags: list[Any]) -> int | None:
 def _catalog_from_komga(
     komga_book: dict[str, Any], series: dict[str, Any] | None
 ) -> tuple[str | None, str | None]:
-    """Recover ``(category, erotica_tags)`` from Komga — the inverse of the sync's tag push.
+    """Recover ``(category, tags)`` from Komga — the inverse of the sync's tag push.
 
     ``category`` is the series genres rejoined (``["Het","Slash"]`` -> ``"Het, Slash"``);
-    ``erotica_tags`` is the book tags with the genre values and any rating tag (legacy
+    ``tags`` is the book tags with the genre values and any rating tag (legacy
     ``rating:*`` or star form) removed. The genre-tag comparison is case- and
     Unicode-form-insensitive (``TXE-D3``).
 
@@ -521,7 +521,7 @@ def _catalog_from_komga(
         series: The book's current Komga series metadata, or ``None``.
 
     Returns:
-        ``(category, erotica_tags)``, each ``None`` when empty.
+        ``(category, tags)``, each ``None`` when empty.
     """
     genres = ((series or {}).get("metadata") or {}).get("genres") or []
     tags = (komga_book.get("metadata") or {}).get("tags") or []
@@ -960,11 +960,11 @@ class KomgaService:
         local = book.rating
         desired_rating, adopt_n, do_clear = self._resolve_rating(local, komga_tag)
 
-        imported = _komga_only_tags(current_tags, book.category, book.erotica_tags)
-        erotica = book.erotica_tags
+        imported = _komga_only_tags(current_tags, book.category, book.tags)
+        erotica = book.tags
         if imported:
-            erotica = ", ".join(_split_csv(book.erotica_tags) + imported) or None
-            fields["erotica_tags"] = erotica
+            erotica = ", ".join(_split_csv(book.tags) + imported) or None
+            fields["tags"] = erotica
             logger.info(
                 'Imported %d Komga tag(s) into "%s": %s',
                 len(imported),
@@ -972,7 +972,7 @@ class KomgaService:
                 ", ".join(imported),
             )
             logger.debug(
-                'Komga tag import for "%s" patches erotica_tags only (category is never imported)',
+                'Komga tag import for "%s" patches tags only (category is never imported)',
                 book.title,
             )
         desired_tags = _compose_tags(book.category, erotica, desired_rating)
@@ -1454,14 +1454,14 @@ class KomgaService:
             return SyncResult(False, "could not load the Komga book", attempted=True)
         series_id = komga_book.get("seriesId")
         series = self._client.get_series(series_id) if series_id else None
-        category, erotica_tags = _catalog_from_komga(komga_book, series)
+        category, tags = _catalog_from_komga(komga_book, series)
         fields = self._read_back(book, komga_book)
         # T8: title-page catalog (T4) is authoritative; only fill when the book lacks it.
-        if (category is not None or erotica_tags is not None) and (
-            book.category is None and book.erotica_tags is None
+        if (category is not None or tags is not None) and (
+            book.category is None and book.tags is None
         ):
             fields["category"] = category
-            fields["erotica_tags"] = erotica_tags
+            fields["tags"] = tags
         # Adopt rating from Komga only when the local rating is unset (read-only toward Komga).
         if book.rating is None:
             current_tags = (komga_book.get("metadata") or {}).get("tags") or []
