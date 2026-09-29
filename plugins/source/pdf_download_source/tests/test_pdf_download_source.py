@@ -14,7 +14,7 @@ import requests
 import responses
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode
+from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode, SourcePullError
 from pdf_download_source.plugin import PdfDownloadSourcePlugin
 
 
@@ -457,3 +457,40 @@ class TestPullHashSkipReturnsNoUpdate:
         assert patch2.upsert is False
         assert "unchanged after download (content hash match)" in caplog.text
         assert conversion_call_count == 0
+
+
+class TestConvert:
+    def test_convert_pdf_produces_an_epub(self, tmp_path: Path) -> None:
+        """Convert an uploaded PDF file into a staged EPUB."""
+        source = _make_pdf(
+            tmp_path,
+            ["Chapter 1 text", "Chapter 2 text"],
+            toc=[[1, "Chapter 1", 1], [1, "Chapter 2", 2]],
+            meta={"title": "My Book", "author": "Jane"},
+        )
+        data = source.read_bytes()
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        patch = PdfDownloadSourcePlugin().convert(source, work_dir, FakeContext())
+
+        assert patch.book_id == ""
+        assert patch.fields == {
+            "title": "My Book",
+            "author": "Jane",
+            "output_filename": "Jane/test.epub",
+            "format": "pdf",
+        }
+        assert patch.custom_values["content_hash"].value == hashlib.sha256(data).hexdigest()
+        assert EpubDocument.open(work_dir / "Jane" / "test.epub").read_metadata().title == "My Book"
+        assert source.read_bytes() == data
+
+    def test_convert_a_broken_pdf_raises(self, tmp_path: Path) -> None:
+        """Convert a broken PDF file raises SourcePullError."""
+        broken_pdf = tmp_path / "broken.pdf"
+        broken_pdf.write_bytes(b"not a pdf")
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        with pytest.raises(SourcePullError, match="PDF conversion failed"):
+            PdfDownloadSourcePlugin().convert(broken_pdf, work_dir, FakeContext())
