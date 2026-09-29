@@ -299,7 +299,7 @@ class TestConvert:
     def test_convert_rtf_produces_an_epub(self, tmp_path: Path) -> None:
         """convert() stages an RTF file as an EPUB with extracted title and Unknown author."""
         data = rb"{\rtf1\ansi Harbour Lights\par\par The tide came in slowly.\par}"
-        source = tmp_path / "story.rtf"
+        source = tmp_path / "Harbour Lights.rtf"
         source.write_bytes(data)
         work_dir = tmp_path / "work"
         work_dir.mkdir()
@@ -310,11 +310,11 @@ class TestConvert:
         assert patch.fields == {
             "title": "Harbour Lights",
             "author": "Unknown",
-            "output_filename": "Unknown/story.epub",
+            "output_filename": "Unknown/Harbour Lights.epub",
             "format": "rtf",
         }
         assert patch.custom_values["content_hash"].value == hashlib.sha256(data).hexdigest()
-        epub_path = work_dir / "Unknown" / "story.epub"
+        epub_path = work_dir / "Unknown" / "Harbour Lights.epub"
         assert EpubDocument.open(epub_path).content_chapter_count() >= 1
         assert source.read_bytes() == data
 
