@@ -251,9 +251,7 @@ def _is_rating_like(tag: str) -> bool:
     return tag.startswith("rating:") or _rating_from_tag(tag) is not None
 
 
-def _compose_tags(
-    category: str | None, tags: str | None, desired_rating: int | None
-) -> list[str]:
+def _compose_tags(category: str | None, tags: str | None, desired_rating: int | None) -> list[str]:
     """Canonical Komga book tag list — the exact ordering rule (behavioural contract).
 
     1. Star rating tag, only when ``desired_rating`` ∈ 1–5 (see :func:`_rating_tag`;
@@ -292,9 +290,7 @@ def _compose_tags(
     return _dedupe_ci(out + cats + others)
 
 
-def _komga_only_tags(
-    current_tags: list[Any], category: str | None, tags: str | None
-) -> list[str]:
+def _komga_only_tags(current_tags: list[Any], category: str | None, tags: str | None) -> list[str]:
     """Import rule (Komga → lit, every sync): Komga tags not already known locally.
 
     Before composing the outgoing tag list, filters the current Komga tag list
