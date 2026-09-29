@@ -2,7 +2,7 @@ id = "text_download_source"
 name = "Text download"
 version = "1.1.0"
 type = "source"
-spi_version = "2.30"
+spi_version = "2.33"
 description = "Downloads a TXT/Markdown file and converts it to EPUB in the library."
 url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.(?:txt|md)(?:[?#]|$)"]
 update_check = true
@@ -16,3 +16,5 @@ issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["charset-normalizer>=3.3"]
 formats = ["txt"]
 entrypoint = "entrypoint.py"
+
+[roles.converter]

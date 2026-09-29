@@ -2,7 +2,8 @@
 
 Handles direct TXT and Markdown downloads from URLs ending in .txt or .md, takes the title
 from the text's first line, converts the text to EPUB via convert_text_to_epub, and returns
-a BookPatch suitable for the core orchestrator.
+a BookPatch suitable for the core orchestrator. It also converts an uploaded TXT/Markdown file
+into an EPUB (the converter role, SPI 2.33).
 
 Unlike FanFicFare (priority=1000 catch-all), this plugin claims .txt/.md URLs directly
 (priority=100) and skips FanFicFare's dependency chain for pure text downloads.
@@ -17,7 +18,7 @@ from urllib.parse import urlsplit
 
 import requests
 from ebookerr_sdk.download.check import check_download_update
-from ebookerr_sdk.download.document import download_convert_stage
+from ebookerr_sdk.download.document import convert_stage, download_convert_stage
 from ebookerr_sdk.epub.text_convert import convert_text_to_epub
 from ebookerr_sdk.spi import (
     BookPatch,
@@ -113,6 +114,33 @@ class TextDownloadSourcePlugin:
             timeout_s=self._timeout_s,
             namespace=self.manifest.id,
             source_suffix=suffix,
+            fmt="txt",
+            convert=convert_text_to_epub,
+            log_label="Text",
+        )
+
+    def convert(self, path: Path, work_dir: Path, ctx: PluginContext) -> BookPatch:
+        """Convert an uploaded TXT or Markdown file into an EPUB staged under *work_dir* (SPI 2.33).
+
+        The title comes from the text's first line, else the file name; the author is "Unknown".
+
+        Args:
+            path: The uploaded ``.txt`` or ``.md`` file; only read.
+            work_dir: The folder the EPUB is written into.
+            ctx: The plugin context.
+
+        Returns:
+            The conversion patch: ``output_filename``, ``title``, ``author``, ``format`` ``"txt"``
+            and the ``content_hash``/``content_length`` custom values; ``book_id`` is ``""``.
+
+        Raises:
+            SourcePullError: The file holds no text.
+        """
+        return convert_stage(
+            path,
+            work_dir,
+            ctx,
+            namespace=self.manifest.id,
             fmt="txt",
             convert=convert_text_to_epub,
             log_label="Text",
