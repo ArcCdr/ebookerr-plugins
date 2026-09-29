@@ -42,4 +42,4 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert "reader_url_template" not in data or data.get("reader_url_template") is None
 
     # Verify SPI version
-    assert data["spi_version"] == "2.32"
+    assert data["spi_version"] == "2.33"

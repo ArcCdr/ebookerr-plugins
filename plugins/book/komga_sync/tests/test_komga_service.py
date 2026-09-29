@@ -268,7 +268,7 @@ class _Book:
     series_url: str | None = None
     description: str | None = None
     category: str | None = None
-    erotica_tags: str | None = None
+    tags: str | None = None
     date_published: datetime | None = None
     status: str | None = None
     site: str | None = None
@@ -303,14 +303,14 @@ _FFF_TEXT_FIELDS: dict[str, str] = {
     "seriesUrl": "series_url",
     "description": "description",
     "category": "category",
-    "eroticatags": "erotica_tags",
+    "eroticatags": "tags",
     "status": "status",
     "site": "site",
     "output_filename": "output_filename",
     "storyId": "story_id",
 }
 _FFF_SANITISE_COLUMNS: frozenset[str] = frozenset(
-    {"title", "author", "series", "description", "category", "erotica_tags", "status", "site"}
+    {"title", "author", "series", "description", "category", "tags", "status", "site"}
 )
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -485,7 +485,7 @@ def book_to_view(book: _Book, **overrides: Any) -> BookView:
         "status": book.status,
         "rating": book.rating,
         "category": book.category,
-        "tags": book.erotica_tags,
+        "tags": book.tags,
         "site": book.site,
         "description": book.description,
         "date_published": book.date_published,
@@ -1261,7 +1261,7 @@ def test_enrich_pulls_ids_state_and_catalog_read_only(repo: _FakeBookRepository)
     assert result.fields["external_read_total"] == 20
     assert result.fields["external_read_position"] == 7
     assert result.fields["category"] == "Het"  # from series genres
-    assert result.fields["erotica_tags"] == "bdsm"  # book tags minus the genre and rating:N
+    assert result.fields["tags"] == "bdsm"  # book tags minus the genre and rating:N
     # strictly read-only on Komga -- no metadata push, scan or progression write
     assert client.book_patches == []
     assert client.series_patches == []
@@ -1274,14 +1274,14 @@ def test_enrich_without_series_leaves_category_none(repo: _FakeBookRepository) -
     client = FakeKomga()
     client.find_results = ["KB1"]
     client.book = komga_book(series_id=None, metadata={"tags": ["bdsm", "rating:3"]})
-    # Book has no catalog → Komga fills erotica_tags only (no series → no genres → category=None).
+    # Book has no catalog → Komga fills tags only (no series → no genres → category=None).
     book = make_book(repo, category="", eroticatags="")
 
     result = service(client).enrich(book_to_view(book))
 
     assert result.ok is True
     assert result.fields["category"] is None
-    assert result.fields["erotica_tags"] == "bdsm"  # rating stripped, no genre to strip
+    assert result.fields["tags"] == "bdsm"  # rating stripped, no genre to strip
 
 
 def test_enrich_does_not_overwrite_catalog_when_komga_has_none(repo: _FakeBookRepository) -> None:
@@ -1295,7 +1295,7 @@ def test_enrich_does_not_overwrite_catalog_when_komga_has_none(repo: _FakeBookRe
     assert result.ok is True
     # no genres/tags from Komga -> nothing adopted -> catalog fields absent from the outcome
     assert "category" not in result.fields
-    assert "erotica_tags" not in result.fields
+    assert "tags" not in result.fields
 
 
 def test_enrich_returns_false_when_not_found(repo: _FakeBookRepository) -> None:
@@ -1417,7 +1417,7 @@ def test_restored_progress_lands_in_db(repo: _FakeBookRepository) -> None:
 
 
 def test_enrich_does_not_clobber_title_page_catalog_with_komga(repo: _FakeBookRepository) -> None:
-    """T8: when book already has category/erotica_tags, Komga catalog must not overwrite them."""
+    """T8: when book already has category/tags, Komga catalog must not overwrite them."""
     client = FakeKomga()
     client.find_results = ["KB1"]
     client.book = komga_book(
@@ -1434,7 +1434,7 @@ def test_enrich_does_not_clobber_title_page_catalog_with_komga(repo: _FakeBookRe
     assert result.ok is True
     # title-page values preserved -> Komga catalog was not adopted into the outcome
     assert "category" not in result.fields
-    assert "erotica_tags" not in result.fields
+    assert "tags" not in result.fields
 
 
 def test_enrich_without_output_filename_skips_path_lookup(repo: _FakeBookRepository) -> None:
@@ -1500,7 +1500,7 @@ def test_komga_only_tags_filters_managed_and_known() -> None:
 
 
 def test_sync_imports_komga_only_tags_into_db(repo: _FakeBookRepository) -> None:
-    """Komga-only tags are appended to erotica_tags; the tags push is skipped (same content).
+    """Komga-only tags are appended to tags; the tags push is skipped (same content).
 
     After the import the composed list holds exactly what Komga already has, so the
     changed-fields-only PATCH must not include ``tags`` (order alone is not pushable —
@@ -1516,8 +1516,8 @@ def test_sync_imports_komga_only_tags_into_db(repo: _FakeBookRepository) -> None
 
     result = service(client).sync(book_to_view(book))
 
-    assert "zebra" in (result.fields.get("erotica_tags") or "").lower()
-    assert "alpha" in (result.fields.get("erotica_tags") or "").lower()
+    assert "zebra" in (result.fields.get("tags") or "").lower()
+    assert "alpha" in (result.fields.get("tags") or "").lower()
     assert len(client.book_patches) == 1
     _, patch_data = client.book_patches[0]
     assert "tags" not in patch_data
@@ -1534,14 +1534,14 @@ def test_sync_no_import_write_when_nothing_new(repo: _FakeBookRepository) -> Non
     result = service(client).sync(book_to_view(book))
 
     assert "category" not in result.fields
-    assert "erotica_tags" not in result.fields
+    assert "tags" not in result.fields
 
 
 def test_tag_import_never_patches_category(repo: _FakeBookRepository) -> None:
-    """Komga tag import patches erotica_tags only; category is never imported.
+    """Komga tag import patches tags only; category is never imported.
 
-    When Komga holds unknown tags, they are imported into erotica_tags, but
-    category is not written to the base row (only erotica_tags is patched).
+    When Komga holds unknown tags, they are imported into tags, but
+    category is not written to the base row (only tags is patched).
     """
     client = FakeKomga()
     client.find_results = ["KB1"]
@@ -1552,7 +1552,7 @@ def test_tag_import_never_patches_category(repo: _FakeBookRepository) -> None:
     result = service(client).sync(book_to_view(book))
 
     assert "category" not in result.fields
-    assert result.fields["erotica_tags"].lower().split(", ") == ["horror", "zebra"]
+    assert result.fields["tags"].lower().split(", ") == ["horror", "zebra"]
 
 
 def test_book_patch_skips_pure_reorder() -> None:
@@ -2397,7 +2397,7 @@ def test_a_stale_persisted_locator_is_not_replayed(repo: _FakeBookRepository) ->
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -2466,7 +2466,7 @@ def test_a_fresh_persisted_locator_is_replayed(repo: _FakeBookRepository) -> Non
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -2530,7 +2530,7 @@ def test_a_locator_with_no_modified_stamp_is_replayed(repo: _FakeBookRepository)
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -2587,7 +2587,7 @@ def test_a_book_with_no_history_replays_its_locator(repo: _FakeBookRepository) -
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -2656,7 +2656,7 @@ def test_the_stale_locator_is_logged_at_warning(
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -3880,7 +3880,7 @@ def test_summary_source_is_logged_at_debug_for_the_description(
 def test_book_patch_uses_the_merged_author_and_category() -> None:
     """BookView with merged author/category -> pushed authors/tags reflect exactly those values."""
     view = make_book_view(author="J. Doe", category="Romance, Drama")
-    desired_tags = _compose_tags(view.category, view.erotica_tags, None)
+    desired_tags = _compose_tags(view.category, view.tags, None)
     patch = _book_patch(view, {}, desired_tags)  # type: ignore
     assert patch.get("authors") == [{"name": "J. Doe", "role": "writer"}]
     # Category should be in tags (composed via _compose_tags)
@@ -4692,7 +4692,7 @@ def test_the_age_guard_compares_timestamps_chronologically_across_offsets(
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -4764,7 +4764,7 @@ def test_a_stale_locator_at_a_different_chapter_is_still_refused(
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
@@ -4841,7 +4841,7 @@ def test_a_stale_locator_at_the_newest_records_chapter_is_replayed(
         status=book.status,
         rating=book.rating,
         category=book.category,
-        tags=book.erotica_tags,
+        tags=book.tags,
         site=book.site,
         description=book.description,
         date_published=book.date_published,
