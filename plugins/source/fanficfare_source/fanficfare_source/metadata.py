@@ -31,7 +31,7 @@ _TEXT_FIELDS: dict[str, str] = {
     "seriesUrl": "series_url",
     "description": "description",
     "category": "category",
-    "eroticatags": "erotica_tags",
+    "eroticatags": "tags",
     "status": "status",
     "site": "site",
     "cover_image": "cover_image",
@@ -55,7 +55,7 @@ _SANITISE_COLUMNS: frozenset[str] = frozenset(
         "series",
         "description",
         "category",
-        "erotica_tags",
+        "tags",
         "status",
         "site",
     }
