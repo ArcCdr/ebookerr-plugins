@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from pathlib import Path
@@ -12,7 +13,7 @@ import requests
 import responses
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode
+from ebookerr_sdk.spi import BookPatch, BookView, CustomValueView, InvocationMode, SourcePullError
 from rtf_download_source.plugin import RtfDownloadSourcePlugin
 
 # RTF fixture: simple valid RTF content
@@ -288,3 +289,37 @@ def test_the_manifest_pattern_claims_exactly_what_the_class_claims(url: str, cla
     pattern = RtfDownloadSourcePlugin.manifest.url_patterns[0]
     assert RtfDownloadSourcePlugin().claims(url) is claimed
     assert (re.search(pattern, url) is not None) is claimed
+
+
+class TestConvert:
+    def test_convert_rtf_produces_an_epub(self, tmp_path: Path) -> None:
+        """convert() stages an RTF file as an EPUB with extracted title and Unknown author."""
+        data = rb"{\rtf1\ansi Harbour Lights\par\par The tide came in slowly.\par}"
+        source = tmp_path / "story.rtf"
+        source.write_bytes(data)
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        patch = RtfDownloadSourcePlugin().convert(source, work_dir, FakeContext())
+
+        assert patch.book_id == ""
+        assert patch.fields == {
+            "title": "Harbour Lights",
+            "author": "Unknown",
+            "output_filename": "Unknown/story.epub",
+            "format": "rtf",
+        }
+        assert patch.custom_values["content_hash"].value == hashlib.sha256(data).hexdigest()
+        epub_path = work_dir / "Unknown" / "story.epub"
+        assert EpubDocument.open(epub_path).content_chapter_count() >= 1
+        assert source.read_bytes() == data
+
+    def test_convert_empty_rtf_raises(self, tmp_path: Path) -> None:
+        """convert() raises SourcePullError on empty RTF content."""
+        source = tmp_path / "blank.rtf"
+        source.write_bytes(rb"{\rtf1\ansi\deff0 \par}")
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        with pytest.raises(SourcePullError, match="RTF conversion failed"):
+            RtfDownloadSourcePlugin().convert(source, work_dir, FakeContext())

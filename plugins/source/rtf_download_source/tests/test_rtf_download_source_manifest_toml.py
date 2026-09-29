@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ebookerr_sdk.spi import Converting
 from rtf_download_source.plugin import RtfDownloadSourcePlugin
 
 
@@ -11,3 +12,12 @@ def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
     manifest = RtfDownloadSourcePlugin.manifest
     assert manifest.update_check is True
     assert manifest.formats == ("rtf",)
+
+
+def test_the_manifest_declares_the_converter_role() -> None:
+    """The Source converts uploaded rtf files: [roles.converter], formats unchanged, SPI 2.33."""
+    manifest = RtfDownloadSourcePlugin.manifest
+    assert manifest.roles.converter is True
+    assert manifest.formats == ("rtf",)
+    assert manifest.spi_version == "2.33"
+    assert isinstance(RtfDownloadSourcePlugin(), Converting)
