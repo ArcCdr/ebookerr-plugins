@@ -60,6 +60,10 @@ class FakeContext:
         host = urlsplit(url).hostname or ""
         return self.auth_by_host.get(host, {})
 
+    def app_setting(self, key: str, default: Any = None) -> Any:
+        """Return an app setting value or default."""
+        return default
+
 
 class TestClaimsRtfSuffix:
     def test_claims_rtf(self) -> None:
