@@ -15,6 +15,8 @@ returned patch carries real ``fields`` (unlike FanFicFare's self-persisted, empt
 ``fields`` patch), so it flows through the ordinary ``apply_book_patch``
 create-from-fields path, including the unique-filename finalization step.
 
+It also converts an uploaded PDF file into an EPUB (the converter role, SPI 2.33).
+
 ``pymupdf`` is this plugin's declared requirement (``requirements`` in its manifest);
 the image installs it until plugins install their own requirements.
 """
@@ -27,7 +29,7 @@ from urllib.parse import urlsplit
 
 import requests
 from ebookerr_sdk.download.check import check_download_update
-from ebookerr_sdk.download.document import download_convert_stage
+from ebookerr_sdk.download.document import convert_stage, download_convert_stage
 from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
@@ -126,6 +128,33 @@ class PdfDownloadSourcePlugin:
             timeout_s=self._timeout_s,
             namespace=self.manifest.id,
             source_suffix=".pdf",
+            fmt="pdf",
+            convert=convert_pdf_to_epub,
+            log_label="PDF",
+        )
+
+    def convert(self, path: Path, work_dir: Path, ctx: PluginContext) -> BookPatch:
+        """Convert an uploaded PDF file into an EPUB staged under *work_dir* (SPI 2.33).
+
+        The title and author come from the PDF's metadata, else its first line and "Unknown".
+
+        Args:
+            path: The uploaded ``.pdf`` file; only read.
+            work_dir: The folder the EPUB is written into.
+            ctx: The plugin context.
+
+        Returns:
+            The conversion patch: ``output_filename``, ``title``, ``author``, ``format`` ``"pdf"``
+            and the ``content_hash``/``content_length`` custom values; ``book_id`` is ``""``.
+
+        Raises:
+            SourcePullError: The file is not a readable PDF or holds no text.
+        """
+        return convert_stage(
+            path,
+            work_dir,
+            ctx,
+            namespace=self.manifest.id,
             fmt="pdf",
             convert=convert_pdf_to_epub,
             log_label="PDF",
