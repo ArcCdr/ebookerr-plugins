@@ -34,7 +34,7 @@ def test_maps_real_the_12th_key(fanficfare_fixtures: Path) -> None:
     assert f["section_url"] == "https://www.literotica.com/s/the-12th-key"
     assert f["author_url"].endswith("/gabthewriter/works/stories")
     assert f["category"] == "Erotic Horror"
-    assert "Gang Bang" in f["erotica_tags"]
+    assert "Gang Bang" in f["tags"]
     assert f["site"] == "literotica.com"
     assert f["status"] == "Completed"
     assert f["date_published"] == datetime(2026, 5, 19, tzinfo=UTC)
@@ -189,7 +189,7 @@ class TestSanitiseAtPersistence:
             }
         )
         assert f["category"] == "Erotica"
-        assert f["erotica_tags"] == "Tag <1>, Tag 2"
+        assert f["tags"] == "Tag <1>, Tag 2"
 
     def test_status_and_site_sanitised(self) -> None:
         f = fanficfare_json_to_book_fields(
