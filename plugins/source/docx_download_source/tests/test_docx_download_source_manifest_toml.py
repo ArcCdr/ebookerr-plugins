@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from docx_download_source.plugin import DocxDownloadSourcePlugin
+from ebookerr_sdk.spi import Converting
 
 
 def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
@@ -11,3 +12,12 @@ def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
     manifest = DocxDownloadSourcePlugin.manifest
     assert manifest.update_check is True
     assert manifest.formats == ("docx",)
+
+
+def test_the_manifest_declares_the_converter_role() -> None:
+    """The Source converts uploaded docx files: [roles.converter], formats unchanged, SPI 2.33."""
+    manifest = DocxDownloadSourcePlugin.manifest
+    assert manifest.roles.converter is True
+    assert manifest.formats == ("docx",)
+    assert manifest.spi_version == "2.33"
+    assert isinstance(DocxDownloadSourcePlugin(), Converting)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from pathlib import Path
@@ -13,7 +14,7 @@ import responses
 from docx_download_source.plugin import DocxDownloadSourcePlugin
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.spi import BookPatch, BookView
+from ebookerr_sdk.spi import BookPatch, BookView, SourcePullError
 from ebookerr_sdk.testing import FakeContext
 
 
@@ -348,3 +349,44 @@ class TestTitleAndAuthorMetadataPrecedence:
             for r in caplog.records
             if r.levelno == logging.DEBUG
         ), f"Expected 'Title taken from the document' log not found. Debug logs: {debug_logs}"
+
+
+class TestConvert:
+    """Upload conversion tests for the converter role (SPI 2.33)."""
+
+    def test_convert_docx_produces_an_epub(self, tmp_path: Path) -> None:
+        """convert() takes an uploaded DOCX and produces a staged EPUB with metadata."""
+        source = _make_docx(
+            tmp_path,
+            paras=[
+                ("Heading 1", "Chapter One"),
+                (None, "Body text"),
+            ],
+            title="My Book",
+            author="Jane",
+        )
+        data = source.read_bytes()
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        patch = DocxDownloadSourcePlugin().convert(source, work_dir, FakeContext())
+
+        assert patch.book_id == ""
+        assert patch.fields == {
+            "title": "My Book",
+            "author": "Jane",
+            "output_filename": "Jane/in.epub",
+            "format": "docx",
+        }
+        assert patch.custom_values["content_hash"].value == hashlib.sha256(data).hexdigest()
+        epub_doc = EpubDocument.open(work_dir / "Jane" / "in.epub")
+        assert epub_doc.read_metadata().title == "My Book"
+        assert source.read_bytes() == data
+
+    def test_convert_a_broken_docx_raises(self, tmp_path: Path) -> None:
+        """convert() raises SourcePullError on invalid DOCX."""
+        broken = tmp_path / "broken.docx"
+        broken.write_bytes(b"not a docx")
+
+        with pytest.raises(SourcePullError, match="DOCX conversion failed"):
+            DocxDownloadSourcePlugin().convert(broken, tmp_path / "work", FakeContext())
