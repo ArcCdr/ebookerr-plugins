@@ -342,7 +342,8 @@ class TestConvert:
             "format": "txt",
         }
         assert patch.custom_values["content_hash"].value == hashlib.sha256(data).hexdigest()
-        assert EpubDocument.open(work_dir / "Unknown" / "Harbour Lights.epub").content_chapter_count() >= 1
+        epub_path = work_dir / "Unknown" / "Harbour Lights.epub"
+        assert EpubDocument.open(epub_path).content_chapter_count() >= 1
         assert source.read_bytes() == data
 
     def test_convert_md_produces_an_epub(self, tmp_path: Path) -> None:
