@@ -2,7 +2,7 @@ id = "docx_download_source"
 name = "DOCX download"
 version = "1.1.0"
 type = "source"
-spi_version = "2.30"
+spi_version = "2.33"
 description = "Downloads a DOCX and converts it to EPUB in the library."
 url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.docx(?:[?#]|$)"]
 update_check = true
@@ -16,3 +16,5 @@ issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["python-docx>=1.1"]
 formats = ["docx"]
 entrypoint = "entrypoint.py"
+
+[roles.converter]

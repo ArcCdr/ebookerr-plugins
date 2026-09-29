@@ -5,6 +5,8 @@ ending in .docx. Applies site authentication headers (cookies, basic auth, etc.)
 SPI ``PluginContext.auth_headers``, converts the DOCX to EPUB via convert_docx_to_epub, reads
 EPUB metadata, and returns a BookPatch suitable for the core orchestrator.
 
+It also converts an uploaded DOCX file into an EPUB (the converter role, SPI 2.33).
+
 Unlike FanFicFare (priority=1000 catch-all), this plugin claims .docx URLs directly
 (priority=100) and skips FanFicFare's dependency chain for pure DOCX downloads.
 """
@@ -17,7 +19,7 @@ from urllib.parse import urlsplit
 
 import requests
 from ebookerr_sdk.download.check import check_download_update
-from ebookerr_sdk.download.document import download_convert_stage
+from ebookerr_sdk.download.document import convert_stage, download_convert_stage
 from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
@@ -111,6 +113,35 @@ class DocxDownloadSourcePlugin:
             timeout_s=self._timeout_s,
             namespace=self.manifest.id,
             source_suffix=".docx",
+            fmt="docx",
+            convert=convert_docx_to_epub,
+            log_label="DOCX",
+        )
+
+    def convert(self, path: Path, work_dir: Path, ctx: PluginContext) -> BookPatch:
+        """Convert an uploaded DOCX file into an EPUB staged under *work_dir* (SPI 2.33).
+
+        The title and author come from the document's properties, else its first line and
+        "Unknown".
+
+        Args:
+            path: The uploaded ``.docx`` file; only read.
+            work_dir: The folder the EPUB is written into.
+            ctx: The plugin context.
+
+        Returns:
+            The conversion patch: ``output_filename``, ``title``, ``author``, ``format``
+            ``"docx"`` and the ``content_hash``/``content_length`` custom values; ``book_id`` is
+            ``""``.
+
+        Raises:
+            SourcePullError: The file is not a readable DOCX document or holds no text.
+        """
+        return convert_stage(
+            path,
+            work_dir,
+            ctx,
+            namespace=self.manifest.id,
             fmt="docx",
             convert=convert_docx_to_epub,
             log_label="DOCX",
