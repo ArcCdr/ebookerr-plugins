@@ -1517,26 +1517,46 @@ class KomgaService:
             logger.debug("Komga live read state: not configured; nothing reported")
             return ReadStateChanges(marker=marker)
         previous = parse_datetime(marker) if marker is not None else None
+        newest, items = self._scan_progress_changes(previous, self._library_id)
+        if previous is None:
+            if marker is not None:
+                logger.debug("Komga live read state: marker %r unreadable; new baseline", marker)
+            baseline = newest.isoformat() if newest is not None else _EPOCH_MARKER
+            return ReadStateChanges(marker=baseline)
+        next_marker = newest.isoformat() if newest is not None and newest > previous else marker
+        logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
+        return ReadStateChanges(items=tuple(items), marker=next_marker)
+
+    def _scan_progress_changes(
+        self, previous: datetime | None, library_id: str
+    ) -> tuple[datetime | None, list[str]]:
+        """Scan and collect books with reading changes after *previous* (``LIB-D14``).
+
+        Returns the newest change's timestamp and the list of book ids changed since *previous*.
+
+        Args:
+            previous: The marker's timestamp, or ``None`` for a baseline scan.
+            library_id: The Komga library id.
+
+        Returns:
+            A tuple of (newest timestamp, book ids).
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
+        """
         newest: datetime | None = None
         items: list[str] = []
         try:
             with self._guard():
                 for page in range(_LIVE_MAX_PAGES):
                     rows = self._client.read_progress_changes(
-                        self._library_id, page=page, size=_LIVE_PAGE_SIZE
+                        library_id, page=page, size=_LIVE_PAGE_SIZE
                     )
-                    done = False
-                    for row in rows:
-                        stamp = _progress_stamp(row)
-                        if stamp is None:
-                            done = True
-                            break
-                        if newest is None:
-                            newest = stamp
-                        if previous is None or stamp <= previous:
-                            done = True
-                            break
-                        items.append(str(row["id"]))
+                    if not rows:
+                        break
+                    done, first_ts = self._process_progress_rows(rows, previous, items)
+                    if newest is None and first_ts is not None:
+                        newest = first_ts
                     if done or len(rows) < _LIVE_PAGE_SIZE:
                         break
                 else:
@@ -1547,14 +1567,37 @@ class KomgaService:
                     )
         except CircuitOpenError as exc:
             raise ProviderUnreachable("circuit open") from exc
-        if previous is None:
-            if marker is not None:
-                logger.debug("Komga live read state: marker %r unreadable; new baseline", marker)
-            baseline = newest.isoformat() if newest is not None else _EPOCH_MARKER
-            return ReadStateChanges(marker=baseline)
-        next_marker = newest.isoformat() if newest is not None and newest > previous else marker
-        logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
-        return ReadStateChanges(items=tuple(items), marker=next_marker)
+        return newest, items
+
+    def _process_progress_rows(
+        self,
+        rows: list[dict[str, Any]],
+        previous: datetime | None,
+        items: list[str],
+    ) -> tuple[bool, datetime | None]:
+        """Process one page of progress rows and collect newer ids.
+
+        Returns a tuple of (should_stop, first_timestamp).
+
+        Args:
+            rows: The Komga progress rows to scan.
+            previous: The marker's timestamp, or ``None`` for baseline.
+            items: The list to append newer book ids to.
+
+        Returns:
+            (True to stop scanning, first row's timestamp or None).
+        """
+        first_ts: datetime | None = None
+        for row in rows:
+            stamp = _progress_stamp(row)
+            if stamp is None:
+                return True, first_ts
+            if first_ts is None:
+                first_ts = stamp
+            if previous is None or stamp <= previous:
+                return True, first_ts
+            items.append(str(row["id"]))
+        return False, first_ts
 
     def _find_by_path(self, output_filename: str | None) -> str | None:
         """Locate a Komga book by URL suffix-match against ``output_filename``.
