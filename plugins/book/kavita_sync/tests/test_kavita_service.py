@@ -3849,7 +3849,7 @@ def test_the_baseline_of_an_unread_server_is_the_epoch() -> None:
 
 def test_nothing_newer_keeps_the_marker() -> None:
     """No change since marker → same marker returned."""
-    M = "2026-09-28T18:50:49+00:00"
+    m = "2026-09-28T18:50:49+00:00"
     client = FakeKavita()
     client.recent_series = [
         _series(7, 3, "2026-09-28T18:50:49"),
@@ -3857,14 +3857,14 @@ def test_nothing_newer_keeps_the_marker() -> None:
     ]
     svc = service(client)
 
-    result = svc.read_state_changes(M)
+    result = svc.read_state_changes(m)
 
-    assert result == ReadStateChanges(marker=M)
+    assert result == ReadStateChanges(marker=m)
 
 
 def test_a_newer_date_reports_every_listed_series_with_pages_read() -> None:
     """A newer date → report all series with pages_read > 0 and return new marker."""
-    M = "2026-09-28T18:50:49+00:00"
+    m = "2026-09-28T18:50:49+00:00"
     client = FakeKavita()
     client.recent_series = [
         _series(7, 3, "2026-09-28T19:00:00"),
@@ -3873,16 +3873,14 @@ def test_a_newer_date_reports_every_listed_series_with_pages_read() -> None:
     ]
     svc = service(client)
 
-    result = svc.read_state_changes(M)
+    result = svc.read_state_changes(m)
 
-    assert result == ReadStateChanges(
-        collections=("7", "9"), marker="2026-09-28T19:00:00+00:00"
-    )
+    assert result == ReadStateChanges(collections=("7", "9"), marker="2026-09-28T19:00:00+00:00")
 
 
 def test_year_one_dates_are_not_stamps() -> None:
     """Year-1 dates (never read) are excluded from stamp calculation."""
-    M = "2026-09-28T18:50:49+00:00"
+    m = "2026-09-28T18:50:49+00:00"
     client = FakeKavita()
     client.recent_series = [
         _series(7, 1, "0001-01-01T00:00:00"),
@@ -3890,15 +3888,15 @@ def test_year_one_dates_are_not_stamps() -> None:
     ]
     svc = service(client)
 
-    result = svc.read_state_changes(M)
+    result = svc.read_state_changes(m)
 
     assert result.marker == "2026-09-28T19:00:00+00:00"
     assert result.collections == ("7", "8")
 
     # With only year-1 dates and a marker, keep the marker
     client.recent_series = [_series(7, 1, "0001-01-01T00:00:00")]
-    result2 = svc.read_state_changes(M)
-    assert result2 == ReadStateChanges(marker=M)
+    result2 = svc.read_state_changes(m)
+    assert result2 == ReadStateChanges(marker=m)
 
 
 def test_an_unreadable_marker_records_a_new_baseline() -> None:
@@ -3950,12 +3948,12 @@ def test_read_state_changes_when_disabled_reports_nothing() -> None:
 
 def test_read_state_changes_is_read_only() -> None:
     """read_state_changes never writes (no save_progress, rate_series, scan*)."""
-    M = "2026-09-28T18:50:49+00:00"
+    m = "2026-09-28T18:50:49+00:00"
     client = FakeKavita()
     client.recent_series = [_series(7, 3, "2026-09-28T19:00:00")]
     svc = service(client)
 
-    svc.read_state_changes(M)
+    svc.read_state_changes(m)
 
     assert client.save_progress_calls == []
     assert client.rate_series_calls == []
