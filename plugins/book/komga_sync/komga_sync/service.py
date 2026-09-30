@@ -350,6 +350,19 @@ def _patch_series_number(series_index: float | None, current: dict[str, Any]) ->
     return patch
 
 
+def _patch_isbn(identifiers: str | None, current: dict[str, Any], title: str | None = None) -> dict[str, Any]:
+    """ISBN field only when valid and changed."""
+    patch: dict[str, Any] = {}
+    isbn_text = _identifier(identifiers, "isbn")
+    if isbn_text is not None:
+        isbn = _isbn13(isbn_text)
+        if isbn is None:
+            logger.debug('ISBN %s of "%s" is not valid; not pushed', isbn_text, title)
+        elif isbn != current.get("isbn"):
+            patch["isbn"] = isbn
+    return patch
+
+
 def _upsert_links(
     current: list[dict[str, Any]], desired: list[dict[str, str]]
 ) -> tuple[list[dict[str, Any]], bool]:
@@ -467,13 +480,7 @@ def _book_patch(
         if desired_authors != current_authors:
             patch["authors"] = desired_authors
     patch.update(_patch_series_number(book.series_index, current))
-    isbn_text = _identifier(book.identifiers, "isbn")
-    if isbn_text is not None:
-        isbn = _isbn13(isbn_text)
-        if isbn is None:
-            logger.debug('ISBN %s of "%s" is not valid; not pushed', isbn_text, book.title)
-        elif isbn != current.get("isbn"):
-            patch["isbn"] = isbn
+    patch.update(_patch_isbn(book.identifiers, current, book.title))
     current_tags = [str(t) for t in current.get("tags") or []]
     if _ci_set(desired_tags) != _ci_set(current_tags):
         patch["tags"] = desired_tags
