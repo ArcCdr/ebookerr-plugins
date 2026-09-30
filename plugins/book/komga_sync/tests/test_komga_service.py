@@ -8213,3 +8213,43 @@ def test_an_unchanged_count_is_not_logged_at_info(
             r for r in caplog.records if r.levelname == "INFO" and "chapter" in r.message.lower()
         ]
         assert len(caplog_records_info) > 0
+
+
+def test_book_patch_pushes_every_author() -> None:
+    """Split authors on " & " separator and push each as a separate writer."""
+    patch = _book_patch(_blank_view(author="Ann Lee & Bo Chen"), {}, [])
+    assert patch["authors"] == [
+        {"name": "Ann Lee", "role": "writer"},
+        {"name": "Bo Chen", "role": "writer"},
+    ]
+
+
+def test_book_patch_keeps_matching_authors() -> None:
+    """When current authors already match desired ones, omit the authors field."""
+    current = {"authors": [{"name": "Ann Lee", "role": "writer"}, {"name": "Bo Chen", "role": "writer"}]}
+    patch = _book_patch(_blank_view(author="Ann Lee & Bo Chen"), current, [])
+    assert "authors" not in patch
+
+
+def test_book_patch_pushes_the_series_number() -> None:
+    """Series index is pushed as both number (text) and numberSort (float)."""
+    patch = _book_patch(_blank_view(series_index=2.5), {}, [])
+    assert patch["number"] == "2.5"
+    assert patch["numberSort"] == 2.5
+    
+    patch = _book_patch(_blank_view(series_index=2.0), {}, [])
+    assert patch["number"] == "2"
+    assert patch["numberSort"] == 2.0
+
+
+def test_book_patch_skips_an_unchanged_or_missing_series_number() -> None:
+    """When series number is unchanged or missing, both fields are omitted."""
+    # Unchanged
+    patch = _book_patch(_blank_view(series_index=2.0), {"number": "2", "numberSort": 2}, [])
+    assert "number" not in patch
+    assert "numberSort" not in patch
+    
+    # Missing
+    patch = _book_patch(_blank_view(), {}, [])
+    assert "number" not in patch
+    assert "numberSort" not in patch
