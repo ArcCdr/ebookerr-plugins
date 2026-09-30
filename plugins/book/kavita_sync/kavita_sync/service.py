@@ -103,6 +103,7 @@ from ebookerr_sdk.spi import (
     CircuitGuard,
     CircuitOpenError,
     ReadPosition,
+    ReadStateChanges,
 )
 
 from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
@@ -111,6 +112,22 @@ from kavita_sync.protocol import KavitaClient
 logger = logging.getLogger(__name__)
 
 _CONN_OK_TTL_S = 60.0
+
+_LIVE_SERIES_PAGE = 20
+"""Series one live check reads (``LIB-D14``)."""
+
+_NO_DATE_PREFIX = "0001-01-01"
+"""Kavita's "never" date (a ``DateTime`` default)."""
+
+_EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
+"""The baseline of a server nobody has read on yet: every later reading change is newer."""
+
+
+def _kavita_instant(value: object) -> datetime | None:
+    """A Kavita date as a UTC instant, or ``None`` for a missing, unreadable or year-1 value."""
+    if not isinstance(value, str) or value.startswith(_NO_DATE_PREFIX):
+        return None
+    return parse_datetime(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -914,6 +931,57 @@ class KavitaService:
         if parent == ".":
             return self._library_path
         return f"{self._library_path}/{parent}"
+
+    def read_state_changes(self, marker: str | None) -> ReadStateChanges:
+        """Report the series whose reading state may have changed since *marker* (``LIB-D14``).
+
+        One listing of the series read most recently. Kavita 0.8.7 stamps every row with the
+        page's newest reading date, so the check compares that one date with *marker*: not
+        newer → nothing; newer → every listed series with pages read is reported as a changed
+        collection, and the date becomes the marker. Without a marker (or with an unreadable one)
+        the call only records the baseline — the newest date, or ``_EPOCH_MARKER`` when nothing
+        has been read yet, so the first reading change is reported. Read-only.
+
+        Args:
+            marker: The marker returned last time, or ``None``.
+
+        Returns:
+            The changed Kavita series ids (``BookView.external.collection_id``) and the next
+            marker (UTC ISO-8601).
+
+        Raises:
+            ProviderUnreachable: Kavita did not answer, or its circuit breaker is open.
+        """
+        if not self._enabled:
+            logger.debug("Kavita live read state: not configured; nothing reported")
+            return ReadStateChanges(marker=marker)
+        try:
+            with self._guard():
+                rows = self._client.recently_read_series(size=_LIVE_SERIES_PAGE)
+        except CircuitOpenError as exc:
+            raise ProviderUnreachable("circuit open") from exc
+        stamps = [
+            stamp
+            for stamp in (_kavita_instant(row.get("latestReadDate")) for row in rows)
+            if stamp is not None
+        ]
+        newest = max(stamps) if stamps else None
+        previous = parse_datetime(marker) if marker is not None else None
+        if previous is None:
+            if marker is not None:
+                logger.debug("Kavita live read state: marker %r unreadable; new baseline", marker)
+            return ReadStateChanges(
+                marker=newest.isoformat() if newest is not None else _EPOCH_MARKER
+            )
+        if newest is None or newest <= previous:
+            return ReadStateChanges(marker=marker)
+        collections = tuple(
+            str(row["id"])
+            for row in rows
+            if isinstance(row.get("id"), int) and int(row.get("pagesRead") or 0) > 0
+        )
+        logger.debug("Kavita live read state: %d series read since %s", len(collections), marker)
+        return ReadStateChanges(collections=collections, marker=newest.isoformat())
 
     def rescan_library_after_delete(self, library_id: str, titles: Sequence[str]) -> bool:
         """Ask Kavita to rescan a library by id after deleting books.
