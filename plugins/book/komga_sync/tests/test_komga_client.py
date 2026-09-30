@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
@@ -857,3 +858,54 @@ def test_komga_library_probe_other_status_reads_answered_http() -> None:
     result = _client().test_connection()
     assert result.outcome == "unreachable"
     assert result.message == "Komga answered HTTP 500."
+
+
+@responses.activate
+def test_read_progress_changes_asks_newest_first_in_the_library() -> None:
+    """read_progress_changes lists books sorted by newest reading change first."""
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/v1/books/list",
+        json={"content": [{"id": "B1", "readProgress": {"lastModified": "2026-09-28T18:50:49Z"}}]},
+        status=200,
+    )
+    result = _client().read_progress_changes(LIBRARY)
+    assert result == [{"id": "B1", "readProgress": {"lastModified": "2026-09-28T18:50:49Z"}}]
+    parsed_url = urlsplit(responses.calls[0].request.url)
+    query = parse_qs(parsed_url.query)
+    assert query == {"page": ["0"], "size": ["50"], "sort": ["readProgress.lastModified,desc"]}
+    body = json.loads(responses.calls[0].request.body)
+    assert body == {"condition": {"libraryId": {"operator": "is", "value": LIBRARY}}}
+
+
+@responses.activate
+def test_read_progress_changes_passes_the_page() -> None:
+    """read_progress_changes passes the page parameter to the query string."""
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/v1/books/list",
+        json={"content": []},
+        status=200,
+    )
+    _client().read_progress_changes(LIBRARY, page=2)
+    parsed_url = urlsplit(responses.calls[0].request.url)
+    query = parse_qs(parsed_url.query)
+    assert query["page"] == ["2"]
+
+
+@responses.activate
+def test_read_progress_changes_is_empty_on_an_error_answer() -> None:
+    """read_progress_changes returns [] on a non-2xx answer."""
+    responses.add(responses.POST, f"{BASE}/api/v1/books/list", status=500)
+    result = _client().read_progress_changes(LIBRARY)
+    assert result == []
+
+
+@responses.activate
+def test_read_progress_changes_raises_when_komga_is_unreachable() -> None:
+    """read_progress_changes raises ProviderUnreachable on a network error."""
+    responses.add(
+        responses.POST, f"{BASE}/api/v1/books/list", body=requests.ConnectionError()
+    )
+    with pytest.raises(ProviderUnreachable):
+        _client().read_progress_changes(LIBRARY)
