@@ -8226,7 +8226,9 @@ def test_book_patch_pushes_every_author() -> None:
 
 def test_book_patch_keeps_matching_authors() -> None:
     """When current authors already match desired ones, omit the authors field."""
-    current = {"authors": [{"name": "Ann Lee", "role": "writer"}, {"name": "Bo Chen", "role": "writer"}]}
+    current = {
+        "authors": [{"name": "Ann Lee", "role": "writer"}, {"name": "Bo Chen", "role": "writer"}]
+    }
     patch = _book_patch(_blank_view(author="Ann Lee & Bo Chen"), current, [])
     assert "authors" not in patch
 
@@ -8236,7 +8238,7 @@ def test_book_patch_pushes_the_series_number() -> None:
     patch = _book_patch(_blank_view(series_index=2.5), {}, [])
     assert patch["number"] == "2.5"
     assert patch["numberSort"] == 2.5
-    
+
     patch = _book_patch(_blank_view(series_index=2.0), {}, [])
     assert patch["number"] == "2"
     assert patch["numberSort"] == 2.0
@@ -8248,7 +8250,7 @@ def test_book_patch_skips_an_unchanged_or_missing_series_number() -> None:
     patch = _book_patch(_blank_view(series_index=2.0), {"number": "2", "numberSort": 2}, [])
     assert "number" not in patch
     assert "numberSort" not in patch
-    
+
     # Missing
     patch = _book_patch(_blank_view(), {}, [])
     assert "number" not in patch
