@@ -332,6 +332,24 @@ def _genres(book: BookView) -> list[str]:
     return _split_csv(book.category)
 
 
+def _format_number(value: float) -> str:
+    """The server's book number text: ``2.0`` → ``"2"``, ``2.5`` → ``"2.5"``."""
+    text = repr(float(value))
+    return text[:-2] if text.endswith(".0") else text
+
+
+def _patch_series_number(series_index: float | None, current: dict[str, Any]) -> dict[str, Any]:
+    """Series number fields (``number`` / ``numberSort``) only when changed."""
+    patch: dict[str, Any] = {}
+    if series_index is not None:
+        number = _format_number(series_index)
+        if number != current.get("number"):
+            patch["number"] = number
+        if float(series_index) != current.get("numberSort"):
+            patch["numberSort"] = float(series_index)
+    return patch
+
+
 def _upsert_links(
     current: list[dict[str, Any]], desired: list[dict[str, str]]
 ) -> tuple[list[dict[str, Any]], bool]:
@@ -373,8 +391,10 @@ def _book_patch(
       sidecar adoption or EPUB backfill), and it is what a reader should see.
     - ``releaseDate`` — ``date_published`` rendered as a date-only ``YYYY-MM-DD``
       string (Komga's own form), only when local is truthy.
-    - ``authors`` — ``[{"name": ..., "role": "writer"}]``, only when the sanitised
-      local author is non-empty.
+    - ``authors`` — one ``{"name": ..., "role": "writer"}`` per ``" & "``-separated
+      sanitised name (``LIB-D6``), only when there is one.
+    - ``number`` / ``numberSort`` — the series number (``"2"``, ``"2.5"`` / ``2.5``),
+      only when the book has one.
     - ``tags`` — compared as **case-insensitive sets**: Komga stores tags unordered
       (a PATCH's array order is hash-scrambled server-side on storage, measured on
       ``gotson/komga:1.24.4``), so only a *content* change triggers a PATCH — the
@@ -411,14 +431,15 @@ def _book_patch(
     release_date = book.date_published.date().isoformat() if book.date_published else None
     if release_date and release_date != current.get("releaseDate"):
         patch["releaseDate"] = release_date
-    author = sanitize(book.author)
-    if author:
-        desired_authors = [{"name": author, "role": "writer"}]
+    names = [name for name in (sanitize(part) for part in (book.author or "").split(" & ")) if name]
+    if names:
+        desired_authors = [{"name": name, "role": "writer"} for name in names]
         current_authors = [
             {"name": a.get("name"), "role": a.get("role")} for a in current.get("authors") or []
         ]
         if desired_authors != current_authors:
             patch["authors"] = desired_authors
+    patch.update(_patch_series_number(book.series_index, current))
     current_tags = [str(t) for t in current.get("tags") or []]
     if _ci_set(desired_tags) != _ci_set(current_tags):
         patch["tags"] = desired_tags
