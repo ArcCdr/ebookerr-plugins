@@ -8405,3 +8405,107 @@ def test_read_state_changes_is_read_only() -> None:
     assert client.put_progressions == []
     assert client.analyze_calls == []
     assert client.scan_calls == 0
+
+
+def _linked(repo: _FakeBookRepository, item_id: str = "KB1") -> BookView:
+    """A book linked to Komga with the given item_id."""
+    return book_to_view(
+        make_book(repo),
+        external=ExternalLink(
+            provider="komga", item_id=item_id, collection_id="SERIES1"
+        ),
+    )
+
+
+def test_read_back_carries_komgas_stamp(repo: _FakeBookRepository) -> None:
+    """_read_back includes Komga's readProgress.lastModified as external_progress_modified."""
+    assert (
+        service(FakeKomga())._read_back(
+            _linked(repo),
+            komga_book(read={"page": 1, "completed": False, "lastModified": "2026-09-28T18:50:49Z"}),
+        )["external_progress_modified"]
+        == "2026-09-28T18:50:49+00:00"
+    )
+
+
+def test_read_back_without_progress_has_no_stamp(repo: _FakeBookRepository) -> None:
+    """_read_back omits external_progress_modified when readProgress is empty."""
+    result = service(FakeKomga())._read_back(_linked(repo), komga_book(read={}))
+    assert "external_progress_modified" not in result
+
+
+def test_enrich_carries_the_read_state_stamp(repo: _FakeBookRepository) -> None:
+    """enrich includes Komga's readProgress.lastModified in its fields."""
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.find_results = []  # enrich does not discover
+    book = make_book(repo)
+
+    result = service(client).enrich(
+        book_to_view(
+            book,
+            external=ExternalLink(
+                provider="komga", item_id="KB1", collection_id="SERIES1"
+            ),
+        )
+    )
+
+    assert result.ok is True
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+
+
+def test_refresh_uses_the_stored_id_only(repo: _FakeBookRepository) -> None:
+    """refresh reads the stored Komga id without any discovery."""
+    client = FakeKomga()
+    client.book = komga_book(
+        pages=14,
+        read={"page": 5, "completed": False, "lastModified": "2026-09-28T18:50:49Z"},
+    )
+
+    result = service(client).refresh(_linked(repo))
+
+    assert result.ok is True
+    assert result.fields["external_read_position"] == 5
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+    assert client.find_calls == 0
+    assert client.list_calls == 0
+    assert client.scan_calls == 0
+    assert client.analyze_calls == []
+    assert client.put_progressions == []
+    assert client.book_patches == []
+    assert client.series_patches == []
+    assert client.get_series_calls == []
+
+
+def test_refresh_reports_a_vanished_item_as_not_found(repo: _FakeBookRepository) -> None:
+    """refresh returns not_found when Komga no longer has the stored id."""
+    client = FakeKomga()
+    client.book = None
+
+    result = service(client).refresh(_linked(repo))
+
+    assert result.ok is False
+    assert result.not_found is True
+
+
+def test_refresh_reports_komga_unreachable(repo: _FakeBookRepository) -> None:
+    """refresh returns unreachable when Komga is not connected."""
+    client = FakeKomga()
+    client.connected = False
+
+    result = service(client).refresh(_linked(repo))
+
+    assert result.unreachable is True
+
+
+def test_refresh_without_a_stored_id_is_not_attempted(repo: _FakeBookRepository) -> None:
+    """refresh returns attempted=False when no item_id is stored."""
+    result = service(FakeKomga()).refresh(book_to_view(make_book(repo)))
+    assert result.attempted is False
+
+
+def test_refresh_when_disabled_is_not_attempted(repo: _FakeBookRepository) -> None:
+    """refresh returns attempted=False when Komga sync is disabled."""
+    result = service(FakeKomga(), enabled=False).refresh(_linked(repo))
+    assert result.attempted is False
