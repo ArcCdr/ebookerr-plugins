@@ -63,7 +63,11 @@ circuit breaker (``EXP-269``) answers unreachable from memory instead of probing
 :meth:`KavitaService.sync` returns ``attempted=False`` when disabled or when that same
 open breaker skips the call, and ``attempted=True`` for every other outcome (unreachable,
 not found, or success) — the caller logs ``message`` and carries on either way.
-The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker) (the series read most recently; Kavita 0.8.7 stamps the whole page with one date, so a change reports every listed series with pages read) and refresh(book) (stored ids and page total; no search, rating, scan or write). Every read-back carries Kavita's lastModifiedUtc as external_progress_modified, so the core applies read state newest-first (LIB-D16).
+The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker)
+(the series read most recently; Kavita 0.8.7 stamps the whole page with one date, so a
+change reports every listed series with pages read) and refresh(book) (stored ids and page
+total; no search, rating, scan or write). Every read-back carries Kavita's lastModifiedUtc as
+external_progress_modified, so the core applies read state newest-first (LIB-D16).
 
 Deleting a book is **nudge-only**:
 Kavita has no direct delete API. When a deleted book has a stored ``external_library_id``,
@@ -1159,8 +1163,10 @@ class KavitaService:
             ``external_provider``, ``_library_id``, ``_item_id``, ``_collection_id``,
             ``_item_url`` (:meth:`_deep_link`), ``_read_position``, ``_read_total``,
             ``_read_percent``, ``_read_completed``, ``_synced_at``, ``external_progress_at``
-            (when reading state changed), ``external_progress_modified`` (Kavita's ``lastModifiedUtc``, UTC ISO-8601) when Kavita reports a real date, and conditionally ``read_completed_at``
-            (when the book reads as completed and Kavita supplies a parseable ``lastModifiedUtc``).
+            (when reading state changed), ``external_progress_modified`` (Kavita's
+            ``lastModifiedUtc``, UTC ISO-8601) when Kavita reports a real date, and
+            conditionally ``read_completed_at`` (when the book reads as completed and Kavita
+            supplies a parseable ``lastModifiedUtc``).
         """
         page_num = int(progress.get("pageNum", 0))
         total = ref.total_pages

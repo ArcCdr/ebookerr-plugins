@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 from ebookerr_sdk.providers.connection import ConnectionTestResult, ProviderUnreachable
 from ebookerr_sdk.spi import (
+    BookView,
     ChapterLink,
     ChapterView,
     CircuitOpenError,
@@ -1543,7 +1544,9 @@ def _linked(*, item_id: str | None = "11", total: int = 100) -> BookView:
     """A view linked to Kavita chapter 11 of series 7 in library 1."""
     return make_book_view(
         book_id="b1",
-        external=ExternalLink(provider="kavita", item_id=item_id, collection_id="7", library_id="1"),
+        external=ExternalLink(
+            provider="kavita", item_id=item_id, collection_id="7", library_id="1"
+        ),
         progress=ExternalProgress(position=10, total=total),
     )
 
