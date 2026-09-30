@@ -1539,6 +1539,97 @@ def test_a_kavita_sync_that_leaves_the_position_unchanged_does_not_stamp_externa
     )
 
 
+def _linked(*, item_id: str | None = "11", total: int = 100) -> BookView:
+    """A view linked to Kavita chapter 11 of series 7 in library 1."""
+    return make_book_view(
+        book_id="b1",
+        external=ExternalLink(provider="kavita", item_id=item_id, collection_id="7", library_id="1"),
+        progress=ExternalProgress(position=10, total=total),
+    )
+
+
+def test_write_back_carries_kavitas_stamp() -> None:
+    """Write-back carries Kavita's lastModifiedUtc as external_progress_modified."""
+    result = service(FakeKavita())._write_back(
+        _linked(),
+        _ref(),
+        {"pageNum": 5, "lastModifiedUtc": "2026-09-28T18:50:49Z"},
+    )
+    assert result["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+
+
+def test_write_back_ignores_a_year_one_date() -> None:
+    """Write-back omits external_progress_modified for a year-1 date."""
+    result = service(FakeKavita())._write_back(
+        _linked(),
+        _ref(),
+        {"pageNum": 5, "lastModifiedUtc": "0001-01-01T00:00:00"},
+    )
+    assert "external_progress_modified" not in result
+
+
+def test_enrich_carries_the_read_state_stamp() -> None:
+    """Enrich's write-back carries the read state stamp."""
+    client = FakeKavita()
+    client.find_chapter_result = _ref()
+    client.get_progress_result = {"pageNum": 5, "lastModifiedUtc": "2026-09-28T18:50:49Z"}
+    view = make_book_view(output_filename="An Author/a_title.epub")
+
+    result = service(client).enrich(view)
+
+    assert result.ok is True
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+
+
+def test_refresh_reads_progress_by_the_stored_ids() -> None:
+    """Refresh reads progress using stored ids, no find_chapter or writes."""
+    client = FakeKavita()
+    client.get_progress_result = {"pageNum": 40, "lastModifiedUtc": "2026-09-28T18:50:49Z"}
+
+    result = service(client).refresh(_linked())
+
+    assert result.ok is True
+    assert result.fields["external_read_position"] == 40
+    assert result.fields["external_read_percent"] == 0.4
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+    assert client.find_chapter_calls == 0
+    assert client.save_progress_calls == []
+    assert client.rate_series_calls == []
+    assert client.scan_folder_calls == []
+    assert client.scan_library_calls == []
+
+
+def test_refresh_without_stored_ids_is_not_attempted() -> None:
+    """Refresh without stored item_id reports not attempted."""
+    client = FakeKavita()
+    result = service(client).refresh(_linked(item_id=None))
+    assert result.attempted is False
+
+
+def test_refresh_without_a_page_total_is_not_attempted() -> None:
+    """Refresh without a page total reports not attempted."""
+    client = FakeKavita()
+    result = service(client).refresh(_linked(total=0))
+    assert result.attempted is False
+
+
+def test_refresh_reports_kavita_unreachable() -> None:
+    """Refresh when Kavita is disconnected reports unreachable."""
+    client = FakeKavita()
+    client.connected = False
+
+    result = service(client).refresh(_linked())
+
+    assert result.unreachable is True
+
+
+def test_refresh_when_disabled_is_not_attempted() -> None:
+    """Refresh when Kavita sync is disabled reports not attempted."""
+    client = FakeKavita()
+    result = service(client, enabled=False).refresh(_linked())
+    assert result.attempted is False
+
+
 def test_a_kavita_restore_lands_on_the_migrated_chapter() -> None:
     """A Kavita restore lands the semantic position on the chapter a migration targets."""
     restore_target = ReadPosition(
