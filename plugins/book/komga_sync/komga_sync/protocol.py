@@ -39,6 +39,16 @@ class KomgaClient(Protocol):
         """
         ...
 
+    def read_progress_changes(
+        self, library_id: str, *, page: int = 0, size: int = 50
+    ) -> list[dict[str, Any]]:
+        """POST /api/v1/books/list sorted by readProgress.lastModified, newest first.
+
+        Returns the page's rows, or [] on a non-2xx answer; raises ProviderUnreachable when Komga
+        does not answer.
+        """
+        ...
+
     def get_book(self, komga_book_id: str) -> dict[str, Any] | None:
         """GET /api/v1/books/{id}; the book's metadata, or None if missing/failed."""
         ...

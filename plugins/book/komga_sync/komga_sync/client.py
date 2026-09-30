@@ -192,6 +192,39 @@ class RequestsKomgaClient:
                 matches.append(str(book["id"]))
         return matches[0] if len(matches) == 1 else None
 
+    def read_progress_changes(
+        self, library_id: str, *, page: int = 0, size: int = 50
+    ) -> list[dict[str, Any]]:
+        """List *library_id*'s books, newest reading change first (``LIB-D14``).
+
+        ``POST /api/v1/books/list?page=<page>&size=<size>&sort=readProgress.lastModified,desc``
+        with the library condition; books without reading progress sort last.
+
+        Args:
+            library_id: The Komga library to list.
+            page: The 0-based page.
+            size: Books per page.
+
+        Returns:
+            The page's ``content`` rows, or ``[]`` on a non-2xx answer.
+
+        Raises:
+            ProviderUnreachable: On any transport error or an HTTP 502/503/504 answer.
+        """
+        body = {"condition": {"libraryId": {"operator": "is", "value": library_id}}}
+        response = self._request(
+            "POST",
+            "/api/v1/books/list",
+            params={"page": page, "size": size, "sort": "readProgress.lastModified,desc"},
+            json=body,
+        )
+        if not response.ok:
+            logger.debug("Komga reading-change listing answered HTTP %s", response.status_code)
+            return []
+        payload = self._json(response) or {}
+        rows = payload.get("content", [])
+        return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
     def get_book(self, komga_book_id: str) -> dict[str, Any] | None:
         """Fetch a book's Komga metadata.
 
