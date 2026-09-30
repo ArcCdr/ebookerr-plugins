@@ -904,8 +904,6 @@ def test_read_progress_changes_is_empty_on_an_error_answer() -> None:
 @responses.activate
 def test_read_progress_changes_raises_when_komga_is_unreachable() -> None:
     """read_progress_changes raises ProviderUnreachable on a network error."""
-    responses.add(
-        responses.POST, f"{BASE}/api/v1/books/list", body=requests.ConnectionError()
-    )
+    responses.add(responses.POST, f"{BASE}/api/v1/books/list", body=requests.ConnectionError())
     with pytest.raises(ProviderUnreachable):
         _client().read_progress_changes(LIBRARY)
