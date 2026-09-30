@@ -441,6 +441,46 @@ class RequestsKavitaClient:
                 return {}
         return {}
 
+    def recently_read_series(self, *, size: int = 20) -> list[dict[str, Any]]:
+        """List the series read most recently, newest first (``LIB-D14``).
+
+        ``POST /api/Series/all-v2?PageNumber=1&PageSize=<size>`` sorted by read progress
+        (``sortField`` 7, descending). Kavita 0.8.7 stamps every row's ``latestReadDate`` with
+        the newest reading date of the whole page, so a row's date does not tell which series
+        changed; :meth:`KavitaService.read_state_changes` reads the page as a whole.
+
+        Args:
+            size: Series per page.
+
+        Returns:
+            The series rows, or ``[]`` on a non-200 answer or unreadable JSON.
+
+        Raises:
+            ProviderUnreachable: On any transport error or an HTTP 502/503/504 answer.
+        """
+        headers = self._headers()
+        body = {
+            "statements": [],
+            "combination": 1,
+            "sortOptions": {"sortField": 7, "isAscending": False},
+            "limitTo": 0,
+        }
+        response = self._send(
+            "POST",
+            "/api/Series/all-v2",
+            params={"PageNumber": 1, "PageSize": size},
+            json=body,
+            headers=headers,
+        )
+        if response.status_code != 200:
+            logger.debug("Kavita recently-read listing answered HTTP %s", response.status_code)
+            return []
+        try:
+            data = response.json()
+        except ValueError:
+            return []
+        return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
+
     def save_progress(self, ref: KavitaRef, page_num: int) -> bool:
         """Save reading progress for a chapter.
 
