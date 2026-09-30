@@ -24,7 +24,8 @@ immediately, and one ``KavitaService`` is built per call:
   folder instead. Both are **nudge-only** — unlike ``KomgaSyncPlugin``, there is no direct
   Kavita delete API to call. A book with no Kavita link logs at DEBUG and is skipped.
 - Any other event -> ``service.sync(view, restore_target=view.restore_target)``.
-- The core's live read-state calls (LIB-D14) -> read_state_changes / refresh_read_state, both read-only.
+- The core's live read-state calls (LIB-D14) -> ``read_state_changes`` / ``refresh_read_state``,
+  both read-only.
 
 **Settings** (schema-driven, ``plugin.kavita_sync.*``): ``server`` (Kavita base URL),
 ``api_key`` (secret), ``external_url`` (optional, used for deep links, defaults to ``server``),
@@ -57,11 +58,11 @@ from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import LINK_ERROR_FIELD, link_attempt_fields
 from ebookerr_sdk.providers.restore_marker import restore_marker_patch
 from ebookerr_sdk.spi import (
+    READ_STATE_FIELDS,
     BookPatch,
     BookView,
     PluginContext,
     PluginEventType,
-    READ_STATE_FIELDS,
     ReadStateChanges,
     SettingsField,
     SettingsSchema,

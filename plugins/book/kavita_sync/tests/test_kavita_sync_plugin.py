@@ -1055,7 +1055,6 @@ class TestEnrich:
 
     def test_book_deleted_stops_on_an_outage(self, caplog) -> None:
         """BOOK_DELETED stops on ProviderUnreachable and logs WARNING."""
-        from ebookerr_sdk.providers.connection import ProviderUnreachable
 
         plugin = KavitaSyncPlugin()
         view1 = _make_book_view(
@@ -2447,7 +2446,6 @@ def test_the_plugin_answers_live_read_state() -> None:
 
 def test_read_state_changes_delegates_to_the_service() -> None:
     """read_state_changes calls the service and returns its result."""
-    from ebookerr_sdk.testing import make_book_view
 
     ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
     stub = _LiveStub(changes=api.ReadStateChanges(collections=("7",), marker="m2"))
@@ -2462,7 +2460,6 @@ def test_read_state_changes_delegates_to_the_service() -> None:
 
 def test_refresh_read_state_keeps_only_read_state() -> None:
     """refresh_read_state keeps only READ_STATE_FIELDS from the service result."""
-    from ebookerr_sdk.spi import READ_STATE_FIELDS
     from ebookerr_sdk.testing import make_book_view
 
     ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
@@ -2506,7 +2503,6 @@ def test_refresh_read_state_skips_a_book_it_cannot_refresh() -> None:
 
 def test_refresh_read_state_raises_when_kavita_is_unreachable() -> None:
     """refresh_read_state raises ProviderUnreachable when Kavita is unreachable."""
-    from ebookerr_sdk.providers.connection import ProviderUnreachable
     from ebookerr_sdk.testing import make_book_view
 
     ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
@@ -2514,6 +2510,8 @@ def test_refresh_read_state_raises_when_kavita_is_unreachable() -> None:
     stub = _LiveStub(result=result)
     plugin = KavitaSyncPlugin()
 
-    with patch("kavita_sync.plugin._build_service", return_value=stub):
-        with pytest.raises(ProviderUnreachable):
-            plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)
+    with (
+        patch("kavita_sync.plugin._build_service", return_value=stub),
+        pytest.raises(ProviderUnreachable),
+    ):
+        plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)
