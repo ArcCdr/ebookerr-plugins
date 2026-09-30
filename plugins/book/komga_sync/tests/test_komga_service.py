@@ -30,6 +30,7 @@ from ebookerr_sdk.spi import (
     ExternalLink,
     ExternalProgress,
     ReadPosition,
+    ReadStateChanges,
 )
 from ebookerr_sdk.testing import make_book_view
 from komga_sync.service import (
@@ -140,6 +141,8 @@ class FakeKomga:
         self.book_exists_calls: list[str] = []
         self.die_after_get_book_calls: int | None = None
         self.get_book_calls: int = 0
+        self.progress_pages: list[list[dict[str, Any]]] = []
+        self.progress_calls: list[tuple[str, int, int]] = []
 
     def test_connection(self) -> ConnectionTestResult:
         self.test_connection_calls += 1
@@ -217,6 +220,16 @@ class FakeKomga:
 
     def delete_book_file(self, komga_book_id: str) -> bool:
         return True
+
+    def read_progress_changes(
+        self, library_id: str, *, page: int = 0, size: int = 50
+    ) -> list[dict[str, Any]]:
+        from ebookerr_sdk.providers.connection import ProviderUnreachable
+
+        self.progress_calls.append((library_id, page, size))
+        if not self.connected:
+            raise ProviderUnreachable("Komga is not reachable: ConnectionError")
+        return self.progress_pages[page] if page < len(self.progress_pages) else []
 
     def empty_trash(self) -> bool:
         return True
@@ -535,6 +548,38 @@ def service(client: FakeKomga, **kwargs: Any) -> KomgaService:
         "file0002.xhtml",
     )
     return svc
+
+
+def _read(book_id: str, stamp: str) -> dict[str, Any]:
+    """Row of a book with progress recorded at *stamp* (ISO-8601)."""
+    return {"id": book_id, "readProgress": {"page": 1, "completed": False, "lastModified": stamp}}
+
+
+def _unread(book_id: str) -> dict[str, Any]:
+    """Row of a book with no reading progress."""
+    return {"id": book_id, "readProgress": None}
+
+
+class _RefusingCircuit:
+    """A circuit guard whose breaker is open."""
+
+    def is_open(self, key: str) -> bool:
+        return True
+
+    def guard(self, key: str, *, label: str | None = None, notice: bool = True) -> Any:
+        raise CircuitOpenError(key, label or key, datetime(2026, 9, 30, 12, 0, tzinfo=UTC))
+
+    def hold(self, key: str, *, reason: str, until: Any = None, label: str | None = None) -> None:
+        return None
+
+
+def _newer_rows(start: int, count: int) -> list[dict[str, Any]]:
+    """Rows B<n> read on 2026-09-28, one minute apart going back from 18:00 UTC."""
+    first = datetime(2026, 9, 28, 18, 0, tzinfo=UTC)
+    return [
+        _read(f"B{n:03d}", (first - timedelta(minutes=n)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        for n in range(start, start + count)
+    ]
 
 
 def test_disabled_returns_error(repo: _FakeBookRepository) -> None:
@@ -8213,3 +8258,150 @@ def test_an_unchanged_count_is_not_logged_at_info(
             r for r in caplog.records if r.levelname == "INFO" and "chapter" in r.message.lower()
         ]
         assert len(caplog_records_info) > 0
+
+
+def test_read_state_changes_first_call_records_the_baseline() -> None:
+    """Without a marker, the call records the newest change as the baseline."""
+    client = FakeKomga()
+    client.progress_pages = [
+        [
+            _read("B1", "2026-09-28T18:50:49Z"),
+            _read("B2", "2026-09-23T21:58:58Z"),
+        ]
+    ]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes(None)
+    assert changes == ReadStateChanges(marker="2026-09-28T18:50:49+00:00")
+    assert client.progress_calls == [("L1", 0, 50)]
+
+
+def test_the_baseline_of_an_unread_library_is_the_epoch() -> None:
+    """When nobody has read anything, the baseline is the epoch."""
+    client = FakeKomga()
+    client.progress_pages = [[_unread("B1")]]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes(None)
+    assert changes == ReadStateChanges(marker="1970-01-01T00:00:00+00:00")
+
+    # After setting a read status, the epoch marker returns the newly-read book.
+    client.progress_pages = [[_read("B1", "2026-09-28T18:50:49Z")]]
+    changes = svc.read_state_changes("1970-01-01T00:00:00+00:00")
+    assert changes.items == ("B1",)
+
+
+def test_read_state_changes_reports_books_newer_than_the_marker_in_order() -> None:
+    """Only books newer than the marker are reported."""
+    client = FakeKomga()
+    client.progress_pages = [
+        [
+            _read("B1", "2026-09-28T18:50:49Z"),
+            _read("B2", "2026-09-28T12:00:00Z"),
+            _read("B3", "2026-09-27T09:00:00Z"),
+        ]
+    ]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert changes.items == ("B1", "B2")
+    assert changes.marker == "2026-09-28T18:50:49+00:00"
+    assert changes.more is False
+
+
+def test_read_state_changes_stops_at_a_book_without_progress() -> None:
+    """When a book has no progress, the scan stops (it's the last unread book)."""
+    client = FakeKomga()
+    client.progress_pages = [
+        [
+            _read("B1", "2026-09-28T18:50:49Z"),
+            _unread("B9"),
+            _read("B3", "2026-09-27T09:00:00Z"),
+        ]
+    ]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert changes.items == ("B1",)
+
+
+def test_read_state_changes_with_nothing_newer_keeps_the_marker() -> None:
+    """When no book is newer than the marker, the marker doesn't move."""
+    client = FakeKomga()
+    client.progress_pages = [
+        [
+            _read("B1", "2026-09-28T09:00:00Z"),
+        ]
+    ]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert changes.items == ()
+    assert changes.marker == "2026-09-28T10:00:00+00:00"
+
+
+def test_read_state_changes_reads_the_next_page_while_every_book_is_newer() -> None:
+    """When a page is full of newer books, the scan continues to the next page."""
+    client = FakeKomga()
+    client.progress_pages = [
+        _newer_rows(0, 50),
+        _newer_rows(50, 1) + [_read("B051", "2026-09-28T09:00:00Z")],
+    ]
+    svc = service(client, library_id="L1")
+    changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert len(changes.items) == 51
+    assert [call[1] for call in client.progress_calls] == [0, 1]
+
+
+def test_read_state_changes_stops_after_five_full_pages(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """After reading five full pages, the scan stops even if more exist."""
+    client = FakeKomga()
+    client.progress_pages = [_newer_rows(50 * p, 50) for p in range(6)]
+    svc = service(client, library_id="L1")
+    with caplog.at_level(logging.DEBUG, logger="komga_sync.service"):
+        changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert len(changes.items) == 250
+    assert len(client.progress_calls) == 5
+    assert "more than 250 reading changes" in caplog.text
+
+
+def test_read_state_changes_raises_when_komga_is_unreachable() -> None:
+    """When Komga is not connected, ProviderUnreachable is raised."""
+    client = FakeKomga()
+    client.connected = False
+    svc = service(client, library_id="L1")
+    with pytest.raises(ProviderUnreachable):
+        svc.read_state_changes(None)
+
+
+def test_read_state_changes_raises_when_the_circuit_is_open() -> None:
+    """When the circuit breaker is open, ProviderUnreachable is raised."""
+    client = FakeKomga()
+    svc = service(client, library_id="L1", circuit=_RefusingCircuit())
+    with pytest.raises(ProviderUnreachable):
+        svc.read_state_changes(None)
+    assert client.progress_calls == []
+
+
+def test_read_state_changes_without_a_library_reports_nothing() -> None:
+    """Without a configured library, the call returns no changes."""
+    client = FakeKomga()
+    svc = service(client)  # no library_id
+    changes = svc.read_state_changes("m")
+    assert changes == ReadStateChanges(marker="m")
+    assert client.progress_calls == []
+
+
+def test_read_state_changes_is_read_only() -> None:
+    """The call makes no mutations to Komga."""
+    client = FakeKomga()
+    client.progress_pages = [
+        [
+            _read("B1", "2026-09-28T18:50:49Z"),
+            _read("B2", "2026-09-28T12:00:00Z"),
+        ]
+    ]
+    svc = service(client, library_id="L1")
+    svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    assert client.book_patches == []
+    assert client.series_patches == []
+    assert client.put_progressions == []
+    assert client.analyze_calls == []
+    assert client.scan_calls == 0
