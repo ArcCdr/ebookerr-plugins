@@ -96,6 +96,25 @@ def _int_or_none(value: Any) -> int | None:
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
+_SERIES_WITH_INDEX = re.compile(r"^(?P<name>.*\S)\s*\[(?P<index>\d+(?:\.\d+)?)\]$")
+
+
+def split_series(value: str | None) -> tuple[str | None, float | None]:
+    """Split FanFicFare's ``"Name [3]"`` into ``("Name", 3.0)``; a plain name keeps index ``None``.
+
+    Args:
+        value: The sanitised series text, or ``None``.
+
+    Returns:
+        ``(series, series_index)``; a value with no ``[N]`` suffix (or only ``"[3]"``) is
+        returned as it is with ``None``.
+    """
+    if not value:
+        return value, None
+    match = _SERIES_WITH_INDEX.match(value)
+    if match is None:
+        return value, None
+    return match.group("name"), float(match.group("index"))
 
 
 def sanitize(value: str | None) -> str | None:
@@ -120,12 +139,15 @@ def fanficfare_json_to_book_fields(data: Mapping[str, Any]) -> dict[str, Any]:
     migration step 28) — only the fields/chapters derived here are persisted.
     ``datePublished``/``dateUpdated`` are parsed into timezone-aware UTC datetimes here
     — the parse frontier for FanFicFare payloads.
+    A ``"Name [N]"`` series is split into ``series`` and ``series_index``
+    (:func:`split_series`, ``LIB-D6``).
     """
     fields: dict[str, Any] = {col: _str_or_none(data.get(key)) for key, col in _TEXT_FIELDS.items()}
     fields.update({col: _int_or_none(data.get(key)) for key, col in _INT_FIELDS.items()})
     fields.update({col: parse_datetime(data.get(key)) for key, col in _DATE_FIELDS.items()})
     for col in _SANITISE_COLUMNS:
         fields[col] = sanitize(fields[col])
+    fields["series"], fields["series_index"] = split_series(fields["series"])
     # Map language if present and non-empty
     language = _str_or_none(data.get("language"))
     if language:
