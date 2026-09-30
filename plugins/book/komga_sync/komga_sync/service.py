@@ -2051,7 +2051,8 @@ class KomgaService:
             ``external_read_total``/``_position``/``_completed``/``_percent``, plus
             ``external_progress_at`` when something changed, ``read_completed_at``
             when Komga reports a completion with a valid date, plus ``external_progress_modified``
-            (Komga's ``readProgress.lastModified``, UTC ISO-8601) whenever Komga reports reading progress.
+            (Komga's ``readProgress.lastModified``, UTC ISO-8601) whenever Komga reports
+            reading progress.
         """
         media = komga_book.get("media") or {}
         progress = komga_book.get("readProgress") or {}

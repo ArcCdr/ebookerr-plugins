@@ -8411,21 +8411,17 @@ def _linked(repo: _FakeBookRepository, item_id: str = "KB1") -> BookView:
     """A book linked to Komga with the given item_id."""
     return book_to_view(
         make_book(repo),
-        external=ExternalLink(
-            provider="komga", item_id=item_id, collection_id="SERIES1"
-        ),
+        external=ExternalLink(provider="komga", item_id=item_id, collection_id="SERIES1"),
     )
 
 
 def test_read_back_carries_komgas_stamp(repo: _FakeBookRepository) -> None:
     """_read_back includes Komga's readProgress.lastModified as external_progress_modified."""
-    assert (
-        service(FakeKomga())._read_back(
-            _linked(repo),
-            komga_book(read={"page": 1, "completed": False, "lastModified": "2026-09-28T18:50:49Z"}),
-        )["external_progress_modified"]
-        == "2026-09-28T18:50:49+00:00"
+    result = service(FakeKomga())._read_back(
+        _linked(repo),
+        komga_book(read={"page": 1, "completed": False, "lastModified": "2026-09-28T18:50:49Z"}),
     )
+    assert result["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
 
 
 def test_read_back_without_progress_has_no_stamp(repo: _FakeBookRepository) -> None:
@@ -8437,19 +8433,15 @@ def test_read_back_without_progress_has_no_stamp(repo: _FakeBookRepository) -> N
 def test_enrich_carries_the_read_state_stamp(repo: _FakeBookRepository) -> None:
     """enrich includes Komga's readProgress.lastModified in its fields."""
     client = FakeKomga()
-    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.find_results = ["KB1"]
+    client.book = komga_book(
+        metadata=MATCHING_BOOK_METADATA,
+        read={"page": 7, "completed": False, "lastModified": "2026-09-28T18:50:49Z"},
+    )
     client.series = {"metadata": MATCHING_SERIES_METADATA}
-    client.find_results = []  # enrich does not discover
     book = make_book(repo)
 
-    result = service(client).enrich(
-        book_to_view(
-            book,
-            external=ExternalLink(
-                provider="komga", item_id="KB1", collection_id="SERIES1"
-            ),
-        )
-    )
+    result = service(client).enrich(book_to_view(book))
 
     assert result.ok is True
     assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
