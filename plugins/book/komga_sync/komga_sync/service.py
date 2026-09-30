@@ -46,10 +46,15 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
    locator (EXP-123).
 6. Read Komga-mastered reading state back: page count, position, completion,
    rating adoption (see :meth:`KomgaService._read_back` and the decision table
-   on :meth:`KomgaService._resolve_rating`).
+   on :meth:`KomgaService._resolve_rating`), stamped with Komga's own readProgress.lastModified
+   so the core applies read state newest-first (LIB-D16).
 7. Record the Komga ids + sync timestamps.
 8. Capture the semantic read position from the just-refreshed book (``RPH-ARCH-3``)
    for the caller to change-gate and store.
+
+The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker) (the
+library's books, newest reading change first) and refresh(book) (one stored id; no discovery,
+push, scan or write).
 
 The service reports Komga's own fresh finished flag on every sync/enrich, read from the
 record refreshed this call, never from the pre-sync merged view (``RPH-SRC-4``), and returns
@@ -1527,6 +1532,58 @@ class KomgaService:
         logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
         return ReadStateChanges(items=tuple(items), marker=next_marker)
 
+    def refresh(self, book: BookView) -> SyncResult:
+        """Read one linked book's reading state back by its stored Komga id (``LIB-D14``).
+
+        The live read-state lane's read-back: no discovery, no metadata push, no scan or
+        analyze, no progression write, no restore. The fields are :meth:`_read_back`'s
+        (reading state plus ``external_progress_modified``), and the semantic read position
+        is captured as ``enrich`` captures it.
+
+        Args:
+            book: A book linked to Komga (``external.item_id`` set).
+
+        Returns:
+            ``ok`` with the fields and read position; ``not_found`` when Komga no longer has
+            the id; ``unreachable`` when Komga did not answer or its breaker is open;
+            ``attempted`` ``False`` when Komga is disabled or the book has no stored id.
+        """
+        if not self._enabled:
+            return SyncResult(False, "Komga sync is disabled", attempted=False)
+        item_id = book.external.item_id
+        if not item_id:
+            return SyncResult(False, "no Komga id on record", attempted=False)
+        blocked = self._reachable_or_result(book)
+        if blocked is not None:
+            return blocked
+        try:
+            with self._guard():
+                return self._refresh_reachable(book, item_id)
+        except CircuitOpenError:
+            return self._unreachable_result(book, "circuit open", attempted=False)
+        except ProviderUnreachable as exc:
+            return self._unreachable_result(book, str(exc))
+
+    def _refresh_reachable(self, book: BookView, item_id: str) -> SyncResult:
+        """The read-only refresh once Komga answered its probe (see :meth:`refresh`)."""
+        self._positions_cache.clear()
+        self._progression_cache.clear()
+        self._written_progression.clear()
+        komga_book = self._client.get_book(item_id)
+        if komga_book is None:
+            return SyncResult(False, "not found", not_found=True)
+        fields = self._read_back(book, komga_book)
+        join = self._build_join(book, item_id)
+        read_position, _ = self._semantic_position(item_id, komga_book, book, join)
+        logger.debug(
+            'Komga refresh of "%s" (item_id=%s): position %s, completed %s',
+            book.title,
+            item_id,
+            fields["external_read_position"],
+            fields["external_read_completed"],
+        )
+        return SyncResult(True, "refreshed", fields=fields, read_position=read_position)
+
     def _scan_progress_changes(
         self, previous: datetime | None, library_id: str
     ) -> tuple[datetime | None, list[str]]:
@@ -1992,8 +2049,9 @@ class KomgaService:
 
         Returns:
             ``external_read_total``/``_position``/``_completed``/``_percent``, plus
-            ``external_progress_at`` when something changed, and ``read_completed_at``
-            when Komga reports a completion with a valid date.
+            ``external_progress_at`` when something changed, ``read_completed_at``
+            when Komga reports a completion with a valid date, plus ``external_progress_modified``
+            (Komga's ``readProgress.lastModified``, UTC ISO-8601) whenever Komga reports reading progress.
         """
         media = komga_book.get("media") or {}
         progress = komga_book.get("readProgress") or {}
@@ -2007,6 +2065,11 @@ class KomgaService:
             "external_read_completed": completed,
             "external_read_percent": read_percent,
         }
+        # Komga's own stamp of this reading state, so the core applies read state newest-first
+        # from every lane (LIB-D16).
+        stamp = parse_datetime(progress.get("lastModified"))
+        if stamp is not None:
+            fields["external_progress_modified"] = stamp.isoformat()
         # Komga knows when the book was actually finished; ebookerr would otherwise record
         # "when it noticed" (plugin_runtime falls back to now()). Written on every sync, so a
         # library whose dates were approximated by migration 42 repairs itself on the next one.
