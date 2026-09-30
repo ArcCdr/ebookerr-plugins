@@ -371,6 +371,31 @@ def _upsert_links(
     return result, changed
 
 
+def _identifier(text: str | None, scheme: str) -> str | None:
+    """The value of the book's ``scheme:value`` identifier for *scheme*, or ``None``."""
+    for token in (text or "").split(","):
+        name, sep, value = token.strip().partition(":")
+        if sep and name.strip().lower() == scheme and value.strip():
+            return value.strip()
+    return None
+
+
+def _isbn13(value: str) -> str | None:
+    """A valid ISBN-13 from ISBN-13 or ISBN-10 text (spaces and hyphens ignored), else ``None``."""
+    digits = re.sub(r"[\s-]", "", value).upper()
+    if re.fullmatch(r"\d{13}", digits):
+        total = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(digits[:12]))
+        return digits if (10 - total % 10) % 10 == int(digits[12]) else None
+    if re.fullmatch(r"\d{9}[\dX]", digits):
+        total = sum((10 - i) * (10 if c == "X" else int(c)) for i, c in enumerate(digits))
+        if total % 11:
+            return None
+        core = "978" + digits[:9]
+        check = (10 - sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(core)) % 10) % 10
+        return f"{core}{check}"
+    return None
+
+
 def _book_patch(
     book: BookView,
     current: dict[str, Any],
@@ -395,6 +420,8 @@ def _book_patch(
       sanitised name (``LIB-D6``), only when there is one.
     - ``number`` / ``numberSort`` — the series number (``"2"``, ``"2.5"`` / ``2.5``),
       only when the book has one.
+    - ``isbn`` — the book's ``isbn:`` identifier as a valid ISBN-13 (an ISBN-10 is
+      converted); an invalid one is not pushed (DEBUG).
     - ``tags`` — compared as **case-insensitive sets**: Komga stores tags unordered
       (a PATCH's array order is hash-scrambled server-side on storage, measured on
       ``gotson/komga:1.24.4``), so only a *content* change triggers a PATCH — the
@@ -440,6 +467,13 @@ def _book_patch(
         if desired_authors != current_authors:
             patch["authors"] = desired_authors
     patch.update(_patch_series_number(book.series_index, current))
+    isbn_text = _identifier(book.identifiers, "isbn")
+    if isbn_text is not None:
+        isbn = _isbn13(isbn_text)
+        if isbn is None:
+            logger.debug('ISBN %s of "%s" is not valid; not pushed', isbn_text, book.title)
+        elif isbn != current.get("isbn"):
+            patch["isbn"] = isbn
     current_tags = [str(t) for t in current.get("tags") or []]
     if _ci_set(desired_tags) != _ci_set(current_tags):
         patch["tags"] = desired_tags
@@ -473,7 +507,8 @@ def _series_patch(book: BookView, current: dict[str, Any]) -> dict[str, Any]:
       (``"Completed"`` → ``"ENDED"``, ``"In-Progress"`` → ``"ONGOING"``). Any value
       not in the map — ``None``, empty, or an unknown string like ``"Hiatus"`` — is
       omitted entirely (fail-closed; never clobbers manual curation in Komga).
-    - ``publisher`` — ``sanitize(book.site)``; omitted when falsy.
+    - ``publisher`` — ``sanitize(book.publisher)``, else ``sanitize(book.site)``; omitted when both
+      are falsy.
     - ``links`` — upserts (:func:`_upsert_links`) the **"Story"** link only. The URL
       is ``series_url`` when the book belongs to a series (``book.series`` truthy;
       skipped entirely when ``series_url`` is unset) and ``story_url`` for a
@@ -497,7 +532,7 @@ def _series_patch(book: BookView, current: dict[str, Any]) -> dict[str, Any]:
     mapped_status = _STATUS_MAP.get(sanitize(book.status) or "")
     if mapped_status is not None and mapped_status != current.get("status"):
         patch["status"] = mapped_status
-    publisher = sanitize(book.site)
+    publisher = sanitize(book.publisher) or sanitize(book.site)
     if publisher and publisher != current.get("publisher"):
         patch["publisher"] = publisher
     link_url = book.series_url if book.series else book.story_url
