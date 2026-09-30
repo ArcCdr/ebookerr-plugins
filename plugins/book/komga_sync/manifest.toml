@@ -28,6 +28,7 @@ delete_mode = "purge"
 reader_url_template = "{external_url}/book/{book_id}/read-epub"
 server_url_setting = "server"
 public_url_setting = "external_url"
+live_read_state = true
 
 [[ui_triggers]]
 scope = "book_selection_action"

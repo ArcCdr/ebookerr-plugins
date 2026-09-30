@@ -2750,9 +2750,10 @@ class TestLiveReadState:
     def test_refresh_read_state_keeps_only_read_state(self) -> None:
         """refresh_read_state filters fields to READ_STATE_FIELDS only."""
         from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+        from komga_sync.service import SyncResult
 
         stub = _LiveStub(
-            result=api.SyncResult(
+            result=SyncResult(
                 True,
                 "refreshed",
                 fields={
@@ -2788,8 +2789,9 @@ class TestLiveReadState:
     def test_refresh_read_state_skips_a_book_komga_no_longer_has(self) -> None:
         """refresh_read_state skips books with not_found=True."""
         from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+        from komga_sync.service import SyncResult
 
-        stub = _LiveStub(result=api.SyncResult(False, "not found", not_found=True))
+        stub = _LiveStub(result=SyncResult(False, "not found", not_found=True))
         ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
         view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
 
@@ -2802,9 +2804,10 @@ class TestLiveReadState:
         """refresh_read_state raises ProviderUnreachable when unreachable=True."""
         from ebookerr_sdk.providers.connection import ProviderUnreachable
         from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+        from komga_sync.service import SyncResult
 
         stub = _LiveStub(
-            result=api.SyncResult(False, "Komga is not reachable", unreachable=True)
+            result=SyncResult(False, "Komga is not reachable", unreachable=True)
         )
         ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
         view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
