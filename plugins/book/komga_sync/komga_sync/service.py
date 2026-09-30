@@ -110,6 +110,7 @@ from ebookerr_sdk.spi import (
     CircuitGuard,
     CircuitOpenError,
     ReadPosition,
+    ReadStateChanges,
 )
 
 from komga_sync.protocol import KomgaClient
@@ -117,6 +118,15 @@ from komga_sync.protocol import KomgaClient
 logger = logging.getLogger(__name__)
 
 _CONN_OK_TTL_S = 60.0
+
+_LIVE_PAGE_SIZE = 50
+"""Books per reading-change page (``LIB-D14``)."""
+
+_LIVE_MAX_PAGES = 5
+"""Reading-change pages one live check reads at most; beyond them the full sync catches up."""
+
+_EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
+"""The baseline of a library nobody has read in yet: every later reading change is newer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +225,14 @@ def _dedupe_ci(values: list[str]) -> list[str]:
 def _split_csv(value: str | None) -> list[str]:
     """Sanitise and split a ``", "``-joined field into its non-empty parts."""
     return [t for t in (sanitize(value) or "").split(", ") if t]
+
+
+def _progress_stamp(row: Mapping[str, Any]) -> datetime | None:
+    """The instant Komga last changed *row*'s reading progress, or ``None`` without progress."""
+    progress = row.get("readProgress")
+    if not isinstance(progress, Mapping):
+        return None
+    return parse_datetime(progress.get("lastModified"))
 
 
 _STAR_FULL = "★"  # U+2605 BLACK STAR
@@ -1472,6 +1490,71 @@ class KomgaService:
         join = self._build_join(book, komga_book_id)
         read_position, _ = self._semantic_position(komga_book_id, komga_book, book, join)
         return SyncResult(True, "enriched", fields=fields, read_position=read_position)
+
+    def read_state_changes(self, marker: str | None) -> ReadStateChanges:
+        """Report the books whose reading state changed since *marker* (``LIB-D14``).
+
+        Reads the configured library's books newest reading change first and walks them until a
+        book has no progress or a change not newer than *marker*. The next marker is the newest
+        change's instant (UTC ISO-8601), or *marker* when nothing is newer, so a marker never
+        moves back. Without a marker (or with an unreadable one) the call only records the
+        baseline: the newest change, or ``_EPOCH_MARKER`` when nobody has read anything yet, so
+        the library's first reading change is reported rather than taken as a new baseline.
+        At most ``_LIVE_MAX_PAGES`` pages of ``_LIVE_PAGE_SIZE`` are read, and ``more``
+        is never set: a newest-first listing cannot resume from a marker, and beyond those pages
+        the full sync catches up. Read-only: no push, scan, analyze or progression write.
+
+        Args:
+            marker: The marker returned last time, or ``None``.
+
+        Returns:
+            The changed Komga book ids and the next marker.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
+        """
+        if not self._enabled or not self._library_id:
+            logger.debug("Komga live read state: not configured; nothing reported")
+            return ReadStateChanges(marker=marker)
+        previous = parse_datetime(marker) if marker is not None else None
+        newest: datetime | None = None
+        items: list[str] = []
+        try:
+            with self._guard():
+                for page in range(_LIVE_MAX_PAGES):
+                    rows = self._client.read_progress_changes(
+                        self._library_id, page=page, size=_LIVE_PAGE_SIZE
+                    )
+                    done = False
+                    for row in rows:
+                        stamp = _progress_stamp(row)
+                        if stamp is None:
+                            done = True
+                            break
+                        if newest is None:
+                            newest = stamp
+                        if previous is None or stamp <= previous:
+                            done = True
+                            break
+                        items.append(str(row["id"]))
+                    if done or len(rows) < _LIVE_PAGE_SIZE:
+                        break
+                else:
+                    logger.debug(
+                        "Komga reported more than %d reading changes; the rest are left to the "
+                        "full sync",
+                        _LIVE_MAX_PAGES * _LIVE_PAGE_SIZE,
+                    )
+        except CircuitOpenError as exc:
+            raise ProviderUnreachable("circuit open") from exc
+        if previous is None:
+            if marker is not None:
+                logger.debug("Komga live read state: marker %r unreadable; new baseline", marker)
+            baseline = newest.isoformat() if newest is not None else _EPOCH_MARKER
+            return ReadStateChanges(marker=baseline)
+        next_marker = newest.isoformat() if newest is not None and newest > previous else marker
+        logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
+        return ReadStateChanges(items=tuple(items), marker=next_marker)
 
     def _find_by_path(self, output_filename: str | None) -> str | None:
         """Locate a Komga book by URL suffix-match against ``output_filename``.
