@@ -350,7 +350,9 @@ def _patch_series_number(series_index: float | None, current: dict[str, Any]) ->
     return patch
 
 
-def _patch_isbn(identifiers: str | None, current: dict[str, Any], title: str | None = None) -> dict[str, Any]:
+def _patch_isbn(
+    identifiers: str | None, current: dict[str, Any], title: str | None = None
+) -> dict[str, Any]:
     """ISBN field only when valid and changed."""
     patch: dict[str, Any] = {}
     isbn_text = _identifier(identifiers, "isbn")
