@@ -7,7 +7,8 @@ The service makes no DB writes itself; this plugin wraps its ``SyncResult.fields
 persist. A pending ``restore_target`` is consumed only when the call actually attempted the
 provider write (:func:`~ebookerr_sdk.providers.restore_marker.restore_marker_patch`, ``EXP-155``); a
 read-only ``enrich`` leaves it pending for the next sync.
-It also answers the core's live read-state calls (read_state_changes, refresh_read_state; LIB-D14), both read-only.
+It also answers the core's live read-state calls (read_state_changes, refresh_read_state;
+LIB-D14), both read-only.
 """
 
 from __future__ import annotations
@@ -20,12 +21,12 @@ from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import LINK_ERROR_FIELD, link_attempt_fields
 from ebookerr_sdk.providers.restore_marker import restore_marker_patch
 from ebookerr_sdk.spi import (
+    READ_STATE_FIELDS,
     BookPatch,
     BookView,
     InvocationMode,
     PluginContext,
     PluginEventType,
-    READ_STATE_FIELDS,
     ReadStateChanges,
     SettingsField,
     SettingsSchema,

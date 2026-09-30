@@ -2806,12 +2806,12 @@ class TestLiveReadState:
         from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
         from komga_sync.service import SyncResult
 
-        stub = _LiveStub(
-            result=SyncResult(False, "Komga is not reachable", unreachable=True)
-        )
+        stub = _LiveStub(result=SyncResult(False, "Komga is not reachable", unreachable=True))
         ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
         view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
 
-        with mock.patch.object(komga_sync, "_build_service", return_value=stub):
-            with pytest.raises(ProviderUnreachable):
-                KomgaSyncPlugin().refresh_read_state((view,), ctx)
+        with (
+            mock.patch.object(komga_sync, "_build_service", return_value=stub),
+            pytest.raises(ProviderUnreachable),
+        ):
+            KomgaSyncPlugin().refresh_read_state((view,), ctx)
