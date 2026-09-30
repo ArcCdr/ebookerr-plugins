@@ -39,6 +39,7 @@ from komga_sync.service import (
     _chapter_table,
     _compose_tags,
     _genres,
+    _isbn13,
     _komga_only_tags,
     _rating_from_tags,
     _rating_tag,
@@ -8255,3 +8256,43 @@ def test_book_patch_skips_an_unchanged_or_missing_series_number() -> None:
     patch = _book_patch(_blank_view(), {}, [])
     assert "number" not in patch
     assert "numberSort" not in patch
+
+
+def test_isbn13_validates_and_converts() -> None:
+    """ISBN-13 validation and ISBN-10 conversion."""
+    assert _isbn13("9780316769488") == "9780316769488"
+    assert _isbn13("978-0-316-76948-8") == "9780316769488"
+    assert _isbn13("0316769487") == "9780316769488"
+    assert _isbn13("9780316769489") is None
+    assert _isbn13("0316769488") is None
+    assert _isbn13("abc") is None
+
+
+def test_book_patch_pushes_a_valid_isbn() -> None:
+    """ISBN from identifiers is validated and pushed when valid and changed."""
+    patch = _book_patch(_blank_view(identifiers="asin:B0, isbn:0316769487"), {}, [])
+    assert patch["isbn"] == "9780316769488"
+
+    # When current ISBN matches, omit the field
+    patch = _book_patch(
+        _blank_view(identifiers="isbn:9780316769488"), {"isbn": "9780316769488"}, []
+    )
+    assert "isbn" not in patch
+
+
+def test_book_patch_skips_an_invalid_isbn(caplog: pytest.LogCaptureFixture) -> None:
+    """Invalid ISBN is not pushed; DEBUG message logged."""
+    with caplog.at_level(logging.DEBUG):
+        patch = _book_patch(_blank_view(title="Harbour Lights", identifiers="isbn:123"), {}, [])
+    assert "isbn" not in patch
+    assert 'ISBN 123 of "Harbour Lights" is not valid; not pushed' in caplog.text
+
+
+def test_series_patch_prefers_the_publisher() -> None:
+    """Series publisher prefers book.publisher over book.site."""
+    patch = _series_patch(_blank_view(publisher="Tor", site="example.org"), {})
+    assert patch["publisher"] == "Tor"
+
+    # Falls back to site when publisher is unset
+    patch = _series_patch(_blank_view(site="example.org"), {})
+    assert patch["publisher"] == "example.org"
