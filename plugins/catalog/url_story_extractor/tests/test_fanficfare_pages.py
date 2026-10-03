@@ -262,7 +262,7 @@ def test_a_listing_leaves_stdout_clean(capsys: Any) -> None:
 
 def test_the_gateway_quiets_fanficfare_logging() -> None:
     """The gateway quiets FanFicFare's logging."""
-    gateway = FanFicFarePagesGateway(Path("personal.ini"))
+    _gateway = FanFicFarePagesGateway(Path("personal.ini"))  # noqa: F841
 
     log = logging.getLogger("fanficfare")
 
