@@ -1,3 +1,6 @@
+== 1.3.0 ==
+A series named with its number, like "Harbour Stories [2]", is now stored as the series "Harbour Stories" with series number 2. Tags are stored in ebookerr's tags field. Needs ebookerr 2.22 or later.
+
 == 1.2.0 ==
 Declares itself the Source of last resort in the new manifest format. Needs ebookerr 2.21 or later.
 

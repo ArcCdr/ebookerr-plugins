@@ -1,2 +1,5 @@
+== 1.2.0 ==
+Also converts PDF files you add from your computer: Add books turns each into an EPUB and reviews it like any other. Needs ebookerr 2.22 or later.
+
 == 1.1.0 ==
 Moved out of the ebookerr core.
