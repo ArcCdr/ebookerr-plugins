@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
@@ -17,6 +19,13 @@ API_KEY = "test-api-key-12345"  # gitleaks:allow
 
 def _client(session: requests.Session | None = None) -> RequestsKavitaClient:
     return RequestsKavitaClient(BASE, API_KEY, session=session)
+
+
+def _auth() -> None:
+    """Answer the token exchange."""
+    responses.add(
+        responses.POST, f"{BASE}/api/Plugin/authenticate", json={"token": "jwt123"}, status=200
+    )
 
 
 @responses.activate
@@ -1953,3 +1962,99 @@ def test_the_connection_test_never_logs_the_key(caplog: pytest.LogCaptureFixture
 
     assert result.outcome == "unreachable"
     assert API_KEY not in caplog.text
+
+
+@responses.activate
+def test_recently_read_series_asks_for_the_most_recently_read_first() -> None:
+    """recently_read_series queries /api/Series/all-v2 with read-progress sort, newest first."""
+    _auth()
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/Series/all-v2",
+        json=[{"id": 7, "pagesRead": 3, "latestReadDate": "2026-09-28T18:50:49"}],
+        status=200,
+    )
+
+    client = _client()
+    result = client.recently_read_series()
+
+    assert result == [{"id": 7, "pagesRead": 3, "latestReadDate": "2026-09-28T18:50:49"}]
+    # Verify query parameters
+    request = responses.calls[1].request
+    assert request.url is not None
+    query_params = parse_qs(urlsplit(request.url).query)
+    assert query_params == {"PageNumber": ["1"], "PageSize": ["20"]}
+    # Verify body
+    assert json.loads(request.body) == {
+        "statements": [],
+        "combination": 1,
+        "sortOptions": {"sortField": 7, "isAscending": False},
+        "limitTo": 0,
+    }
+    # Verify authorization header
+    assert request.headers["Authorization"] == "Bearer jwt123"
+
+
+@responses.activate
+def test_recently_read_series_is_empty_on_an_error_answer() -> None:
+    """recently_read_series returns [] on a non-200 HTTP status."""
+    _auth()
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/Series/all-v2",
+        status=401,
+    )
+
+    client = _client()
+    result = client.recently_read_series()
+
+    assert result == []
+
+
+@responses.activate
+def test_recently_read_series_is_empty_on_unreadable_json() -> None:
+    """recently_read_series returns [] when the 200 response body is not valid JSON."""
+    _auth()
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/Series/all-v2",
+        body="<<not json>>",
+        status=200,
+    )
+
+    client = _client()
+    result = client.recently_read_series()
+
+    assert result == []
+
+
+@responses.activate
+def test_recently_read_series_is_empty_on_a_non_list_answer() -> None:
+    """recently_read_series returns [] when the 200 response body is not a list."""
+    _auth()
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/Series/all-v2",
+        json={"x": 1},
+        status=200,
+    )
+
+    client = _client()
+    result = client.recently_read_series()
+
+    assert result == []
+
+
+@responses.activate
+def test_recently_read_series_raises_when_kavita_is_unreachable() -> None:
+    """recently_read_series raises ProviderUnreachable on a connection error."""
+    _auth()
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/Series/all-v2",
+        body=requests.ConnectionError(),
+    )
+
+    client = _client()
+    with pytest.raises(ProviderUnreachable):
+        client.recently_read_series()

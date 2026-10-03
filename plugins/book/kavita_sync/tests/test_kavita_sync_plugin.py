@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import ebookerr_sdk.spi as api
 import pytest
+from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.testing import Cancelled, FakeContext
 from kavita_sync.plugin import KavitaSyncPlugin, _build_service
 from kavita_sync.service import SyncResult
@@ -1054,7 +1055,6 @@ class TestEnrich:
 
     def test_book_deleted_stops_on_an_outage(self, caplog) -> None:
         """BOOK_DELETED stops on ProviderUnreachable and logs WARNING."""
-        from ebookerr_sdk.providers.connection import ProviderUnreachable
 
         plugin = KavitaSyncPlugin()
         view1 = _make_book_view(
@@ -2414,3 +2414,104 @@ class TestUnreachedItems:
         """The manifest declares deferred=True (SPI 2.24, DFT-D13)."""
         plugin = KavitaSyncPlugin()
         assert plugin.manifest.deferred is True
+
+
+# ---------------------------------------------------------------------------
+# Live read-state calls (LIB-D14)
+# ---------------------------------------------------------------------------
+
+
+class _LiveStub:
+    """A KavitaService stub for the live read-state calls."""
+
+    def __init__(self, result: Any = None, changes: Any = None) -> None:
+        self.result = result
+        self.changes = changes
+        self.markers: list[str | None] = []
+
+    def read_state_changes(self, marker: str | None) -> Any:
+        self.markers.append(marker)
+        return self.changes
+
+    def refresh(self, book: api.BookView) -> Any:
+        return self.result
+
+
+def test_the_plugin_answers_live_read_state() -> None:
+    """The plugin implements LiveReadState and declares it in its manifest."""
+    plugin = KavitaSyncPlugin()
+    assert isinstance(plugin, api.LiveReadState)
+    assert plugin.manifest.roles.library_server.live_read_state is True
+
+
+def test_read_state_changes_delegates_to_the_service() -> None:
+    """read_state_changes calls the service and returns its result."""
+
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+    stub = _LiveStub(changes=api.ReadStateChanges(collections=("7",), marker="m2"))
+    plugin = KavitaSyncPlugin()
+
+    with patch("kavita_sync.plugin._build_service", return_value=stub):
+        result = plugin.read_state_changes("m1", ctx)
+
+    assert result == api.ReadStateChanges(collections=("7",), marker="m2")
+    assert stub.markers == ["m1"]
+
+
+def test_refresh_read_state_keeps_only_read_state() -> None:
+    """refresh_read_state keeps only READ_STATE_FIELDS from the service result."""
+    from ebookerr_sdk.testing import make_book_view
+
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+    result = SyncResult(
+        True,
+        "refreshed",
+        fields={
+            "external_read_position": 40,
+            "external_progress_modified": "2026-09-28T18:50:49+00:00",
+            "external_item_url": "http://kavita.test/library/1/series/7",
+        },
+    )
+    stub = _LiveStub(result=result)
+    plugin = KavitaSyncPlugin()
+
+    with patch("kavita_sync.plugin._build_service", return_value=stub):
+        patches = plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)
+
+    assert len(patches) == 1
+    assert patches[0].book_id == "b1"
+    assert patches[0].fields == {
+        "external_read_position": 40,
+        "external_progress_modified": "2026-09-28T18:50:49+00:00",
+    }
+
+
+def test_refresh_read_state_skips_a_book_it_cannot_refresh() -> None:
+    """refresh_read_state skips books that cannot be refreshed."""
+    from ebookerr_sdk.testing import make_book_view
+
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+    result = SyncResult(False, "no stored Kavita ids or page total", attempted=False)
+    stub = _LiveStub(result=result)
+    plugin = KavitaSyncPlugin()
+
+    with patch("kavita_sync.plugin._build_service", return_value=stub):
+        patches = plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)
+
+    assert patches == []
+
+
+def test_refresh_read_state_raises_when_kavita_is_unreachable() -> None:
+    """refresh_read_state raises ProviderUnreachable when Kavita is unreachable."""
+    from ebookerr_sdk.testing import make_book_view
+
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+    result = SyncResult(False, "Kavita is not reachable", unreachable=True)
+    stub = _LiveStub(result=result)
+    plugin = KavitaSyncPlugin()
+
+    with (
+        patch("kavita_sync.plugin._build_service", return_value=stub),
+        pytest.raises(ProviderUnreachable),
+    ):
+        plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)

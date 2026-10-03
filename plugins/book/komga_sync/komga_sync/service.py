@@ -46,10 +46,15 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
    locator (EXP-123).
 6. Read Komga-mastered reading state back: page count, position, completion,
    rating adoption (see :meth:`KomgaService._read_back` and the decision table
-   on :meth:`KomgaService._resolve_rating`).
+   on :meth:`KomgaService._resolve_rating`), stamped with Komga's own readProgress.lastModified
+   so the core applies read state newest-first (LIB-D16).
 7. Record the Komga ids + sync timestamps.
 8. Capture the semantic read position from the just-refreshed book (``RPH-ARCH-3``)
    for the caller to change-gate and store.
+
+The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker) (the
+library's books, newest reading change first) and refresh(book) (one stored id; no discovery,
+push, scan or write).
 
 The service reports Komga's own fresh finished flag on every sync/enrich, read from the
 record refreshed this call, never from the pre-sync merged view (``RPH-SRC-4``), and returns
@@ -110,6 +115,7 @@ from ebookerr_sdk.spi import (
     CircuitGuard,
     CircuitOpenError,
     ReadPosition,
+    ReadStateChanges,
 )
 
 from komga_sync.protocol import KomgaClient
@@ -117,6 +123,15 @@ from komga_sync.protocol import KomgaClient
 logger = logging.getLogger(__name__)
 
 _CONN_OK_TTL_S = 60.0
+
+_LIVE_PAGE_SIZE = 50
+"""Books per reading-change page (``LIB-D14``)."""
+
+_LIVE_MAX_PAGES = 5
+"""Reading-change pages one live check reads at most; beyond them the full sync catches up."""
+
+_EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
+"""The baseline of a library nobody has read in yet: every later reading change is newer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +230,14 @@ def _dedupe_ci(values: list[str]) -> list[str]:
 def _split_csv(value: str | None) -> list[str]:
     """Sanitise and split a ``", "``-joined field into its non-empty parts."""
     return [t for t in (sanitize(value) or "").split(", ") if t]
+
+
+def _progress_stamp(row: Mapping[str, Any]) -> datetime | None:
+    """The instant Komga last changed *row*'s reading progress, or ``None`` without progress."""
+    progress = row.get("readProgress")
+    if not isinstance(progress, Mapping):
+        return None
+    return parse_datetime(progress.get("lastModified"))
 
 
 _STAR_FULL = "★"  # U+2605 BLACK STAR
@@ -332,6 +355,39 @@ def _genres(book: BookView) -> list[str]:
     return _split_csv(book.category)
 
 
+def _format_number(value: float) -> str:
+    """The server's book number text: ``2.0`` → ``"2"``, ``2.5`` → ``"2.5"``."""
+    text = repr(float(value))
+    return text[:-2] if text.endswith(".0") else text
+
+
+def _patch_series_number(series_index: float | None, current: dict[str, Any]) -> dict[str, Any]:
+    """Series number fields (``number`` / ``numberSort``) only when changed."""
+    patch: dict[str, Any] = {}
+    if series_index is not None:
+        number = _format_number(series_index)
+        if number != current.get("number"):
+            patch["number"] = number
+        if float(series_index) != current.get("numberSort"):
+            patch["numberSort"] = float(series_index)
+    return patch
+
+
+def _patch_isbn(
+    identifiers: str | None, current: dict[str, Any], title: str | None = None
+) -> dict[str, Any]:
+    """ISBN field only when valid and changed."""
+    patch: dict[str, Any] = {}
+    isbn_text = _identifier(identifiers, "isbn")
+    if isbn_text is not None:
+        isbn = _isbn13(isbn_text)
+        if isbn is None:
+            logger.debug('ISBN %s of "%s" is not valid; not pushed', isbn_text, title)
+        elif isbn != current.get("isbn"):
+            patch["isbn"] = isbn
+    return patch
+
+
 def _upsert_links(
     current: list[dict[str, Any]], desired: list[dict[str, str]]
 ) -> tuple[list[dict[str, Any]], bool]:
@@ -351,6 +407,31 @@ def _upsert_links(
             match["url"] = want["url"]
             changed = True
     return result, changed
+
+
+def _identifier(text: str | None, scheme: str) -> str | None:
+    """The value of the book's ``scheme:value`` identifier for *scheme*, or ``None``."""
+    for token in (text or "").split(","):
+        name, sep, value = token.strip().partition(":")
+        if sep and name.strip().lower() == scheme and value.strip():
+            return value.strip()
+    return None
+
+
+def _isbn13(value: str) -> str | None:
+    """A valid ISBN-13 from ISBN-13 or ISBN-10 text (spaces and hyphens ignored), else ``None``."""
+    digits = re.sub(r"[\s-]", "", value).upper()
+    if re.fullmatch(r"\d{13}", digits):
+        total = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(digits[:12]))
+        return digits if (10 - total % 10) % 10 == int(digits[12]) else None
+    if re.fullmatch(r"\d{9}[\dX]", digits):
+        total = sum((10 - i) * (10 if c == "X" else int(c)) for i, c in enumerate(digits))
+        if total % 11:
+            return None
+        core = "978" + digits[:9]
+        check = (10 - sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(core)) % 10) % 10
+        return f"{core}{check}"
+    return None
 
 
 def _book_patch(
@@ -373,8 +454,12 @@ def _book_patch(
       sidecar adoption or EPUB backfill), and it is what a reader should see.
     - ``releaseDate`` — ``date_published`` rendered as a date-only ``YYYY-MM-DD``
       string (Komga's own form), only when local is truthy.
-    - ``authors`` — ``[{"name": ..., "role": "writer"}]``, only when the sanitised
-      local author is non-empty.
+    - ``authors`` — one ``{"name": ..., "role": "writer"}`` per ``" & "``-separated
+      sanitised name (``LIB-D6``), only when there is one.
+    - ``number`` / ``numberSort`` — the series number (``"2"``, ``"2.5"`` / ``2.5``),
+      only when the book has one.
+    - ``isbn`` — the book's ``isbn:`` identifier as a valid ISBN-13 (an ISBN-10 is
+      converted); an invalid one is not pushed (DEBUG).
     - ``tags`` — compared as **case-insensitive sets**: Komga stores tags unordered
       (a PATCH's array order is hash-scrambled server-side on storage, measured on
       ``gotson/komga:1.24.4``), so only a *content* change triggers a PATCH — the
@@ -411,14 +496,16 @@ def _book_patch(
     release_date = book.date_published.date().isoformat() if book.date_published else None
     if release_date and release_date != current.get("releaseDate"):
         patch["releaseDate"] = release_date
-    author = sanitize(book.author)
-    if author:
-        desired_authors = [{"name": author, "role": "writer"}]
+    names = [name for name in (sanitize(part) for part in (book.author or "").split(" & ")) if name]
+    if names:
+        desired_authors = [{"name": name, "role": "writer"} for name in names]
         current_authors = [
             {"name": a.get("name"), "role": a.get("role")} for a in current.get("authors") or []
         ]
         if desired_authors != current_authors:
             patch["authors"] = desired_authors
+    patch.update(_patch_series_number(book.series_index, current))
+    patch.update(_patch_isbn(book.identifiers, current, book.title))
     current_tags = [str(t) for t in current.get("tags") or []]
     if _ci_set(desired_tags) != _ci_set(current_tags):
         patch["tags"] = desired_tags
@@ -452,7 +539,8 @@ def _series_patch(book: BookView, current: dict[str, Any]) -> dict[str, Any]:
       (``"Completed"`` → ``"ENDED"``, ``"In-Progress"`` → ``"ONGOING"``). Any value
       not in the map — ``None``, empty, or an unknown string like ``"Hiatus"`` — is
       omitted entirely (fail-closed; never clobbers manual curation in Komga).
-    - ``publisher`` — ``sanitize(book.site)``; omitted when falsy.
+    - ``publisher`` — ``sanitize(book.publisher)``, else ``sanitize(book.site)``; omitted when both
+      are falsy.
     - ``links`` — upserts (:func:`_upsert_links`) the **"Story"** link only. The URL
       is ``series_url`` when the book belongs to a series (``book.series`` truthy;
       skipped entirely when ``series_url`` is unset) and ``story_url`` for a
@@ -476,7 +564,7 @@ def _series_patch(book: BookView, current: dict[str, Any]) -> dict[str, Any]:
     mapped_status = _STATUS_MAP.get(sanitize(book.status) or "")
     if mapped_status is not None and mapped_status != current.get("status"):
         patch["status"] = mapped_status
-    publisher = sanitize(book.site)
+    publisher = sanitize(book.publisher) or sanitize(book.site)
     if publisher and publisher != current.get("publisher"):
         patch["publisher"] = publisher
     link_url = book.series_url if book.series else book.story_url
@@ -1473,6 +1561,166 @@ class KomgaService:
         read_position, _ = self._semantic_position(komga_book_id, komga_book, book, join)
         return SyncResult(True, "enriched", fields=fields, read_position=read_position)
 
+    def read_state_changes(self, marker: str | None) -> ReadStateChanges:
+        """Report the books whose reading state changed since *marker* (``LIB-D14``).
+
+        Reads the configured library's books newest reading change first and walks them until a
+        book has no progress or a change not newer than *marker*. The next marker is the newest
+        change's instant (UTC ISO-8601), or *marker* when nothing is newer, so a marker never
+        moves back. Without a marker (or with an unreadable one) the call only records the
+        baseline: the newest change, or ``_EPOCH_MARKER`` when nobody has read anything yet, so
+        the library's first reading change is reported rather than taken as a new baseline.
+        At most ``_LIVE_MAX_PAGES`` pages of ``_LIVE_PAGE_SIZE`` are read, and ``more``
+        is never set: a newest-first listing cannot resume from a marker, and beyond those pages
+        the full sync catches up. Read-only: no push, scan, analyze or progression write.
+
+        Args:
+            marker: The marker returned last time, or ``None``.
+
+        Returns:
+            The changed Komga book ids and the next marker.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
+        """
+        if not self._enabled or not self._library_id:
+            logger.debug("Komga live read state: not configured; nothing reported")
+            return ReadStateChanges(marker=marker)
+        previous = parse_datetime(marker) if marker is not None else None
+        newest, items = self._scan_progress_changes(previous, self._library_id)
+        if previous is None:
+            if marker is not None:
+                logger.debug("Komga live read state: marker %r unreadable; new baseline", marker)
+            baseline = newest.isoformat() if newest is not None else _EPOCH_MARKER
+            return ReadStateChanges(marker=baseline)
+        next_marker = newest.isoformat() if newest is not None and newest > previous else marker
+        logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
+        return ReadStateChanges(items=tuple(items), marker=next_marker)
+
+    def refresh(self, book: BookView) -> SyncResult:
+        """Read one linked book's reading state back by its stored Komga id (``LIB-D14``).
+
+        The live read-state lane's read-back: no discovery, no metadata push, no scan or
+        analyze, no progression write, no restore. The fields are :meth:`_read_back`'s
+        (reading state plus ``external_progress_modified``), and the semantic read position
+        is captured as ``enrich`` captures it.
+
+        Args:
+            book: A book linked to Komga (``external.item_id`` set).
+
+        Returns:
+            ``ok`` with the fields and read position; ``not_found`` when Komga no longer has
+            the id; ``unreachable`` when Komga did not answer or its breaker is open;
+            ``attempted`` ``False`` when Komga is disabled or the book has no stored id.
+        """
+        if not self._enabled:
+            return SyncResult(False, "Komga sync is disabled", attempted=False)
+        item_id = book.external.item_id
+        if not item_id:
+            return SyncResult(False, "no Komga id on record", attempted=False)
+        blocked = self._reachable_or_result(book)
+        if blocked is not None:
+            return blocked
+        try:
+            with self._guard():
+                return self._refresh_reachable(book, item_id)
+        except CircuitOpenError:
+            return self._unreachable_result(book, "circuit open", attempted=False)
+        except ProviderUnreachable as exc:
+            return self._unreachable_result(book, str(exc))
+
+    def _refresh_reachable(self, book: BookView, item_id: str) -> SyncResult:
+        """The read-only refresh once Komga answered its probe (see :meth:`refresh`)."""
+        self._positions_cache.clear()
+        self._progression_cache.clear()
+        self._written_progression.clear()
+        komga_book = self._client.get_book(item_id)
+        if komga_book is None:
+            return SyncResult(False, "not found", not_found=True)
+        fields = self._read_back(book, komga_book)
+        join = self._build_join(book, item_id)
+        read_position, _ = self._semantic_position(item_id, komga_book, book, join)
+        logger.debug(
+            'Komga refresh of "%s" (item_id=%s): position %s, completed %s',
+            book.title,
+            item_id,
+            fields["external_read_position"],
+            fields["external_read_completed"],
+        )
+        return SyncResult(True, "refreshed", fields=fields, read_position=read_position)
+
+    def _scan_progress_changes(
+        self, previous: datetime | None, library_id: str
+    ) -> tuple[datetime | None, list[str]]:
+        """Scan and collect books with reading changes after *previous* (``LIB-D14``).
+
+        Returns the newest change's timestamp and the list of book ids changed since *previous*.
+
+        Args:
+            previous: The marker's timestamp, or ``None`` for a baseline scan.
+            library_id: The Komga library id.
+
+        Returns:
+            A tuple of (newest timestamp, book ids).
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
+        """
+        newest: datetime | None = None
+        items: list[str] = []
+        try:
+            with self._guard():
+                for page in range(_LIVE_MAX_PAGES):
+                    rows = self._client.read_progress_changes(
+                        library_id, page=page, size=_LIVE_PAGE_SIZE
+                    )
+                    if not rows:
+                        break
+                    done, first_ts = self._process_progress_rows(rows, previous, items)
+                    if newest is None and first_ts is not None:
+                        newest = first_ts
+                    if done or len(rows) < _LIVE_PAGE_SIZE:
+                        break
+                else:
+                    logger.debug(
+                        "Komga reported more than %d reading changes; the rest are left to the "
+                        "full sync",
+                        _LIVE_MAX_PAGES * _LIVE_PAGE_SIZE,
+                    )
+        except CircuitOpenError as exc:
+            raise ProviderUnreachable("circuit open") from exc
+        return newest, items
+
+    def _process_progress_rows(
+        self,
+        rows: list[dict[str, Any]],
+        previous: datetime | None,
+        items: list[str],
+    ) -> tuple[bool, datetime | None]:
+        """Process one page of progress rows and collect newer ids.
+
+        Returns a tuple of (should_stop, first_timestamp).
+
+        Args:
+            rows: The Komga progress rows to scan.
+            previous: The marker's timestamp, or ``None`` for baseline.
+            items: The list to append newer book ids to.
+
+        Returns:
+            (True to stop scanning, first row's timestamp or None).
+        """
+        first_ts: datetime | None = None
+        for row in rows:
+            stamp = _progress_stamp(row)
+            if stamp is None:
+                return True, first_ts
+            if first_ts is None:
+                first_ts = stamp
+            if previous is None or stamp <= previous:
+                return True, first_ts
+            items.append(str(row["id"]))
+        return False, first_ts
+
     def _find_by_path(self, output_filename: str | None) -> str | None:
         """Locate a Komga book by URL suffix-match against ``output_filename``.
 
@@ -1866,8 +2114,10 @@ class KomgaService:
 
         Returns:
             ``external_read_total``/``_position``/``_completed``/``_percent``, plus
-            ``external_progress_at`` when something changed, and ``read_completed_at``
-            when Komga reports a completion with a valid date.
+            ``external_progress_at`` when something changed, ``read_completed_at``
+            when Komga reports a completion with a valid date, plus ``external_progress_modified``
+            (Komga's ``readProgress.lastModified``, UTC ISO-8601) whenever Komga reports
+            reading progress.
         """
         media = komga_book.get("media") or {}
         progress = komga_book.get("readProgress") or {}
@@ -1881,6 +2131,11 @@ class KomgaService:
             "external_read_completed": completed,
             "external_read_percent": read_percent,
         }
+        # Komga's own stamp of this reading state, so the core applies read state newest-first
+        # from every lane (LIB-D16).
+        stamp = parse_datetime(progress.get("lastModified"))
+        if stamp is not None:
+            fields["external_progress_modified"] = stamp.isoformat()
         # Komga knows when the book was actually finished; ebookerr would otherwise record
         # "when it noticed" (plugin_runtime falls back to now()). Written on every sync, so a
         # library whose dates were approximated by migration 42 repairs itself on the next one.

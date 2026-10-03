@@ -63,6 +63,12 @@ circuit breaker (``EXP-269``) answers unreachable from memory instead of probing
 :meth:`KavitaService.sync` returns ``attempted=False`` when disabled or when that same
 open breaker skips the call, and ``attempted=True`` for every other outcome (unreachable,
 not found, or success) — the caller logs ``message`` and carries on either way.
+The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker)
+(the series read most recently; Kavita 0.8.7 stamps the whole page with one date, so a
+change reports every listed series with pages read) and refresh(book) (stored ids and page
+total; no search, rating, scan or write). Every read-back carries Kavita's lastModifiedUtc as
+external_progress_modified, so the core applies read state newest-first (LIB-D16).
+
 Deleting a book is **nudge-only**:
 Kavita has no direct delete API. When a deleted book has a stored ``external_library_id``,
 :meth:`KavitaService.rescan_library_after_delete` asks Kavita to rescan that library by
@@ -103,6 +109,7 @@ from ebookerr_sdk.spi import (
     CircuitGuard,
     CircuitOpenError,
     ReadPosition,
+    ReadStateChanges,
 )
 
 from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
@@ -111,6 +118,43 @@ from kavita_sync.protocol import KavitaClient
 logger = logging.getLogger(__name__)
 
 _CONN_OK_TTL_S = 60.0
+
+_LIVE_SERIES_PAGE = 20
+"""Series one live check reads (``LIB-D14``)."""
+
+_NO_DATE_PREFIX = "0001-01-01"
+"""Kavita's "never" date (a ``DateTime`` default)."""
+
+_EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
+"""The baseline of a server nobody has read on yet: every later reading change is newer."""
+
+
+def _kavita_instant(value: object) -> datetime | None:
+    """A Kavita date as a UTC instant, or ``None`` for a missing, unreadable or year-1 value."""
+    if not isinstance(value, str) or value.startswith(_NO_DATE_PREFIX):
+        return None
+    return parse_datetime(value)
+
+
+def _stored_ref(book: BookView) -> KavitaRef | None:
+    """A ``KavitaRef`` from *book*'s stored link, or ``None`` without an id or a page total.
+
+    ``volume_id`` is 0: only a progress write needs it, and a refresh never writes.
+    """
+    link = book.external
+    total = book.progress.total or 0
+    if not (link.item_id and link.collection_id and link.library_id) or total <= 0:
+        return None
+    try:
+        return KavitaRef(
+            chapter_id=int(link.item_id),
+            volume_id=0,
+            series_id=int(link.collection_id),
+            library_id=int(link.library_id),
+            total_pages=int(total),
+        )
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -915,6 +959,115 @@ class KavitaService:
             return self._library_path
         return f"{self._library_path}/{parent}"
 
+    def read_state_changes(self, marker: str | None) -> ReadStateChanges:
+        """Report the series whose reading state may have changed since *marker* (``LIB-D14``).
+
+        One listing of the series read most recently. Kavita 0.8.7 stamps every row with the
+        page's newest reading date, so the check compares that one date with *marker*: not
+        newer → nothing; newer → every listed series with pages read is reported as a changed
+        collection, and the date becomes the marker. Without a marker (or with an unreadable one)
+        the call only records the baseline — the newest date, or ``_EPOCH_MARKER`` when nothing
+        has been read yet, so the first reading change is reported. Read-only.
+
+        Args:
+            marker: The marker returned last time, or ``None``.
+
+        Returns:
+            The changed Kavita series ids (``BookView.external.collection_id``) and the next
+            marker (UTC ISO-8601).
+
+        Raises:
+            ProviderUnreachable: Kavita did not answer, or its circuit breaker is open.
+        """
+        if not self._enabled:
+            logger.debug("Kavita live read state: not configured; nothing reported")
+            return ReadStateChanges(marker=marker)
+        try:
+            with self._guard():
+                rows = self._client.recently_read_series(size=_LIVE_SERIES_PAGE)
+        except CircuitOpenError as exc:
+            raise ProviderUnreachable("circuit open") from exc
+        stamps = [
+            stamp
+            for stamp in (_kavita_instant(row.get("latestReadDate")) for row in rows)
+            if stamp is not None
+        ]
+        newest = max(stamps) if stamps else None
+        previous = parse_datetime(marker) if marker is not None else None
+        if previous is None:
+            if marker is not None:
+                logger.debug("Kavita live read state: marker %r unreadable; new baseline", marker)
+            return ReadStateChanges(
+                marker=newest.isoformat() if newest is not None else _EPOCH_MARKER
+            )
+        if newest is None or newest <= previous:
+            return ReadStateChanges(marker=marker)
+        collections = tuple(
+            str(row["id"])
+            for row in rows
+            if isinstance(row.get("id"), int) and int(row.get("pagesRead") or 0) > 0
+        )
+        logger.debug("Kavita live read state: %d series read since %s", len(collections), marker)
+        return ReadStateChanges(collections=collections, marker=newest.isoformat())
+
+    def refresh(self, book: BookView) -> SyncResult:
+        """Read one linked book's reading state back by its stored ids (``LIB-D14``).
+
+        The live read-state lane's read-back uses the stored chapter, series and library ids
+        and the stored page total. It does no ``find_chapter`` search, no rating push or
+        adoption, no scan, no progress write and no restore. The fields are
+        :meth:`_write_back`'s (the caller keeps only read state), and the read position is
+        captured as ``enrich`` captures it.
+
+        Args:
+            book: A book linked to Kavita.
+
+        Returns:
+            ``ok`` with the fields and read position; ``attempted`` ``False`` when Kavita is
+            disabled or the book lacks stored ids or a page total; ``unreachable`` when
+            Kavita did not answer or its breaker is open.
+        """
+        if not self._enabled:
+            return SyncResult(False, "Kavita sync is disabled", attempted=False)
+        ref = _stored_ref(book)
+        if ref is None:
+            return SyncResult(False, "no stored Kavita ids or page total", attempted=False)
+        blocked = self._reachable_or_result(book)
+        if blocked is not None:
+            return blocked
+        try:
+            with self._guard():
+                return self._refresh_reachable(book, ref)
+        except CircuitOpenError:
+            return self._unreachable_result(book, "circuit open", attempted=False)
+        except ProviderUnreachable as exc:
+            return self._unreachable_result(book, str(exc))
+
+    def _refresh_reachable(self, book: BookView, ref: KavitaRef) -> SyncResult:
+        """The read-only refresh once Kavita answered its probe (see :meth:`refresh`)."""
+        self._ref_cache.clear()
+        self._ref_cache[str(ref.chapter_id)] = ref
+        progress = self._client.get_progress(ref.chapter_id)
+        fields = self._write_back(book, ref, progress)
+        read_position = capture_position(
+            self,
+            str(ref.chapter_id),
+            join=self._build_join(book, ref.chapter_id),
+            stored=book.read_position,
+            captured_at=self._now().isoformat(),
+            provider_name="Kavita",
+            book_title=book.title,
+            provider_finished=fields["external_read_completed"] == 1,
+        )
+        logger.debug(
+            'Kavita refresh of "%s" (chapter=%s): page %s of %s',
+            book.title,
+            ref.chapter_id,
+            fields["external_read_position"],
+            ref.total_pages,
+        )
+        return SyncResult(True, "refreshed", fields=fields, read_position=read_position)
+
     def rescan_library_after_delete(self, library_id: str, titles: Sequence[str]) -> bool:
         """Ask Kavita to rescan a library by id after deleting books.
 
@@ -1010,8 +1163,10 @@ class KavitaService:
             ``external_provider``, ``_library_id``, ``_item_id``, ``_collection_id``,
             ``_item_url`` (:meth:`_deep_link`), ``_read_position``, ``_read_total``,
             ``_read_percent``, ``_read_completed``, ``_synced_at``, ``external_progress_at``
-            (when reading state changed), and conditionally ``read_completed_at``
-            (when the book reads as completed and Kavita supplies a parseable ``lastModifiedUtc``).
+            (when reading state changed), ``external_progress_modified`` (Kavita's
+            ``lastModifiedUtc``, UTC ISO-8601) when Kavita reports a real date, and
+            conditionally ``read_completed_at`` (when the book reads as completed and Kavita
+            supplies a parseable ``lastModifiedUtc``).
         """
         page_num = int(progress.get("pageNum", 0))
         total = ref.total_pages
@@ -1029,6 +1184,11 @@ class KavitaService:
             "external_read_completed": completed,
             "external_synced_at": self._now(),
         }
+        # Kavita's own stamp of this reading state, so the core applies read state newest-first
+        # from every lane (LIB-D16); a year-1 date means there is no progress yet.
+        stamp = _kavita_instant(progress.get("lastModifiedUtc"))
+        if stamp is not None:
+            fields["external_progress_modified"] = stamp.isoformat()
         # Kavita knows when progress last moved; for a finished book that is when it was
         # finished. Without it, plugin_runtime falls back to now() and ebookerr records "when
         # it noticed". Older Kavita servers omit the field — then the fallback still applies.

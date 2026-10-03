@@ -7,6 +7,8 @@ The service makes no DB writes itself; this plugin wraps its ``SyncResult.fields
 persist. A pending ``restore_target`` is consumed only when the call actually attempted the
 provider write (:func:`~ebookerr_sdk.providers.restore_marker.restore_marker_patch`, ``EXP-155``); a
 read-only ``enrich`` leaves it pending for the next sync.
+It also answers the core's live read-state calls (read_state_changes, refresh_read_state;
+LIB-D14), both read-only.
 """
 
 from __future__ import annotations
@@ -15,14 +17,17 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import LINK_ERROR_FIELD, link_attempt_fields
 from ebookerr_sdk.providers.restore_marker import restore_marker_patch
 from ebookerr_sdk.spi import (
+    READ_STATE_FIELDS,
     BookPatch,
     BookView,
     InvocationMode,
     PluginContext,
     PluginEventType,
+    ReadStateChanges,
     SettingsField,
     SettingsSchema,
 )
@@ -459,4 +464,82 @@ class KomgaSyncPlugin:
                 patches.append(patch)
             ctx.report((index + 1) / total * 100.0 if total else 100.0)
 
+        return patches
+
+    def read_state_changes(self, marker: str | None, ctx: PluginContext) -> ReadStateChanges:
+        """Report the Komga books whose reading state changed since *marker* (``LIB-D14``).
+
+        Read-only: one listing of the configured library, newest reading change first (see
+        :meth:`KomgaService.read_state_changes`). Settings are read fresh.
+
+        Args:
+            marker: The marker returned last time, or ``None`` for the first call.
+            ctx: Plugin invocation context (settings, logger).
+
+        Returns:
+            The changed Komga book ids and the next marker.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer or its breaker is open; the core then
+                pauses its live checks.
+        """
+        changes = _build_service(ctx).read_state_changes(marker)
+        ctx.logger.debug(
+            "Komga reading changes since %s: %d book(s); next marker %s",
+            marker,
+            len(changes.items),
+            changes.marker,
+        )
+        return changes
+
+    def refresh_read_state(
+        self, books: tuple[BookView, ...], ctx: PluginContext
+    ) -> list[BookPatch]:
+        """Read each book's reading position and completion back from Komga (``LIB-D14``).
+
+        Uses each book's stored Komga id only (:meth:`KomgaService.refresh`): no discovery,
+        push, scan, progression write or restore. Each answered book yields a patch carrying
+        only ``READ_STATE_FIELDS`` and its captured ``read_position``; a book Komga no longer
+        has is skipped at DEBUG, for the full sync to relink.
+
+        Args:
+            books: Linked books to read back.
+            ctx: Plugin invocation context (settings, logger, cancellation).
+
+        Returns:
+            One read-state patch per answered book.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer or its breaker is open; the core then
+                pauses its live checks.
+        """
+        service = _build_service(ctx)
+        patches: list[BookPatch] = []
+        for view in books:
+            ctx.check_cancelled()
+            result = service.refresh(view)
+            if result.unreachable:
+                raise ProviderUnreachable(result.message)
+            if not result.ok:
+                ctx.logger.debug(
+                    'Komga read-state refresh skipped "%s" (book_id=%s): %s',
+                    view.title,
+                    view.book_id,
+                    result.message,
+                )
+                continue
+            patches.append(
+                BookPatch(
+                    book_id=view.book_id,
+                    fields={
+                        key: value
+                        for key, value in result.fields.items()
+                        if key in READ_STATE_FIELDS
+                    },
+                    read_position=result.read_position,
+                )
+            )
+        ctx.logger.debug(
+            "Komga read-state refresh: %d of %d book(s) answered", len(patches), len(books)
+        )
         return patches

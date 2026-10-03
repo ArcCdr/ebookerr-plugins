@@ -49,6 +49,14 @@ class KavitaClient(Protocol):
         """Reading progress for *chapter_id*, or {} on error."""
         ...
 
+    def recently_read_series(self, *, size: int = 20) -> list[dict[str, Any]]:
+        """POST /api/Series/all-v2 sorted by read progress, newest first.
+
+        Returns the series rows, or [] on a non-200 answer; raises ProviderUnreachable when
+        Kavita does not answer.
+        """
+        ...
+
     def save_progress(self, ref: KavitaRef, page_num: int) -> bool:
         """Save *page_num* as the reading progress for the chapter in *ref*."""
         ...

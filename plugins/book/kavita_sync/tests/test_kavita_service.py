@@ -11,14 +11,16 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from ebookerr_sdk.providers.connection import ConnectionTestResult
+from ebookerr_sdk.providers.connection import ConnectionTestResult, ProviderUnreachable
 from ebookerr_sdk.spi import (
+    BookView,
     ChapterLink,
     ChapterView,
     CircuitOpenError,
     ExternalLink,
     ExternalProgress,
     ReadPosition,
+    ReadStateChanges,
 )
 from ebookerr_sdk.testing import make_book_view
 from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
@@ -45,6 +47,8 @@ class FakeKavita:
         self.find_chapter_calls: int = 0
         self.test_connection_calls: int = 0
         self.die_after_find_calls: int | None = None
+        self.recent_series: list[dict[str, Any]] = []
+        self.recent_calls: list[int] = []
 
     def test_connection(self) -> ConnectionTestResult:
         self.test_connection_calls += 1
@@ -91,6 +95,12 @@ class FakeKavita:
             return self.book_chapters_sequence.pop(0)
         return self.book_chapters_result
 
+    def recently_read_series(self, *, size: int = 20) -> list[dict[str, Any]]:
+        self.recent_calls.append(size)
+        if not self.connected:
+            raise ProviderUnreachable("Kavita is not reachable: ConnectionError")
+        return self.recent_series
+
 
 def service(client: FakeKavita, **kwargs: Any) -> KavitaService:
     """Build a KavitaService with sane defaults for testing (a no-op ``sleep``, no delay)."""
@@ -113,6 +123,24 @@ def _ref(
         library_id=library_id,
         total_pages=total_pages,
     )
+
+
+class _RefusingCircuit:
+    """A circuit guard whose breaker is open."""
+
+    def is_open(self, key: str) -> bool:
+        return True
+
+    def guard(self, key: str, *, label: str | None = None, notice: bool = True) -> Any:
+        raise CircuitOpenError(key, label or key, datetime(2026, 9, 30, 12, 0, tzinfo=UTC))
+
+    def hold(self, key: str, *, reason: str, until: Any = None, label: str | None = None) -> None:
+        return None
+
+
+def _series(series_id: int, pages_read: int, date: str) -> dict[str, Any]:
+    """Build a series row from a Kavita recently_read_series listing."""
+    return {"id": series_id, "pagesRead": pages_read, "latestReadDate": date}
 
 
 def test_enrich_disabled_returns_false() -> None:
@@ -1510,6 +1538,99 @@ def test_a_kavita_sync_that_leaves_the_position_unchanged_does_not_stamp_externa
         "external_progress_at" not in kavita_result.fields
         or kavita_result.fields.get("external_progress_at") is None
     )
+
+
+def _linked(*, item_id: str | None = "11", total: int = 100) -> BookView:
+    """A view linked to Kavita chapter 11 of series 7 in library 1."""
+    return make_book_view(
+        book_id="b1",
+        external=ExternalLink(
+            provider="kavita", item_id=item_id, collection_id="7", library_id="1"
+        ),
+        progress=ExternalProgress(position=10, total=total),
+    )
+
+
+def test_write_back_carries_kavitas_stamp() -> None:
+    """Write-back carries Kavita's lastModifiedUtc as external_progress_modified."""
+    result = service(FakeKavita())._write_back(
+        _linked(),
+        _ref(),
+        {"pageNum": 5, "lastModifiedUtc": "2026-09-28T18:50:49Z"},
+    )
+    assert result["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+
+
+def test_write_back_ignores_a_year_one_date() -> None:
+    """Write-back omits external_progress_modified for a year-1 date."""
+    result = service(FakeKavita())._write_back(
+        _linked(),
+        _ref(),
+        {"pageNum": 5, "lastModifiedUtc": "0001-01-01T00:00:00"},
+    )
+    assert "external_progress_modified" not in result
+
+
+def test_enrich_carries_the_read_state_stamp() -> None:
+    """Enrich's write-back carries the read state stamp."""
+    client = FakeKavita()
+    client.find_chapter_result = _ref()
+    client.get_progress_result = {"pageNum": 5, "lastModifiedUtc": "2026-09-28T18:50:49Z"}
+    view = make_book_view(output_filename="An Author/a_title.epub")
+
+    result = service(client).enrich(view)
+
+    assert result.ok is True
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+
+
+def test_refresh_reads_progress_by_the_stored_ids() -> None:
+    """Refresh reads progress using stored ids, no find_chapter or writes."""
+    client = FakeKavita()
+    client.get_progress_result = {"pageNum": 40, "lastModifiedUtc": "2026-09-28T18:50:49Z"}
+
+    result = service(client).refresh(_linked())
+
+    assert result.ok is True
+    assert result.fields["external_read_position"] == 40
+    assert result.fields["external_read_percent"] == 0.4
+    assert result.fields["external_progress_modified"] == "2026-09-28T18:50:49+00:00"
+    assert client.find_chapter_calls == 0
+    assert client.save_progress_calls == []
+    assert client.rate_series_calls == []
+    assert client.scan_folder_calls == []
+    assert client.scan_library_calls == []
+
+
+def test_refresh_without_stored_ids_is_not_attempted() -> None:
+    """Refresh without stored item_id reports not attempted."""
+    client = FakeKavita()
+    result = service(client).refresh(_linked(item_id=None))
+    assert result.attempted is False
+
+
+def test_refresh_without_a_page_total_is_not_attempted() -> None:
+    """Refresh without a page total reports not attempted."""
+    client = FakeKavita()
+    result = service(client).refresh(_linked(total=0))
+    assert result.attempted is False
+
+
+def test_refresh_reports_kavita_unreachable() -> None:
+    """Refresh when Kavita is disconnected reports unreachable."""
+    client = FakeKavita()
+    client.connected = False
+
+    result = service(client).refresh(_linked())
+
+    assert result.unreachable is True
+
+
+def test_refresh_when_disabled_is_not_attempted() -> None:
+    """Refresh when Kavita sync is disabled reports not attempted."""
+    client = FakeKavita()
+    result = service(client, enabled=False).refresh(_linked())
+    assert result.attempted is False
 
 
 def test_a_kavita_restore_lands_on_the_migrated_chapter() -> None:
@@ -3787,3 +3908,148 @@ def test_restore_no_match_fails_closed_through_the_core(caplog: Any) -> None:
     assert result.restore_landed is False
     assert client.save_progress_calls == []
     assert "Read-position restore failed for" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Live read state changes (LIB-D14)
+# ---------------------------------------------------------------------------
+
+
+def test_read_state_changes_first_call_records_the_baseline() -> None:
+    """First read_state_changes(None) records the newest read date as the baseline."""
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 3, "2026-09-28T18:50:49"),
+        _series(8, 0, "2026-09-28T18:50:49"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes(None)
+
+    assert result == ReadStateChanges(marker="2026-09-28T18:50:49+00:00")
+    assert client.recent_calls == [20]
+
+
+def test_the_baseline_of_an_unread_server_is_the_epoch() -> None:
+    """An unread server (only year-1 dates) gets the epoch as baseline."""
+    client = FakeKavita()
+    client.recent_series = [_series(7, 0, "0001-01-01T00:00:00")]
+    svc = service(client)
+
+    result = svc.read_state_changes(None)
+
+    assert result == ReadStateChanges(marker="1970-01-01T00:00:00+00:00")
+
+
+def test_nothing_newer_keeps_the_marker() -> None:
+    """No change since marker → same marker returned."""
+    m = "2026-09-28T18:50:49+00:00"
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 3, "2026-09-28T18:50:49"),
+        _series(8, 0, "2026-09-28T18:50:49"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes(m)
+
+    assert result == ReadStateChanges(marker=m)
+
+
+def test_a_newer_date_reports_every_listed_series_with_pages_read() -> None:
+    """A newer date → report all series with pages_read > 0 and return new marker."""
+    m = "2026-09-28T18:50:49+00:00"
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 3, "2026-09-28T19:00:00"),
+        _series(8, 0, "2026-09-28T19:00:00"),
+        _series(9, 12, "2026-09-28T19:00:00"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes(m)
+
+    assert result == ReadStateChanges(collections=("7", "9"), marker="2026-09-28T19:00:00+00:00")
+
+
+def test_year_one_dates_are_not_stamps() -> None:
+    """Year-1 dates (never read) are excluded from stamp calculation."""
+    m = "2026-09-28T18:50:49+00:00"
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 1, "0001-01-01T00:00:00"),
+        _series(8, 2, "2026-09-28T19:00:00"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes(m)
+
+    assert result.marker == "2026-09-28T19:00:00+00:00"
+    assert result.collections == ("7", "8")
+
+    # With only year-1 dates and a marker, keep the marker
+    client.recent_series = [_series(7, 1, "0001-01-01T00:00:00")]
+    result2 = svc.read_state_changes(m)
+    assert result2 == ReadStateChanges(marker=m)
+
+
+def test_an_unreadable_marker_records_a_new_baseline() -> None:
+    """An unreadable marker starts fresh with a new baseline."""
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 3, "2026-09-28T18:50:49"),
+        _series(8, 0, "2026-09-28T18:50:49"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes("garbage")
+
+    assert result == ReadStateChanges(marker="2026-09-28T18:50:49+00:00")
+
+
+def test_read_state_changes_raises_when_kavita_is_unreachable() -> None:
+    """Unreachable Kavita raises ProviderUnreachable."""
+    client = FakeKavita()
+    client.connected = False
+    svc = service(client)
+
+    with pytest.raises(ProviderUnreachable):
+        svc.read_state_changes("m")
+
+
+def test_read_state_changes_raises_when_the_circuit_is_open() -> None:
+    """Open circuit raises ProviderUnreachable."""
+    client = FakeKavita()
+    client.recent_series = [_series(7, 3, "2026-09-28T18:50:49")]
+    svc = service(client, circuit=_RefusingCircuit())
+
+    with pytest.raises(ProviderUnreachable):
+        svc.read_state_changes("m")
+
+    assert client.recent_calls == []
+
+
+def test_read_state_changes_when_disabled_reports_nothing() -> None:
+    """Disabled Kavita returns no changes and preserves the marker."""
+    client = FakeKavita()
+    svc = service(client, enabled=False)
+
+    result = svc.read_state_changes("m")
+
+    assert result == ReadStateChanges(marker="m")
+    assert client.recent_calls == []
+
+
+def test_read_state_changes_is_read_only() -> None:
+    """read_state_changes never writes (no save_progress, rate_series, scan*)."""
+    m = "2026-09-28T18:50:49+00:00"
+    client = FakeKavita()
+    client.recent_series = [_series(7, 3, "2026-09-28T19:00:00")]
+    svc = service(client)
+
+    svc.read_state_changes(m)
+
+    assert client.save_progress_calls == []
+    assert client.rate_series_calls == []
+    assert client.scan_folder_calls == []
+    assert client.scan_library_calls == []

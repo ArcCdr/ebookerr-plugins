@@ -33,6 +33,7 @@ def test_the_manifest_declares_the_library_server_role() -> None:
         "reader_url_template": "{external_url}/book/{book_id}/read-epub",
         "server_url_setting": "server",
         "public_url_setting": "external_url",
+        "live_read_state": True,
     }
 
     # Verify legacy top-level keys are gone

@@ -24,6 +24,8 @@ immediately, and one ``KavitaService`` is built per call:
   folder instead. Both are **nudge-only** — unlike ``KomgaSyncPlugin``, there is no direct
   Kavita delete API to call. A book with no Kavita link logs at DEBUG and is skipped.
 - Any other event -> ``service.sync(view, restore_target=view.restore_target)``.
+- The core's live read-state calls (LIB-D14) -> ``read_state_changes`` / ``refresh_read_state``,
+  both read-only.
 
 **Settings** (schema-driven, ``plugin.kavita_sync.*``): ``server`` (Kavita base URL),
 ``api_key`` (secret), ``external_url`` (optional, used for deep links, defaults to ``server``),
@@ -56,10 +58,12 @@ from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import LINK_ERROR_FIELD, link_attempt_fields
 from ebookerr_sdk.providers.restore_marker import restore_marker_patch
 from ebookerr_sdk.spi import (
+    READ_STATE_FIELDS,
     BookPatch,
     BookView,
     PluginContext,
     PluginEventType,
+    ReadStateChanges,
     SettingsField,
     SettingsSchema,
 )
@@ -123,6 +127,11 @@ _SCHEMA = SettingsSchema(
         "API key {api_key|No API key}"
     ),
 )
+
+
+def _configured(ctx: PluginContext) -> bool:
+    """Whether Kavita is configured: both a server URL and an API key are set."""
+    return bool(ctx.settings.get("server", "") and ctx.settings.get("api_key", ""))
 
 
 def _build_service(
@@ -464,10 +473,7 @@ class KavitaSyncPlugin:
             an unconfigured Kavita, an unlinked deleted book, or a no-op sync contribute
             nothing. Always ``[]`` for ``BookDeleted`` (delete is a nudge, never a patch).
         """
-        settings = ctx.settings
-        server = settings.get("server", "")
-        api_key = settings.get("api_key", "")
-        enabled = bool(server and api_key)
+        enabled = _configured(ctx)
 
         service = _build_service(ctx, enabled=enabled)
 
@@ -484,4 +490,82 @@ class KavitaSyncPlugin:
                 patches.append(patch)
             ctx.report((index + 1) / total * 100.0 if total else 100.0)
 
+        return patches
+
+    def read_state_changes(self, marker: str | None, ctx: PluginContext) -> ReadStateChanges:
+        """Report the Kavita series whose reading state changed since *marker* (``LIB-D14``).
+
+        Read-only: one listing of the series read most recently (see
+        :meth:`KavitaService.read_state_changes`). Settings are read fresh.
+
+        Args:
+            marker: The marker returned last time, or ``None`` for the first call.
+            ctx: Plugin invocation context (settings, logger).
+
+        Returns:
+            The changed Kavita series ids and the next marker.
+
+        Raises:
+            ProviderUnreachable: Kavita did not answer or its breaker is open; the core then
+                pauses its live checks.
+        """
+        changes = _build_service(ctx, enabled=_configured(ctx)).read_state_changes(marker)
+        ctx.logger.debug(
+            "Kavita reading changes since %s: %d series; next marker %s",
+            marker,
+            len(changes.collections),
+            changes.marker,
+        )
+        return changes
+
+    def refresh_read_state(
+        self, books: tuple[BookView, ...], ctx: PluginContext
+    ) -> list[BookPatch]:
+        """Read each book's reading position and completion back from Kavita (``LIB-D14``).
+
+        Uses each book's stored ids and page total only (:meth:`KavitaService.refresh`): no
+        search, rating, scan, progress write or restore. Each answered book yields a patch
+        carrying only ``READ_STATE_FIELDS`` and its captured ``read_position``; a book that
+        cannot be refreshed is skipped at DEBUG, for the full sync.
+
+        Args:
+            books: Linked books to read back.
+            ctx: Plugin invocation context (settings, logger, cancellation).
+
+        Returns:
+            One read-state patch per answered book.
+
+        Raises:
+            ProviderUnreachable: Kavita did not answer or its breaker is open; the core then
+                pauses its live checks.
+        """
+        service = _build_service(ctx, enabled=_configured(ctx))
+        patches: list[BookPatch] = []
+        for view in books:
+            ctx.check_cancelled()
+            result = service.refresh(view)
+            if result.unreachable:
+                raise ProviderUnreachable(result.message)
+            if not result.ok:
+                ctx.logger.debug(
+                    'Kavita read-state refresh skipped "%s" (book_id=%s): %s',
+                    view.title,
+                    view.book_id,
+                    result.message,
+                )
+                continue
+            patches.append(
+                BookPatch(
+                    book_id=view.book_id,
+                    fields={
+                        key: value
+                        for key, value in result.fields.items()
+                        if key in READ_STATE_FIELDS
+                    },
+                    read_position=result.read_position,
+                )
+            )
+        ctx.logger.debug(
+            "Kavita read-state refresh: %d of %d book(s) answered", len(patches), len(books)
+        )
         return patches
