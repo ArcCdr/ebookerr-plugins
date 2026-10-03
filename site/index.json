@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-03T12:48:09Z",
+  "generated_at": "2026-10-03T12:52:38Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -1023,6 +1023,35 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.2.0",
+          "published_at": "2026-10-03T12:52:30Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.2.0/rtf_download_source-1.2.0.zip",
+          "sha256": "575ce519fa8ba91c23d3004516c4c29bddc68814089797c77d242de84451976c",
+          "size": 4505,
+          "spi_version": "2.33",
+          "min_app_version": "",
+          "changelog": "Also converts RTF files you add from your computer: Add books turns each into an EPUB and reviews it like any other. Needs ebookerr 2.22 or later.",
+          "sites": [],
+          "formats": [
+            "rtf"
+          ],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "striprtf>=0.0.26",
+            "charset-normalizer>=3.3"
+          ]
+        },
+        {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:15:44Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.1.0/rtf_download_source-1.1.0.zip",
@@ -1068,6 +1097,34 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.2.0",
+          "published_at": "2026-10-03T12:52:35Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.2.0/text_download_source-1.2.0.zip",
+          "sha256": "5f2d16056b31eae7e96753e4439f0dfc8ccb0ff2eb3e1c9e1752d0d63de84123",
+          "size": 3352,
+          "spi_version": "2.33",
+          "min_app_version": "",
+          "changelog": "Also converts text and Markdown files (.txt, .md) you add from your computer: Add books turns each into an EPUB and reviews it like any other. Needs ebookerr 2.22 or later.",
+          "sites": [],
+          "formats": [
+            "txt"
+          ],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "charset-normalizer>=3.3"
+          ]
+        },
+        {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:16:14Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.1.0/text_download_source-1.1.0.zip",
@@ -1111,6 +1168,32 @@
       "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-03T12:52:38Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/url_story_extractor-1.2.0/url_story_extractor-1.2.0.zip",
+          "sha256": "261bcd89a72150ebc3b172d1d65d5fc3d6baee3e63235414cddc0b2af2077740",
+          "size": 14828,
+          "spi_version": "2.32",
+          "min_app_version": "",
+          "changelog": "Declares its story-extraction role in the new manifest format. Needs ebookerr 2.21 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "network": true,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false,
+            "roles": [
+              "story_extractor"
+            ]
+          },
+          "requirements": [
+            "fanficfare>=4.58.1"
+          ]
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:16:27Z",
