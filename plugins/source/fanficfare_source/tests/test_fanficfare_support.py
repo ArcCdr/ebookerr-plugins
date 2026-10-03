@@ -50,10 +50,11 @@ def test_a_fanficfare_warning_is_relogged_through_the_plugin_logger(caplog) -> N
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.fff_support"):
         logging.getLogger("fanficfare.adapters").warning("site slow")
         logging.getLogger("fanficfare.adapters").debug("noise")
-    assert (
-        [(r.levelno, r.getMessage()) for r in caplog.records if r.name == "fanficfare_source.fff_support"]
-        == [(logging.WARNING, "FanFicFare: site slow")]
-    )
+    assert [
+        (r.levelno, r.getMessage())
+        for r in caplog.records
+        if r.name == "fanficfare_source.fff_support"
+    ] == [(logging.WARNING, "FanFicFare: site slow")]
 
 
 def test_nothing_fanficfare_logs_reaches_stderr(capsys) -> None:  # type: ignore[no-untyped-def]
@@ -67,19 +68,20 @@ def test_nothing_fanficfare_logs_reaches_stderr(capsys) -> None:  # type: ignore
 
 def test_captured_stdout_keeps_prints_off_stdout_and_logs_them_at_debug(capsys, caplog) -> None:  # type: ignore[no-untyped-def]
     """Verify that prints are captured and logged at DEBUG level."""
-    with caplog.at_level(logging.DEBUG, logger="fanficfare_source.fff_support"):
-        with captured_stdout():
-            print("hello")  # noqa: T201
+    with caplog.at_level(logging.DEBUG, logger="fanficfare_source.fff_support"), captured_stdout():
+        print("hello")  # noqa: T201
     assert capsys.readouterr().out == ""
     assert "FanFicFare printed 5 character(s): hello" in [r.getMessage() for r in caplog.records]
-    assert any(r.levelno == logging.DEBUG and "FanFicFare printed" in r.getMessage() for r in caplog.records)
+    assert any(
+        r.levelno == logging.DEBUG and "FanFicFare printed" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_captured_stdout_logs_nothing_when_nothing_was_printed(caplog) -> None:  # type: ignore[no-untyped-def]
     """Verify that empty output produces no log."""
-    with caplog.at_level(logging.DEBUG, logger="fanficfare_source.fff_support"):
-        with captured_stdout():
-            pass
+    with caplog.at_level(logging.DEBUG, logger="fanficfare_source.fff_support"), captured_stdout():
+        pass
     assert not any(r.getMessage().startswith("FanFicFare printed") for r in caplog.records)
 
 
@@ -103,9 +105,7 @@ def test_build_configuration_applies_overrides_last(tmp_path) -> None:  # type: 
     """Verify that overrides win over file-based configuration."""
     ini = tmp_path / "personal.ini"
     ini.write_text(PACKAGED_INI.read_text(encoding="utf-8"), encoding="utf-8")
-    plain = build_configuration(
-        config_sections(STORY, unknown_site_ok=False), ini, fileform="epub"
-    )
+    plain = build_configuration(config_sections(STORY, unknown_site_ok=False), ini, fileform="epub")
     assert plain.getConfig("is_adult") == "true"
     overridden = build_configuration(
         config_sections(STORY, unknown_site_ok=False),
@@ -120,11 +120,8 @@ def test_a_broken_personal_ini_never_leaks_its_text(tmp_path, caplog) -> None:  
     """Verify that ConfigurationError doesn't leak passwords from personal.ini."""
     ini = tmp_path / "personal.ini"
     ini.write_text("[defaults]\npassword sekrit\n", encoding="utf-8")
-    with caplog.at_level(logging.DEBUG):
-        with pytest.raises(ConfigurationError) as info:
-            build_configuration(
-                config_sections(STORY, unknown_site_ok=False), ini, fileform="epub"
-            )
+    with caplog.at_level(logging.DEBUG), pytest.raises(ConfigurationError) as info:
+        build_configuration(config_sections(STORY, unknown_site_ok=False), ini, fileform="epub")
     assert str(info.value) == "Could not parse FanFicFare configuration: ParsingError"
     assert "sekrit" not in str(info.value)
     assert info.value.__cause__ is None
