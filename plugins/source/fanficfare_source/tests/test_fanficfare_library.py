@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import re
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -56,6 +58,25 @@ def write_ini(tmp_path: Path, chapters: str, story: str = "1001") -> Path:
     text = PACKAGED_INI.read_text(encoding="utf-8") + TEST_STORIES
     path.write_text(text + f"\n[teststory:{story}]\nchaptertitles:{chapters}\n", encoding="utf-8")
     return path
+
+
+class _FrozenDatetime(datetime.datetime):
+    """``datetime.datetime`` whose ``now()`` always returns the same instant."""
+
+    @classmethod
+    def now(cls, tz: datetime.tzinfo | None = None) -> _FrozenDatetime:
+        """Return the frozen instant."""
+        return cls(2020, 1, 1, 12, 0, 0)
+
+
+@pytest.fixture(autouse=True)
+def frozen_test_site_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Freeze the clock FanFicFare's test site writes into every chapter it serves.
+
+    The test site stamps ``datetime.now()``, to the second, into each chapter's text, so a re-check
+    that lands in a later second than the download reads as an edit and counts as ``updated``.
+    """
+    monkeypatch.setattr(adapter_test1, "datetime", SimpleNamespace(datetime=_FrozenDatetime))
 
 
 @pytest.fixture
