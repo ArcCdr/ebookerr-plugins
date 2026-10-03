@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-03T12:48:05Z",
+  "generated_at": "2026-10-03T12:48:09Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -950,6 +950,34 @@
       "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-03T12:48:09Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/pdf_download_source-1.2.0/pdf_download_source-1.2.0.zip",
+          "sha256": "d1d33f271e228e41a72568bd1757733eb59a4202973696f8ddf8d6577d5dbd44",
+          "size": 6989,
+          "spi_version": "2.33",
+          "min_app_version": "",
+          "changelog": "Also converts PDF files you add from your computer: Add books turns each into an EPUB and reviews it like any other. Needs ebookerr 2.22 or later.",
+          "sites": [],
+          "formats": [
+            "pdf"
+          ],
+          "capabilities": {
+            "network": false,
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "catch_all": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "pymupdf>=1.24"
+          ]
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:15:23Z",
