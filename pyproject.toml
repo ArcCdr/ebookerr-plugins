@@ -7,7 +7,7 @@
 dev = [
     "ebookerr-sdk[text,generation]==2.33.0",  # the SDK every plugin runs on
     # the plugins' own runtime requirements (each manifest.toml `requirements`)
-    "fanficfare>=4.58.1",
+    "fanficfare>=4.62.0",
     "pymupdf>=1.24",
     "python-docx>=1.1",
     "striprtf>=0.0.26",

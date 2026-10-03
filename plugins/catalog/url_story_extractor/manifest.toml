@@ -13,7 +13,7 @@ license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
-requirements = ["fanficfare>=4.58.1"]
+requirements = ["fanficfare>=4.62.0"]
 entrypoint = "entrypoint.py"
 
 [roles.story_extractor]
