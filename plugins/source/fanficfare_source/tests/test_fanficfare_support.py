@@ -27,8 +27,7 @@ LOGIN_SENTENCE = (
     "FanFicFare's personal.ini"
 )
 ADULT_SENTENCE = (
-    "the site asks you to confirm you are an adult — set is_adult:true in "
-    "FanFicFare's personal.ini"
+    "the site asks you to confirm you are an adult — set is_adult:true in FanFicFare's personal.ini"
 )
 TOTP_SENTENCE = "the site asks for a one-time password, which a background download cannot give"
 
