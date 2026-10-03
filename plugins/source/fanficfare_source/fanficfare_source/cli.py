@@ -335,7 +335,7 @@ class FanFicFareCliGateway:
         the exact command) as a subprocess with ``cwd=work_dir`` and a
         60-minute default timeout. Never raises: a timeout, an unspawnable
         executable, a cancellation, or output the parser can't make sense of
-        all come back as ``DownloadResult(ok=False, ...)``.
+        all come back as a ``failed`` :class:`DownloadResult`.
 
         Args:
             url: The story URL to download or update.
@@ -393,26 +393,12 @@ class FanFicFareCliGateway:
             error,
         )
         if error is not None or metadata is None:
-            return DownloadResult(
-                ok=False,
-                json_data=metadata or {},
-                output_filename=None,
-                was_update=False,
-                raw_stdout=stdout,
-                raw_stderr=stderr,
-                error=error or "FanFicFare returned no metadata",
-            )
+            return DownloadResult("failed", json_data=metadata or {}, error=error or "FanFicFare returned no metadata")
 
         output_filename = metadata.get("output_filename")
         self._record(url, ok=True)
-        return DownloadResult(
-            ok=True,
-            json_data=metadata,
-            output_filename=output_filename,
-            was_update=detect_was_update(stdout, output_filename),
-            raw_stdout=stdout,
-            raw_stderr=stderr,
-        )
+        outcome = "updated" if detect_was_update(stdout, output_filename) else "created"
+        return DownloadResult(outcome, json_data=metadata, output_filename=output_filename)
 
     def is_available(self) -> bool:
         """Return whether the configured FanFicFare executable is on ``PATH``."""
@@ -421,6 +407,4 @@ class FanFicFareCliGateway:
     @staticmethod
     def _failure(message: str) -> DownloadResult:
         """Build a failed, empty :class:`DownloadResult` carrying only ``message``."""
-        return DownloadResult(
-            ok=False, json_data={}, output_filename=None, was_update=False, error=message
-        )
+        return DownloadResult("failed", error=message)

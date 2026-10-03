@@ -45,10 +45,9 @@ def dl(
 ) -> DownloadResult:
     """Build a canned DownloadResult."""
     return DownloadResult(
-        ok=ok,
+        "created" if ok else "failed",
         json_data=json if json is not None else fff_json(),
         output_filename=output,
-        was_update=False,
         error=error,
     )
 

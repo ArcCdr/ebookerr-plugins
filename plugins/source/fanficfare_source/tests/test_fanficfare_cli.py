@@ -59,17 +59,16 @@ def test_builds_exact_argv_cwd_and_timeout(tmp_path: Path, fanficfare_fixtures: 
     assert captured["timeout"] == 3600
     assert result.ok is True
     assert result.output_filename == "gabthewriter/The 12th Key.epub"
-    assert result.was_update is False
+    assert result.outcome == "created"
     assert result.json_data["title"] == "The 12th Key"
-    assert result.raw_stdout == stdout
 
 
-def test_update_run_sets_was_update(tmp_path: Path, fanficfare_fixtures: Path) -> None:
+def test_update_run_sets_outcome(tmp_path: Path, fanficfare_fixtures: Path) -> None:
     stdout = (fanficfare_fixtures / "the-12th-key.update.stdout").read_text()
     gateway = FanFicFareCliGateway(tmp_path / "p.ini", runner=lambda *_: _proc(stdout=stdout))
     result = gateway.download(URL, work_dir=tmp_path)
     assert result.ok is True
-    assert result.was_update is True
+    assert result.outcome == "updated"
 
 
 def test_unsupported_url_returns_error(tmp_path: Path, fanficfare_fixtures: Path) -> None:
@@ -754,22 +753,3 @@ def test_pinned_output_template_escapes_and_refuses() -> None:
     assert result == "A/Book Title${formatext}"
 
 
-def test_download_result_defaults() -> None:
-    """DownloadResult has sensible defaults for output fields."""
-    from fanficfare_source.protocol import DownloadResult
-
-    r = DownloadResult(ok=True, json_data={}, output_filename="a/b.epub", was_update=False)
-    assert r.raw_stdout == ""
-    assert r.raw_stderr == ""
-    assert r.error == ""
-
-
-def test_download_result_is_frozen() -> None:
-    """DownloadResult is immutable once created."""
-    import dataclasses
-
-    from fanficfare_source.protocol import DownloadResult
-
-    r = DownloadResult(ok=True, json_data={}, output_filename=None, was_update=False)
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        r.ok = False  # type: ignore[misc]

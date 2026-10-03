@@ -112,10 +112,9 @@ class FakeGateway:
             staged.parent.mkdir(parents=True, exist_ok=True)
             staged.write_text("fake epub")
         return DownloadResult(
-            ok=self.ok,
+            "created" if self.ok else "failed",
             json_data=self.json_data,
             output_filename=self.output_filename,
-            was_update=False,
             error=self.error,
         )
 
