@@ -14,6 +14,7 @@ from fanficfare_source.metadata import (
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
     sanitize,
+    split_series,
 )
 
 
@@ -319,3 +320,28 @@ class TestChapterLinksFromFanficfare:
         }
         result = chapter_links_from_fanficfare(data)
         assert result == [("https://x/1", None, 2)]
+
+
+def test_split_series_parses_the_number() -> None:
+    """Split FanFicFare's "Name [3]" into ("Name", 3.0); decimal indices supported."""
+    assert split_series("Harbour Stories [2]") == ("Harbour Stories", 2.0)
+    assert split_series("X [2.5]") == ("X", 2.5)
+
+
+def test_split_series_keeps_a_plain_name() -> None:
+    """Plain names and edge cases return name with index None."""
+    assert split_series("Plain") == ("Plain", None)
+    assert split_series("[3]") == ("[3]", None)
+    assert split_series(None) == (None, None)
+    assert split_series("") == ("", None)
+
+
+def test_fields_carry_the_series_number() -> None:
+    """fanficfare_json_to_book_fields splits "Name [N]" into series and series_index."""
+    f = fanficfare_json_to_book_fields({"series": "Harbour Stories [2]"})
+    assert f["series"] == "Harbour Stories"
+    assert f["series_index"] == 2.0
+
+    f2 = fanficfare_json_to_book_fields({"series": ""})
+    assert f2["series"] is None
+    assert f2["series_index"] is None
