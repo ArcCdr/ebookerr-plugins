@@ -21,7 +21,9 @@ UNREADABLE_MESSAGE = "FanFicFare can't read this book's file to update it; nothi
 """The pull's failure when FanFicFare cannot read the staged EPUB at all (``LIB-D28``)."""
 
 OnChapter = Callable[[int, int], None]
-"""Called after each chapter FanFicFare assembles, with ``(chapters done, chapters in the book)``."""
+"""Called after each chapter FanFicFare assembles.
+
+Args: chapters done, chapters in the book."""
 
 
 @dataclass(frozen=True, slots=True)

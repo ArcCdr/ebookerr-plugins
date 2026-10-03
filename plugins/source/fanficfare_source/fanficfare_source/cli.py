@@ -393,7 +393,8 @@ class FanFicFareCliGateway:
             error,
         )
         if error is not None or metadata is None:
-            return DownloadResult("failed", json_data=metadata or {}, error=error or "FanFicFare returned no metadata")
+            default_error = "FanFicFare returned no metadata"
+            return DownloadResult("failed", json_data=metadata or {}, error=error or default_error)
 
         output_filename = metadata.get("output_filename")
         self._record(url, ok=True)

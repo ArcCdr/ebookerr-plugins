@@ -751,5 +751,3 @@ def test_pinned_output_template_escapes_and_refuses() -> None:
     # Works without .epub suffix
     result = pinned_output_template("A/Book Title")
     assert result == "A/Book Title${formatext}"
-
-

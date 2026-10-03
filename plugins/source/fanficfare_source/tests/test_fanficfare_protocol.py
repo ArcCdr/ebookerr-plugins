@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from fanficfare_source.protocol import (
     DOWNLOAD_OUTCOMES,
     UNREADABLE_MESSAGE,
