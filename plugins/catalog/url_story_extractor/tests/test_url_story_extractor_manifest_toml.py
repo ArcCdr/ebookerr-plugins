@@ -44,3 +44,10 @@ def test_the_manifest_declares_the_story_extractor_role() -> None:
     }
     assert "extract_url_patterns" not in data
     assert data["spi_version"] == "2.32"
+
+
+def test_the_extractor_requires_fanficfare_4_62() -> None:
+    """The manifest requires FanFicFare 4.62.0 or later."""
+    from url_story_extractor.plugin import UrlStoryExtractorPlugin
+
+    assert UrlStoryExtractorPlugin.manifest.requirements == ("fanficfare>=4.62.0",)

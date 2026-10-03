@@ -23,4 +23,4 @@ def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
 
     assert FanFicFareSourcePlugin.manifest.update_check is True
     assert FanFicFareSourcePlugin.manifest.roles.fallback_source is True
-    assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.58.1",)
+    assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.62.0",)
