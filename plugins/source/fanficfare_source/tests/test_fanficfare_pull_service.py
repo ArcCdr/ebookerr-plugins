@@ -675,3 +675,168 @@ def test_module_name_is_pull() -> None:
 
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("src.services.download_service")
+
+
+# ── verification of FanFicFare results (LIB-D29) ────────────────────────────────────
+
+
+def test_inconsistent_message_names_the_numbers() -> None:
+    """INCONSISTENT_MESSAGE.format() produces the expected user-facing text."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    result = INCONSISTENT_MESSAGE.format(rule="x", site=1, before=2, added=3, after=4)
+    assert (
+        result
+        == "FanFicFare's result did not add up (x: the site lists 1 chapter(s), the book had 2, 3 were added, the new file holds 4); nothing was changed"
+    )
+
+
+def test_a_created_result_missing_chapters_is_rejected(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A created result with fewer chapters than the site lists is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    gateway = FakeGateway(_created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2))
+
+    with (
+        caplog.at_level(logging.WARNING, logger="fanficfare_source.pull"),
+        pytest.raises(SourcePullError) as info,
+    ):
+        make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="incomplete download", site=3, before=0, added=2, after=2
+    )
+    warning_records = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and r.name == "fanficfare_source.pull"
+    ]
+    assert len(warning_records) == 1
+    assert warning_records[0].getMessage().startswith(
+        "FanFicFare result rejected for https://www.literotica.com/s/the-12th-key: incomplete download (site=3,"
+    )
+
+
+def test_an_update_that_lost_chapters_is_rejected(tmp_path: Path) -> None:
+    """An update where chapters_after != chapters_before + added is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=4,
+            added=1,
+            chapters_after=4,
+            site_chapters=5,
+            distinct_urls_after=4,
+        )
+    )
+
+    with pytest.raises(SourcePullError) as info:
+        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="chapters lost or doubled", site=5, before=4, added=1, after=4
+    )
+
+
+def test_an_update_still_missing_site_chapters_is_rejected(tmp_path: Path) -> None:
+    """An update where chapters_after < site_chapters is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=3,
+            added=0,
+            chapters_after=3,
+            site_chapters=4,
+            distinct_urls_after=3,
+        )
+    )
+
+    with pytest.raises(SourcePullError) as info:
+        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="chapters the site lists are missing", site=4, before=3, added=0, after=3
+    )
+
+
+def test_duplicate_chapters_are_rejected(tmp_path: Path) -> None:
+    """A result where distinct_urls_after != chapters_after is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=1,
+            added=2,
+            chapters_after=3,
+            site_chapters=2,
+            distinct_urls_after=2,
+        )
+    )
+
+    with pytest.raises(SourcePullError) as info:
+        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="duplicate chapters", site=2, before=1, added=2, after=3
+    )
+
+
+def test_a_consistent_update_is_accepted(tmp_path: Path) -> None:
+    """An update where all counts are consistent is accepted."""
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=3,
+            added=1,
+            chapters_after=4,
+            site_chapters=4,
+            distinct_urls_after=4,
+        )
+    )
+
+    patch = make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert patch.upsert is True
+
+
+def test_kept_removed_chapters_are_accepted(tmp_path: Path) -> None:
+    """An update where before + added == after and after >= site (kept deleted chapters) is accepted."""
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=4,
+            added=0,
+            chapters_after=4,
+            site_chapters=3,
+            distinct_urls_after=4,
+        )
+    )
+
+    patch = make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert patch.upsert is True
+
+
+def test_a_rejected_result_publishes_nothing(tmp_path: Path) -> None:
+    """A rejected result does not report the 92 or 95 progress milestones."""
+    gateway = FakeGateway(_created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2))
+    ctx = FakeContext()
+
+    with pytest.raises(SourcePullError):
+        make_engine(gateway).pull(URL, tmp_path, None, ctx)
+
+    progress = progress_values(ctx)
+    assert 92.0 not in progress
+    assert 95.0 not in progress
