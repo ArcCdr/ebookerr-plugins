@@ -7,8 +7,9 @@ returned ``BookPatch``/``UpdateCheck`` and the context's recorded reports/state.
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import logging
-import threading
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -22,8 +23,7 @@ from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     fanficfare_json_to_book_fields,
 )
-from fanficfare_source.parser import extract_metadata_json
-from fanficfare_source.protocol import DownloadResult
+from fanficfare_source.protocol import UNRECOGNISED_MESSAGE, DownloadResult, OnChapter
 from fanficfare_source.pull import FanFicFarePull
 
 URL = "https://www.literotica.com/s/the-12th-key"
@@ -53,38 +53,46 @@ def fff_json(**overrides: Any) -> dict[str, Any]:
     return base
 
 
+def _embedded_json(path: Path) -> dict[str, Any]:
+    """Extract the metadata object from a FanFicFare stdout fixture."""
+    text = path.read_text(encoding="utf-8")
+    return json.loads(text[text.index("{") : text.rindex("}") + 1])
+
+
+def _created(**overrides: Any) -> DownloadResult:
+    """A fresh one-chapter download of the story, with *overrides* (any DownloadResult field)."""
+    base = DownloadResult(
+        "created",
+        json_data=fff_json(),
+        output_filename=OUTPUT,
+        site_chapters=1,
+        chapters_after=1,
+        distinct_urls_after=1,
+        added=1,
+    )
+    return dataclasses.replace(base, **overrides)
+
+
 class FakeGateway:
-    """A ``FanFicFareGateway`` double that writes a staged file, like the real CLI does."""
+    """A ``FanFicFareGateway`` double that stages a fake EPUB, as the real gateway writes one."""
 
     def __init__(
         self,
+        result: DownloadResult | None = None,
         *,
-        ok: bool = True,
-        json_data: dict[str, Any] | None = None,
-        output_filename: str | None = OUTPUT,
-        error: str = "",
         meta: dict[str, Any] | None = None,
         write_file: bool = True,
+        chapter_calls: list[tuple[int, int]] | None = None,
     ) -> None:
-        """Configure this call's canned metadata/download outcome."""
-        self.ok = ok
-        self.json_data = json_data if json_data is not None else fff_json()
-        self.output_filename = output_filename
-        self.error = error
+        """Configure the canned result, metadata and chapter progress to replay."""
+        self.result = result if result is not None else _created()
         self.meta = meta
         self.write_file = write_file
-        self.download_calls: list[tuple[str, Path]] = []
+        self.chapter_calls = chapter_calls or []
+        self.download_calls: list[tuple[str, Path, str | None]] = []
         self.fetch_metadata_calls = 0
-        self.pinned_outputs: list[str | None] = []
-        self.progress_calls: list[float] = []
 
-    def fetch_metadata(
-        self,
-        url: str,
-        *,
-        timeout_s: int = 600,
-        cancel_event: threading.Event | None = None,
-    ) -> dict[str, Any] | None:
+    def fetch_metadata(self, url: str) -> dict[str, Any] | None:
         """Record the call and return the canned metadata."""
         self.fetch_metadata_calls += 1
         return self.meta
@@ -94,33 +102,19 @@ class FakeGateway:
         url: str,
         *,
         work_dir: Path,
-        update_in_place: bool = True,
-        force: bool = True,
-        timeout_s: int = 3600,
-        cancel_event: threading.Event | None = None,
-        on_progress: Any = None,
-        pinned_output: str | None = None,
+        staged_filename: str | None,
+        on_chapter: OnChapter | None = None,
     ) -> DownloadResult:
-        """Record the call, replay any canned progress ticks, and stage a fake EPUB."""
-        self.download_calls.append((url, work_dir))
-        self.pinned_outputs.append(pinned_output)
-        for elapsed in self.progress_calls:
-            if on_progress is not None:
-                on_progress(elapsed)
-        if self.ok and self.write_file and self.output_filename:
-            staged = work_dir / self.output_filename
+        """Record the call, replay the chapter progress, and stage a fake EPUB on success."""
+        self.download_calls.append((url, work_dir, staged_filename))
+        for done, total in self.chapter_calls:
+            if on_chapter is not None:
+                on_chapter(done, total)
+        if self.result.ok and self.write_file and self.result.output_filename:
+            staged = work_dir / self.result.output_filename
             staged.parent.mkdir(parents=True, exist_ok=True)
             staged.write_text("fake epub")
-        return DownloadResult(
-            "created" if self.ok else "failed",
-            json_data=self.json_data,
-            output_filename=self.output_filename,
-            error=self.error,
-        )
-
-    def is_available(self) -> bool:
-        """Report the gateway as always available."""
-        return True
+        return self.result
 
 
 def make_engine(gateway: FakeGateway | None = None, **kwargs: Any) -> FanFicFarePull:
@@ -270,10 +264,8 @@ def test_fanficfare_pull_returns_a_complete_patch(
     fanficfare_fixtures: Path, tmp_path: Path
 ) -> None:
     """A fresh pull returns one complete BookPatch built from a recorded fixture."""
-    stdout = (fanficfare_fixtures / "the-12th-key.create.stdout").read_text()
-    payload = extract_metadata_json(stdout)
-    assert payload is not None
-    gateway = FakeGateway(json_data=payload, output_filename=OUTPUT)
+    payload = _embedded_json(fanficfare_fixtures / "the-12th-key.create.stdout")
+    gateway = FakeGateway(_created(json_data=payload, output_filename=OUTPUT))
     engine = make_engine(gateway)
 
     patch = engine.pull(URL, tmp_path, None, FakeContext())
@@ -295,7 +287,7 @@ def test_fanficfare_pull_returns_a_complete_patch(
 
 def test_fanficfare_new_completed_story_sets_auto_pull_zero(tmp_path: Path) -> None:
     """A brand-new story that's already Completed on first pull disables auto_pull."""
-    gateway = FakeGateway(json_data=fff_json(status="Completed"))
+    gateway = FakeGateway(_created(json_data=fff_json(status="Completed")))
     patch = make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
     assert patch.fields["auto_pull"] == 0
 
@@ -303,7 +295,7 @@ def test_fanficfare_new_completed_story_sets_auto_pull_zero(tmp_path: Path) -> N
 def test_fanficfare_update_does_not_touch_auto_pull_while_in_progress(tmp_path: Path) -> None:
     """An update pull whose story is still In-Progress writes neither auto_pull nor check time."""
     prior = prior_view()
-    gateway = FakeGateway(json_data=fff_json(status="In-Progress"))
+    gateway = FakeGateway(_created(json_data=fff_json(status="In-Progress")))
 
     patch = make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
 
@@ -326,7 +318,7 @@ def test_fanficfare_no_new_content_returns_a_skip_patch(tmp_path: Path) -> None:
 
 def test_pull_download_failure_raises_source_pull_error(tmp_path: Path) -> None:
     """A gateway failure surfaces as SourcePullError with the gateway's own message."""
-    gateway = FakeGateway(ok=False, error="unsupported site: x", write_file=False)
+    gateway = FakeGateway(DownloadResult("failed", error="unsupported site: x"))
     with pytest.raises(SourcePullError, match="unsupported site"):
         make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
 
@@ -340,7 +332,7 @@ def test_pull_verify_failure_raises_source_pull_error(tmp_path: Path) -> None:
 
 def test_pull_persist_failure_raises_source_pull_error(tmp_path: Path) -> None:
     """A download whose JSON has no story URL can't derive a book id."""
-    gateway = FakeGateway(json_data=fff_json(storyUrl="", sectionUrl=""))
+    gateway = FakeGateway(_created(json_data=fff_json(storyUrl="", sectionUrl="")))
     with pytest.raises(SourcePullError, match="could not persist"):
         make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
 
@@ -416,7 +408,7 @@ def test_a_fanficfare_failure_is_logged_at_debug_not_error(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     """FanFicFare download failure logs at DEBUG, not ERROR."""
-    gateway = FakeGateway(ok=False, error="boom", write_file=False)
+    gateway = FakeGateway(DownloadResult("failed", error="boom"))
 
     with (
         caplog.at_level(logging.DEBUG, logger="fanficfare_source.pull"),
@@ -437,26 +429,89 @@ def test_a_fanficfare_failure_is_logged_at_debug_not_error(
     )
 
 
-# ── pinned output paths ─────────────────────────────────────────────────────
+def test_an_unrecognised_file_fails_the_pull(tmp_path: Path) -> None:
+    """A staged file FanFicFare does not recognise fails the pull with the gateway's message."""
+    gateway = FakeGateway(DownloadResult("unrecognised", error=UNRECOGNISED_MESSAGE))
+    ctx = FakeContext()
+
+    with pytest.raises(SourcePullError) as raised:
+        make_engine(gateway).pull(URL, tmp_path, prior_view(), ctx)
+
+    assert str(raised.value) == UNRECOGNISED_MESSAGE
+    assert 92.0 not in progress_values(ctx)
 
 
-def test_an_existing_book_is_pulled_with_its_stored_path_pinned(tmp_path: Path) -> None:
-    """An existing book's output_filename is passed as pinned_output to the gateway."""
+def test_a_consistent_update_is_logged_at_info(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An update's outcome, elapsed time and chapter counts are logged at INFO."""
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=3,
+            added=1,
+            chapters_after=4,
+            site_chapters=4,
+            distinct_urls_after=4,
+        )
+    )
+    clock_values = iter([10.0, 12.5])
+
+    with caplog.at_level(logging.INFO, logger="fanficfare_source.pull"):
+        patch = make_engine(gateway, clock=lambda: next(clock_values)).pull(
+            URL, tmp_path, prior_view(), FakeContext()
+        )
+
+    assert patch.upsert is True
+    info_messages = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelname == "INFO" and r.name == "fanficfare_source.pull"
+    ]
+    assert (
+        "FanFicFare updated https://www.literotica.com/s/the-12th-key in 2.5s: the site lists "
+        "4 chapter(s); the book had 3 and now holds 4 (1 added, 0 re-fetched)"
+    ) in info_messages
+
+
+def test_errored_chapters_are_warned(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Chapters FanFicFare wrote as error placeholders are logged at WARNING."""
+    gateway = FakeGateway(_created(errored=2))
+
+    with caplog.at_level(logging.WARNING, logger="fanficfare_source.pull"):
+        make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
+
+    warning_messages = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelname == "WARNING" and r.name == "fanficfare_source.pull"
+    ]
+    assert (
+        "FanFicFare wrote 2 chapter(s) of https://www.literotica.com/s/the-12th-key as errors "
+        "(continue_on_chapter_error is on)"
+    ) in warning_messages
+
+
+# ── stored paths ────────────────────────────────────────────────────────────
+
+
+def test_an_existing_book_is_downloaded_at_its_stored_path(tmp_path: Path) -> None:
+    """An existing book's output_filename is passed as staged_filename to the gateway."""
     prior = prior_view(output_filename=OUTPUT)
     gateway = FakeGateway()
 
     make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
 
-    assert gateway.pinned_outputs == ["gabthewriter/The 12th Key${formatext}"]
+    assert gateway.download_calls == [(URL, tmp_path, OUTPUT)]
 
 
-def test_a_new_book_gets_no_pin(tmp_path: Path) -> None:
-    """A new book (no prior) is downloaded without pinned_output."""
+def test_a_new_book_has_no_stored_path(tmp_path: Path) -> None:
+    """A new book (no prior) is downloaded with no staged_filename."""
     gateway = FakeGateway()
 
     make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
 
-    assert gateway.pinned_outputs == [None]
+    assert gateway.download_calls == [(URL, tmp_path, None)]
 
 
 def test_a_new_books_decomposed_filename_is_stored_composed(tmp_path: Path) -> None:
@@ -465,7 +520,7 @@ def test_a_new_books_decomposed_filename_is_stored_composed(tmp_path: Path) -> N
     decomposed = unicodedata.normalize("NFD", composed)
     assert decomposed != composed  # sanity: the fixture really is decomposed
     gateway = FakeGateway(
-        json_data=fff_json(output_filename=decomposed), output_filename=decomposed
+        _created(json_data=fff_json(output_filename=decomposed), output_filename=decomposed)
     )
 
     patch = make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
@@ -474,63 +529,7 @@ def test_a_new_books_decomposed_filename_is_stored_composed(tmp_path: Path) -> N
     assert (tmp_path / patch.fields["output_filename"]).exists()
 
 
-# ── EMA calibration (in ctx state) ──────────────────────────────────────────
-
-
-def test_fanficfare_ema_is_kept_in_state(tmp_path: Path) -> None:
-    """A pull that downloads new chapters calibrates avg_chapter_seconds into ctx state."""
-    prior = prior_view(num_chapters=1)
-    gateway = FakeGateway(json_data=fff_json(numChapters="5"))
-    clock_values = iter([0.0, 18.0])
-    ctx = FakeContext()
-
-    make_engine(gateway, clock=lambda: next(clock_values)).pull(URL, tmp_path, prior, ctx)
-
-    # downloaded=5-1=4, avg=4.0 default, fff_elapsed=18.0
-    # new_avg = round(0.3*(18/4) + 0.7*4.0, 2) = round(1.35+2.8, 2) = 4.15
-    assert ctx.state_get("avg_chapter_seconds") == pytest.approx(4.15)
-
-
-def test_ema_not_updated_when_no_new_chapters(tmp_path: Path) -> None:
-    """EMA is untouched when the downloaded JSON shows no chapter growth over the prior."""
-    prior = prior_view(num_chapters=6, date_updated="2026-05-19")
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="6"),
-        meta={"numChapters": "7", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    ctx = FakeContext()
-
-    make_engine(gateway).pull(URL, tmp_path, prior, ctx)
-
-    assert ctx.state_get("avg_chapter_seconds") is None
-
-
-def test_ema_skipped_when_chapter_count_unparseable(tmp_path: Path) -> None:
-    """When the downloaded JSON lacks a parseable numChapters, EMA calibration is skipped."""
-    gateway = FakeGateway(json_data=fff_json(numChapters=None))
-    ctx = FakeContext()
-
-    make_engine(gateway).pull(URL, tmp_path, None, ctx)
-
-    assert ctx.state_get("avg_chapter_seconds") is None
-
-
-def test_build_ticker_falls_back_to_default_avg_on_invalid_state(tmp_path: Path) -> None:
-    """An unparseable avg_chapter_seconds state value falls back to the 4.0 default."""
-    prior = prior_view(num_chapters=2, date_updated="2026-01-01")
-    ctx = FakeContext()
-    ctx.state_set("avg_chapter_seconds", "not-a-number")
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="6"),
-        meta={"numChapters": "6", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    clock_values = iter([0.0, 8.0])
-
-    make_engine(gateway, clock=lambda: next(clock_values)).pull(URL, tmp_path, prior, ctx)
-
-    # avg fell back to AVG_CHAPTER_SECONDS_DEFAULT (4.0) instead of raising on "not-a-number".
-    # downloaded=6-2=4; new_avg = round(0.3*(8/4) + 0.7*4.0, 2) = round(0.6+2.8, 2) = 3.4
-    assert ctx.state_get("avg_chapter_seconds") == pytest.approx(3.4)
+# ── plugin state ────────────────────────────────────────────────────────────
 
 
 def test_fanficfare_state_refusal_does_not_fail_the_pull(
@@ -542,9 +541,7 @@ def test_fanficfare_state_refusal_does_not_fail_the_pull(
         def state_set(self, key: str, value: Any, *, ttl_s: int | None = None) -> None:
             raise ValueError("state refused")
 
-    # numChapters=None keeps EMA calibration from running at all, isolating this test to the
-    # one state_set call the engine actually guards: caching the freshly-fetched metadata.
-    gateway = FakeGateway(json_data=fff_json(numChapters=None), meta=_META_SAME)
+    gateway = FakeGateway(meta=_META_SAME)
     ctx = _RefusingContext()
 
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.pull"):
@@ -600,152 +597,34 @@ def test_no_new_content_false_when_date_unparseable() -> None:
 
 def test_progress_band_constants() -> None:
     """Assert the progress band constants have their target values."""
-    from fanficfare_source.pull import (
-        _TICK_LINEAR_FRACTION,
-        FFF_PROGRESS_END,
-        FFF_PROGRESS_START,
-    )
+    from fanficfare_source.pull import FFF_PROGRESS_END, FFF_PROGRESS_START
 
     assert FFF_PROGRESS_START == 5.0
     assert FFF_PROGRESS_END == 92.0
-    assert _TICK_LINEAR_FRACTION == 0.9
 
 
-def test_ticker_is_linear_up_to_the_estimate(tmp_path: Path) -> None:
-    """Ticker is linear: at half the estimate, report half of the linear fraction of the band."""
-    prior = prior_view(num_chapters=4, date_updated="2026-01-01")
-    # remote has 10 chapters -> to_download = 10-4 = 6, estimate_s = max(10, 6*4.0) = 24.0
-    # tick(12.0) = elapsed at half the estimate -> fraction = 0.9 * (12/24) = 0.45
-    # report = 5.0 + 87.0 * 0.45 = 5.0 + 39.15 = 44.15
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="10"),
-        meta={"numChapters": "10", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    gateway.progress_calls = [12.0]
+def test_chapter_progress_spans_the_fanficfare_band(tmp_path: Path) -> None:
+    """Each assembled chapter is reported inside the 5 %-92 % band with a 'done of total' note."""
+    gateway = FakeGateway(chapter_calls=[(1, 4), (2, 4), (4, 4)])
     ctx = FakeContext()
 
-    patch = make_engine(gateway).pull(URL, tmp_path, prior, ctx)
+    make_engine(gateway).pull(URL, tmp_path, None, ctx)
 
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert between == [pytest.approx(44.15)]
+    noted = [(pct, note) for pct, note, _detail in ctx.reports if note is not None]
+    assert noted == [
+        (pytest.approx(26.75), "1 of 4 chapters"),
+        (pytest.approx(48.5), "2 of 4 chapters"),
+        (pytest.approx(92.0), "4 of 4 chapters"),
+    ]
 
 
-def test_ticker_hits_the_linear_fraction_at_the_estimate(tmp_path: Path) -> None:
-    """At the estimate time, the ticker hits 0.9 of the band."""
-    prior = prior_view(num_chapters=4, date_updated="2026-01-01")
-    # estimate_s = 24.0; tick(24.0) -> fraction = 0.9 -> report = 5.0 + 87.0*0.9 = 83.3
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="10"),
-        meta={"numChapters": "10", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    gateway.progress_calls = [24.0]
+def test_zero_chapters_report_the_band_end() -> None:
+    """A book of no chapters reports the band's end instead of dividing by zero."""
     ctx = FakeContext()
 
-    patch = make_engine(gateway).pull(URL, tmp_path, prior, ctx)
+    FanFicFarePull._report_chapter(ctx, 0, 0)
 
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert between == [pytest.approx(83.3)]
-
-
-def test_ticker_keeps_creeping_past_the_estimate(tmp_path: Path) -> None:
-    """Past the estimate, the ticker creeps asymptotically: increasing, never reaching 92."""
-    prior = prior_view(num_chapters=4, date_updated="2026-01-01")
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="10"),
-        meta={"numChapters": "10", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    gateway.progress_calls = [24.0, 48.0, 72.0]
-    ctx = FakeContext()
-
-    patch = make_engine(gateway).pull(URL, tmp_path, prior, ctx)
-
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert len(between) == 3
-    assert between[0] < between[1] < between[2]
-    assert between[2] == pytest.approx(89.825, abs=0.1)
-
-
-def test_ticker_never_reaches_the_band_end(tmp_path: Path) -> None:
-    """Ticker asymptotically approaches but never reaches 92."""
-    prior = prior_view(num_chapters=4, date_updated="2026-01-01")
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="10"),
-        meta={"numChapters": "10", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    gateway.progress_calls = [24.0, 240.0, 2400.0]
-    ctx = FakeContext()
-
-    patch = make_engine(gateway).pull(URL, tmp_path, prior, ctx)
-
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert all(p < 92.0 for p in between)
-
-
-def test_ticker_is_monotone_over_many_ticks(tmp_path: Path) -> None:
-    """Ticker is strictly increasing (monotone) over many elapsed times."""
-    prior = prior_view(num_chapters=4, date_updated="2026-01-01")
-    gateway = FakeGateway(
-        json_data=fff_json(numChapters="10"),
-        meta={"numChapters": "10", "dateUpdated": "2026-07-01", "status": "In-Progress"},
-    )
-    gateway.progress_calls = [1.0, 5.0, 12.0, 24.0, 30.0, 60.0, 600.0]
-    ctx = FakeContext()
-
-    patch = make_engine(gateway).pull(URL, tmp_path, prior, ctx)
-
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert len(between) == 7
-    for i in range(len(between) - 1):
-        assert between[i] < between[i + 1]
-
-
-def test_ticker_exists_without_a_remote_chapter_count(tmp_path: Path) -> None:
-    """When metadata has no numChapters, the ticker still reports progress (not None)."""
-    gateway = FakeGateway(json_data=fff_json(numChapters="1"), meta={})
-    gateway.progress_calls = [5.0]
-    ctx = FakeContext()
-
-    patch = make_engine(gateway).pull(URL, tmp_path, None, ctx)
-
-    assert patch.upsert is True
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert len(between) >= 1
-
-
-def test_ticker_without_metadata_uses_the_floor_estimate(tmp_path: Path) -> None:
-    """When metadata has no chapter count, the ticker uses MIN_ESTIMATE_SECONDS (10.0)."""
-    gateway = FakeGateway(json_data=fff_json(numChapters="1"), meta={})
-    gateway.progress_calls = [10.0]
-    ctx = FakeContext()
-
-    patch = make_engine(gateway).pull(URL, tmp_path, None, ctx)
-
-    assert patch.upsert is True
-    # tick(10.0) with estimate 10.0 -> fraction = 0.9 -> report = 83.3
-    between = [p for p in progress_values(ctx) if 5.0 < p < 92.0]
-    assert between == [pytest.approx(83.3)]
-
-
-def test_ticker_without_metadata_logs_the_floor(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """When metadata has no chapter count, a DEBUG log records the fallback to the floor."""
-    caplog.set_level(logging.DEBUG)
-    gateway = FakeGateway(json_data=fff_json(numChapters="1"), meta={})
-    gateway.progress_calls = [5.0]
-
-    make_engine(gateway).pull(URL, tmp_path, None, FakeContext())
-
-    assert any(
-        "No remote chapter count for the pull estimate; ticking against the 10s floor"
-        in r.getMessage()
-        for r in caplog.records
-    )
+    assert ctx.reports == [(92.0, "0 of 0 chapters", None)]
 
 
 def test_post_download_milestones(tmp_path: Path) -> None:

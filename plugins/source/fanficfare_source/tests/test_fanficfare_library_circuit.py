@@ -10,9 +10,11 @@ from typing import Any
 import pytest
 import requests
 from ebookerr_sdk.spi import CircuitOpenError
+from ebookerr_sdk.testing import FakeContext
 from fanficfare import exceptions
 from fanficfare_source import library
 from fanficfare_source.library import FanFicFareLibraryGateway
+from fanficfare_source.plugin import FanFicFareSourcePlugin
 
 PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 URL = "http://test1.com?sid=1"
@@ -288,3 +290,17 @@ def test_the_skip_is_logged_at_info(tmp_path: Path, caplog: pytest.LogCaptureFix
         logging.INFO,
         "FanFicFare skipped: test1.com is in a failure back-off (url=http://test1.com?sid=1)",
     ) in [(record.levelno, record.getMessage()) for record in caplog.records]
+
+
+@pytest.mark.pins("EXP-269")
+def test_the_plugin_passes_its_context_circuit_to_the_gateway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The plugin builds the library gateway over the context's own circuit breakers."""
+    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path))
+    ctx = FakeContext()
+
+    engine = FanFicFareSourcePlugin()._engine(ctx)
+
+    assert type(engine._fanficfare).__name__ == "FanFicFareLibraryGateway"
+    assert engine._fanficfare._circuit is ctx.circuit
