@@ -2,14 +2,14 @@
 
 ``FanFicFarePull.pull`` is ``FanFicFareSourcePlugin.pull()``'s body: metadata poll (state
 cache, else fetch) -> no-new-content skip against the staged prior EPUB -> FanFicFare
-download -> verify the staged file was freshly written -> derive the canonical book fields
-from the downloaded JSON. It is JSON-pure (DEC-31) and database-free (D29): it holds no
-repository, store, lock, notifier, cover store or settings collaborator, and returns a
-complete ``BookPatch`` for the core's generic ``apply_book_patch`` path to write — locking,
-staging-dir lifecycle, persistence, post-process, publish, cover, baseline and notification
-are the ``SourcePullService`` core orchestrator's job, not this module's. The FanFicFare
-gateway (``fanficfare_source.library``, ``LIB-D25``) is injected; this module never imports
-FanFicFare.
+download -> verify the result's counts (``LIB-D29``) and that the staged file was freshly
+written -> derive the canonical book fields from the downloaded JSON. It is JSON-pure (DEC-31)
+and database-free (D29): it holds no repository, store, lock, notifier, cover store or
+settings collaborator, and returns a complete ``BookPatch`` for the core's generic
+``apply_book_patch`` path to write — locking, staging-dir lifecycle, persistence,
+post-process, publish, cover, baseline and notification are the ``SourcePullService`` core
+orchestrator's job, not this module's. The FanFicFare gateway (``fanficfare_source.library``,
+``LIB-D25``) is injected; this module never imports FanFicFare.
 
 ``check_for_update`` shares the meta-poll/skip-check logic without downloading, reused by the
 Auto-Pull scan so FanFicFare is not polled twice. Both methods cache the metadata poll in the
@@ -45,7 +45,7 @@ from fanficfare_source.metadata import (
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
 )
-from fanficfare_source.protocol import FanFicFareGateway
+from fanficfare_source.protocol import DownloadResult, FanFicFareGateway
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,12 @@ _META_CACHE_TTL_S = 900
 
 FFF_PROGRESS_START = 5.0
 FFF_PROGRESS_END = 92.0
+
+INCONSISTENT_MESSAGE = (
+    "FanFicFare's result did not add up ({rule}: the site lists {site} chapter(s), the book had "
+    "{before}, {added} were added, the new file holds {after}); nothing was changed"
+)
+"""The pull's failure when a FanFicFare result breaks a verification rule (``LIB-D29``)."""
 
 
 class FanFicFarePull:
@@ -202,12 +208,13 @@ class FanFicFarePull:
         ``_no_new_content``) against the staged copy of ``prior``'s EPUB the core placed in
         ``work_dir`` before this call, suppressed when that staged copy is missing so a
         deleted library file self-heals -> run FanFicFare (an existing book's EPUB is rebuilt
-        at its stored path, ``LIB-D27``) -> verify the output file is fresh (within
-        ``verify_window_s``) -> derive the complete ``BookPatch`` from the downloaded JSON. It
-        is JSON-pure (DEC-31) — it never opens the packaged EPUB to count chapters; the core
-        recomputes the packaged count after its EpubEditSession finalizes (FR-TYPE-6a). The
-        core owns locking, staging-dir lifecycle, persistence, post-process, publish, cover,
-        baseline and notification; those are NOT done here.
+        at its stored path, ``LIB-D27``) -> verify the result's counts (``LIB-D29``) and that
+        the output file is fresh (within ``verify_window_s``) -> derive the complete
+        ``BookPatch`` from the downloaded JSON. It is JSON-pure (DEC-31) — it never opens the
+        packaged EPUB to count chapters; the core recomputes the packaged count after its
+        EpubEditSession finalizes (FR-TYPE-6a). The core owns locking, staging-dir lifecycle,
+        persistence, post-process, publish, cover, baseline and notification; those are NOT
+        done here.
 
         Args:
             url: The story/section URL to pull.
@@ -226,9 +233,9 @@ class FanFicFarePull:
             to create or update the row.
 
         Raises:
-            SourcePullError: The FanFicFare download failed, the reported output file
-                is missing or not freshly written, or no story URL could be derived to
-                persist the row.
+            SourcePullError: The FanFicFare download failed, the result's counts failed
+                verification (``LIB-D29``), the reported output file is missing or not
+                freshly written, or no story URL could be derived to persist the row.
         """
         ctx.report(2.0)
 
@@ -291,6 +298,7 @@ class FanFicFarePull:
                 result.errored,
                 url,
             )
+        self._verify(url, result)
         ctx.check_cancelled()
         ctx.report(92.0)
 
@@ -372,4 +380,61 @@ class FanFicFarePull:
         ctx.report(
             FFF_PROGRESS_START + (FFF_PROGRESS_END - FFF_PROGRESS_START) * fraction,
             note=f"{done} of {total} chapters",
+        )
+
+    def _verify(self, url: str, result: DownloadResult) -> None:
+        """Reject a FanFicFare result whose counts do not add up (``LIB-D29``).
+
+        The rules, checked in this order, the first failing one named: duplicate chapters (the
+        written file's distinct chapter URLs differ from its chapter count); an incomplete
+        download (a fresh EPUB lacks chapters the site lists); chapters lost or doubled (an
+        update's chapter count is not the old count plus the chapters added); chapters the site
+        lists are missing (an update holds fewer chapters than the site lists). With
+        ``update_preserve_deleted_chapters`` the written book is the old chapters plus the site's
+        new ones, so ``after == before + added`` and ``after >= site``; a fresh download holds
+        exactly the site's chapters. This detects an update that should have happened and did
+        not, without a forced full download.
+
+        Args:
+            url: The story address (log only).
+            result: FanFicFare's result.
+
+        Raises:
+            SourcePullError: A rule failed; :data:`INCONSISTENT_MESSAGE` names the rule and the
+                numbers, after one WARNING with every count.
+        """
+        rule: str | None = None
+        if result.distinct_urls_after != result.chapters_after:
+            rule = "duplicate chapters"
+        elif result.outcome == "created" and result.chapters_after != result.site_chapters:
+            rule = "incomplete download"
+        elif (
+            result.outcome == "updated"
+            and result.chapters_after != result.chapters_before + result.added
+        ):
+            rule = "chapters lost or doubled"
+        elif result.outcome == "updated" and result.chapters_after < result.site_chapters:
+            rule = "chapters the site lists are missing"
+        if rule is None:
+            return
+        logger.warning(
+            "FanFicFare result rejected for %s: %s (site=%d, before=%d, added=%d, re-fetched=%d, "
+            "after=%d, distinct URLs=%d)",
+            url,
+            rule,
+            result.site_chapters,
+            result.chapters_before,
+            result.added,
+            result.updated,
+            result.chapters_after,
+            result.distinct_urls_after,
+        )
+        raise SourcePullError(
+            INCONSISTENT_MESSAGE.format(
+                rule=rule,
+                site=result.site_chapters,
+                before=result.chapters_before,
+                added=result.added,
+                after=result.chapters_after,
+            )
         )
