@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,20 +66,10 @@ class DownloadResult:
 
 @runtime_checkable
 class FanFicFareGateway(Protocol):
-    """Wraps the FanFicFare CLI."""
+    """FanFicFare, as :class:`~fanficfare_source.pull.FanFicFarePull` uses it (``LIB-D25``)."""
 
-    def fetch_metadata(
-        self,
-        url: str,
-        *,
-        timeout_s: int = 600,
-        cancel_event: threading.Event | None = None,
-    ) -> dict[str, Any] | None:
-        """Poll for a story's metadata only, without downloading a book.
-
-        Returns the raw metadata dict, or ``None`` on any error: timeout, OS
-        error, cancellation, or output that can't be classified as success.
-        """
+    def fetch_metadata(self, url: str) -> dict[str, Any] | None:
+        """Return the story's metadata without fetching any chapter, or ``None`` on any failure."""
         ...
 
     def download(
@@ -88,20 +77,13 @@ class FanFicFareGateway(Protocol):
         url: str,
         *,
         work_dir: Path,
-        update_in_place: bool = True,
-        force: bool = True,
-        timeout_s: int = 3600,
-        cancel_event: threading.Event | None = None,
-        on_progress: Callable[[float], None] | None = None,
-        pinned_output: str | None = None,
+        staged_filename: str | None,
+        on_chapter: OnChapter | None = None,
     ) -> DownloadResult:
-        """Download or update a story into ``work_dir``.
+        """Write the story's EPUB in *work_dir*; never raises.
 
-        Never raises: a timeout, an unspawnable executable, a cancellation, or
-        unparseable output all come back as a ``failed`` :class:`DownloadResult`.
+        *staged_filename* is the book's stored path relative to *work_dir* (``None`` for a new
+        book): when that file is staged it is rebuilt in place, when it is missing a fresh EPUB is
+        written at that path; a new book takes FanFicFare's own file name.
         """
-        ...
-
-    def is_available(self) -> bool:
-        """Return whether the FanFicFare executable can be invoked."""
         ...
