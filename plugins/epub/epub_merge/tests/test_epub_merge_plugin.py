@@ -2678,7 +2678,7 @@ def test_absorbed_still_idempotent(
 def test_absorbed_links_are_the_merged_files_chapter_urls_not_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, build_epub: Callable[..., Path]
 ) -> None:
-    """The survivor's index rows are the merged file's chapter URLs, never chapter keys (LIB-D40)."""
+    """Survivor's index rows are merged file's chapter URLs, not keys (LIB-D40)."""
     from epub_merge.merge import MergeOptions, MergeOutcome
 
     def _merger(

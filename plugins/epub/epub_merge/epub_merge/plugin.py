@@ -182,10 +182,12 @@ def _absorbed_chapter_links(
 ) -> tuple[ChapterLink, ...]:
     """Every story URL the merged book now contains, in a stable order.
 
-    For each chapter link the merged file declares (``EpubDocument.chapter_links``: ``(url, title, ordinal)``), emits a ChapterLink with that ordinal
-    (``LIB-D40``). Then emits the survivor's own chapter URLs (its more specific identity) before its
-    story URL, then each absorbed book's story URL before that book's own chapter URLs, all with
-    ordinal 0. Deduplicated by URL keeping the first occurrence, so re-merging is idempotent.
+    For each chapter link the merged file declares (``EpubDocument.chapter_links``:
+    ``(url, title, ordinal)``), emits a ChapterLink with that ordinal (``LIB-D40``).
+    Then emits the survivor's own chapter URLs (its more specific identity) before its
+    story URL, then each absorbed book's story URL before that book's own chapter URLs,
+    all with ordinal 0. Deduplicated by URL keeping the first occurrence, so re-merging
+    is idempotent.
 
     Without this the merged-away books' URLs vanish with their rows, and the Stories page
     stops recognising stories whose content is sitting inside the merged EPUB.
