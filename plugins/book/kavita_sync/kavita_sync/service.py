@@ -68,6 +68,11 @@ The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(
 change reports every listed series with pages read) and refresh(book) (stored ids and page
 total; no search, rating, scan or write). Every read-back carries Kavita's lastModifiedUtc as
 external_progress_modified, so the core applies read state newest-first (LIB-D16).
+A reading client's write-through (RDG-D4) is write_position(book, target): the stored ids
+gate it, the file's chapter is resolved again with find_chapter (a progress write needs the
+chapter's real volume id, which the stored link does not keep), Kavita's chapter table is
+checked, the target is placed quietly by restore_to_target and the book is read back as
+refresh reads it.
 
 Deleting a book is **nudge-only**:
 Kavita has no direct delete API. When a deleted book has a stored ``external_library_id``,
@@ -92,6 +97,9 @@ from ebookerr_sdk.domain.dates import log_clock, parse_datetime
 from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 from ebookerr_sdk.providers.anchoring import (
     REANCHOR_ALREADY,
+    REANCHOR_REJECTED,
+    REANCHOR_STALE,
+    REANCHOR_UNMATCHED,
     REANCHOR_WRITTEN,
     AnchorJoin,
     capture_position,
@@ -128,6 +136,15 @@ _NO_DATE_PREFIX = "0001-01-01"
 _EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
 """The baseline of a server nobody has read on yet: every later reading change is newer."""
 
+_WRITE_STATUSES: Mapping[str, str] = {
+    REANCHOR_WRITTEN: "written",
+    REANCHOR_ALREADY: "already",
+    REANCHOR_STALE: "stale",
+    REANCHOR_UNMATCHED: "unmatched",
+    REANCHOR_REJECTED: "rejected",
+}
+"""A write-through's restore outcome as a ``READ_STATE_WRITE_STATUSES`` member (``RDG-D4``)."""
+
 
 def _kavita_instant(value: object) -> datetime | None:
     """A Kavita date as a UTC instant, or ``None`` for a missing, unreadable or year-1 value."""
@@ -139,7 +156,8 @@ def _kavita_instant(value: object) -> datetime | None:
 def _stored_ref(book: BookView) -> KavitaRef | None:
     """A ``KavitaRef`` from *book*'s stored link, or ``None`` without an id or a page total.
 
-    ``volume_id`` is 0: only a progress write needs it, and a refresh never writes.
+    ``volume_id`` is 0: only a progress write needs it, and nothing writes through this ref
+    — :meth:`KavitaService.write_position` writes through the ref ``find_chapter`` resolves.
     """
     link = book.external
     total = book.progress.total or 0
@@ -1067,6 +1085,85 @@ class KavitaService:
             ref.total_pages,
         )
         return SyncResult(True, "refreshed", fields=fields, read_position=read_position)
+
+    def write_position(self, book: BookView, target: ReadPosition) -> tuple[str, SyncResult | None]:
+        """Put Kavita's reading position at *target*, then read the book back (``RDG-D4``).
+
+        The write-through of one of ebookerr's reading clients: no rating, scan or metadata
+        work. The stored ids gate the call; the file's chapter is then resolved again with
+        ``find_chapter``, because Kavita stores the ``volumeId`` a progress write sends and
+        the stored link keeps none (:func:`_stored_ref`). Kavita's chapter table must
+        describe the file on disk; the target is placed by
+        :func:`~ebookerr_sdk.providers.anchoring.restore_to_target` (``quiet``: a reader
+        saves every few seconds) and the book is read back by :meth:`_refresh_reachable`. A
+        failed probe or an open breaker raises without this service's batch outage warning:
+        the core reports an outage once.
+
+        Args:
+            book: A book linked to Kavita (chapter, series and library ids, a page total).
+            target: Where the reader is, in the book's current chapter table.
+
+        Returns:
+            The status (one of ``READ_STATE_WRITE_STATUSES``) and, for ``written`` or
+            ``already``, the read-back; ``None`` otherwise. ``rejected`` without stored ids
+            or when Kavita no longer finds the file; ``stale`` when Kavita re-indexed the file
+            under another chapter (the next sync relinks it) or its chapter table does not
+            describe the file on disk.
+
+        Raises:
+            ProviderUnreachable: Kavita is not configured, did not answer its probe, or its
+                breaker is open.
+        """
+        if not self._enabled:
+            raise ProviderUnreachable("Kavita is not configured")
+        stored = _stored_ref(book)
+        if stored is None:
+            status: str = "rejected"
+            result: SyncResult | None = None
+        else:
+            if self._circuit is not None and self._circuit.is_open(self._circuit_key):
+                raise ProviderUnreachable("circuit open")
+            try:
+                with self._guard():
+                    if not self._connection_ok():
+                        raise ProviderUnreachable("connection probe failed")
+                    status, result = self._write_reachable(book, stored, target)
+            except CircuitOpenError as exc:
+                raise ProviderUnreachable("circuit open") from exc
+        logger.debug('Kavita write-through for "%s": %s', book.title, status)
+        return status, result
+
+    def _write_reachable(
+        self, book: BookView, stored: KavitaRef, target: ReadPosition
+    ) -> tuple[str, SyncResult | None]:
+        """The write-through once Kavita answered its probe (see :meth:`write_position`)."""
+        self._ref_cache.clear()
+        ref = self._client.find_chapter(book.output_filename or "")
+        if not isinstance(ref, KavitaRef):
+            return "rejected", None
+        if ref.chapter_id != stored.chapter_id:
+            return "stale", None
+        self._ref_cache[str(ref.chapter_id)] = ref
+        page_num = int(self._client.get_progress(ref.chapter_id).get("pageNum", 0))
+        provider_finished = ref.total_pages > 0 and page_num >= ref.total_pages
+        join = self._build_join(book, ref.chapter_id)
+        if not join.consistent:
+            return "stale", None
+        outcome = restore_to_target(
+            self,
+            str(ref.chapter_id),
+            target=target,
+            join=join,
+            provider_finished=provider_finished,
+            book_read=book.progress.completed,
+            book_title=book.title,
+            provider_name="Kavita",
+            quiet=True,
+        )
+        status = _WRITE_STATUSES[outcome.action]
+        if status not in ("written", "already"):
+            return status, None
+        return status, self._refresh_reachable(book, stored)
 
     def rescan_library_after_delete(self, library_id: str, titles: Sequence[str]) -> bool:
         """Ask Kavita to rescan a library by id after deleting books.
