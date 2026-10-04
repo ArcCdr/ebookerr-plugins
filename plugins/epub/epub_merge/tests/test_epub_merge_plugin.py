@@ -2675,6 +2675,64 @@ def test_absorbed_still_idempotent(
     assert survivor_patch.chapters == first_absorbed
 
 
+def test_absorbed_links_are_the_merged_files_chapter_urls_not_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, build_epub: Callable[..., Path]
+) -> None:
+    """The survivor's index rows are the merged file's chapter URLs, never chapter keys (LIB-D40)."""
+    from epub_merge.merge import MergeOptions, MergeOutcome
+
+    def _merger(
+        target: Path,
+        sources: list[Path],
+        options: MergeOptions | None = None,
+        *,
+        book_urls: list[str | None] | None = None,
+    ) -> MergeOutcome:
+        return MergeOutcome(chapter_count=3)
+
+    monkeypatch.setattr("epub_merge.plugin.merge_epubs", _merger)
+
+    # Three chapters sharing one URL: their chapter keys are disambiguated "https://p/1#…".
+    build_epub(
+        [("Ch 1", "https://p/1"), ("Ch 2", "https://p/1"), ("Ch 3", "https://p/1")],
+        filename="a.epub",
+    )
+    build_epub([], filename="b.epub")
+
+    def _view(book_id: str, title: str, story_url: str, filename: str) -> api.BookView:
+        return api.BookView(
+            book_id=book_id,
+            title=title,
+            author="Author",
+            story_url=story_url,
+            output_filename=filename,
+            num_chapters=None,
+            status=None,
+            rating=None,
+            cover_ref=None,
+            external=api.ExternalLink(),
+            progress=api.ExternalProgress(),
+            custom_values={},
+            chapters=(),
+        )
+
+    survivor = api.EpubItem(
+        book=_view("b1", "Book A", "https://p/1", "test.epub"), epub_path=tmp_path / "a.epub"
+    )
+    other = api.EpubItem(
+        book=_view("b2", "Other", "https://p/2", "test2.epub"), epub_path=tmp_path / "b.epub"
+    )
+
+    ctx = FakeContext(mode=api.InvocationMode.HEADED, view_results=[_submitted("b1", "b2")])
+    patches = EpubMergePlugin().process((survivor, other), ctx)
+
+    links = patches[0].chapters
+    assert not any("#" in link.url for link in links)
+    assert [(link.url, link.ordinal) for link in links if link.url == "https://p/1"] == [
+        ("https://p/1", 1)
+    ]
+
+
 def test_process_reports_staged_progress_on_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
