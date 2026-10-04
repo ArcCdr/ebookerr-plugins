@@ -635,3 +635,81 @@ class TestStampChapterUrls:
         assert result[0].xhtml == title_page.xhtml
         # Content chapter should be stamped (one-chapter rule applied, not including title page)
         assert _read_chapter_url(result[1]) == "https://book/url"
+
+    def test_canonical_url_counts_as_declared_in_a_multi_chapter_book(self) -> None:
+        """A chapter's canonical link counts as its declared URL: no book URL is stamped."""
+        canonical = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Chapter</title>
+<link rel="canonical" href="https://x/2"/>
+</head>
+<body><p>Content</p></body>
+</html>"""
+        chapters = [
+            _make_planned_chapter("Chapter 1", "chapter_001.xhtml", "c001", "OEBPS/ch1.xhtml"),
+            PlannedChapter(
+                label="Chapter 2",
+                filename="chapter_002.xhtml",
+                item_id="c002",
+                number=None,
+                book_index=0,
+                source_href="OEBPS/ch2.xhtml",
+                xhtml=canonical.encode("utf-8"),
+            ),
+            _make_planned_chapter("Chapter 3", "chapter_003.xhtml", "c003", "OEBPS/ch3.xhtml"),
+        ]
+        input_chs = [
+            _make_input_chapter("Chapter 1", "OEBPS/ch1.xhtml", "c001"),
+            _make_input_chapter("Chapter 2", "OEBPS/ch2.xhtml", "c002"),
+            _make_input_chapter("Chapter 3", "OEBPS/ch3.xhtml", "c003"),
+        ]
+        book = _make_input_book(0, "Test Book", input_chs)
+
+        result = stamp_chapter_urls(chapters, [book], ["https://book/multi"])
+
+        assert [r.xhtml for r in result] == [c.xhtml for c in chapters]
+
+    def test_an_empty_chapterurl_does_not_count_as_declared(self) -> None:
+        """An empty chapterurl meta declares nothing: every chapter gets the book URL."""
+        chapters = [
+            _make_planned_chapter("Chapter 1", "chapter_001.xhtml", "c001", "OEBPS/ch1.xhtml"),
+            _make_planned_chapter(
+                "Chapter 2", "chapter_002.xhtml", "c002", "OEBPS/ch2.xhtml", chapter_url=""
+            ),
+            _make_planned_chapter("Chapter 3", "chapter_003.xhtml", "c003", "OEBPS/ch3.xhtml"),
+        ]
+        input_chs = [
+            _make_input_chapter("Chapter 1", "OEBPS/ch1.xhtml", "c001"),
+            _make_input_chapter("Chapter 2", "OEBPS/ch2.xhtml", "c002"),
+            _make_input_chapter("Chapter 3", "OEBPS/ch3.xhtml", "c003"),
+        ]
+        book = _make_input_book(0, "Test Book", input_chs)
+
+        result = stamp_chapter_urls(chapters, [book], ["https://book/multi"])
+
+        assert [_read_chapter_url(r) for r in result] == ["https://book/multi"] * 3
+
+    def test_a_partially_declared_book_logs_why_it_is_left_alone(self, caplog) -> None:  # type: ignore[no-untyped-def]
+        """A multi-chapter input left as declared says so at DEBUG."""
+        chapters = [
+            _make_planned_chapter("Chapter 1", "chapter_001.xhtml", "c001", "OEBPS/ch1.xhtml"),
+            _make_planned_chapter(
+                "Chapter 2", "chapter_002.xhtml", "c002", "OEBPS/ch2.xhtml", chapter_url="https://x/2"
+            ),
+            _make_planned_chapter("Chapter 3", "chapter_003.xhtml", "c003", "OEBPS/ch3.xhtml"),
+        ]
+        input_chs = [
+            _make_input_chapter("Chapter 1", "OEBPS/ch1.xhtml", "c001"),
+            _make_input_chapter("Chapter 2", "OEBPS/ch2.xhtml", "c002"),
+            _make_input_chapter("Chapter 3", "OEBPS/ch3.xhtml", "c003"),
+        ]
+        book = _make_input_book(0, "Test Book", input_chs)
+
+        with caplog.at_level(logging.DEBUG, logger="epub_merge.merge.chapter_urls"):
+            stamp_chapter_urls(chapters, [book], ["https://book/multi"])
+
+        assert any(
+            'input 0 ("Test Book") as declared: 1 of 3 chapter(s) declare one' in r.message
+            for r in caplog.records
+        )
