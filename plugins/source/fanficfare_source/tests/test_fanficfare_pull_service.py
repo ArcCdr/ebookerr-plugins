@@ -685,9 +685,9 @@ def test_inconsistent_message_names_the_numbers() -> None:
     from fanficfare_source.pull import INCONSISTENT_MESSAGE
 
     result = INCONSISTENT_MESSAGE.format(rule="x", site=1, before=2, added=3, after=4)
-    assert (
-        result
-        == "FanFicFare's result did not add up (x: the site lists 1 chapter(s), the book had 2, 3 were added, the new file holds 4); nothing was changed"
+    assert result == (
+        "FanFicFare's result did not add up (x: the site lists 1 chapter(s), the book had 2, "
+        "3 were added, the new file holds 4); nothing was changed"
     )
 
 
@@ -697,7 +697,9 @@ def test_a_created_result_missing_chapters_is_rejected(
     """A created result with fewer chapters than the site lists is rejected."""
     from fanficfare_source.pull import INCONSISTENT_MESSAGE
 
-    gateway = FakeGateway(_created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2))
+    gateway = FakeGateway(
+        _created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2)
+    )
 
     with (
         caplog.at_level(logging.WARNING, logger="fanficfare_source.pull"),
@@ -709,13 +711,13 @@ def test_a_created_result_missing_chapters_is_rejected(
         rule="incomplete download", site=3, before=0, added=2, after=2
     )
     warning_records = [
-        r
-        for r in caplog.records
-        if r.levelname == "WARNING" and r.name == "fanficfare_source.pull"
+        r for r in caplog.records if r.levelname == "WARNING" and r.name == "fanficfare_source.pull"
     ]
     assert len(warning_records) == 1
-    assert warning_records[0].getMessage().startswith(
-        "FanFicFare result rejected for https://www.literotica.com/s/the-12th-key: incomplete download (site=3,"
+    message = warning_records[0].getMessage()
+    assert message.startswith(
+        "FanFicFare result rejected for https://www.literotica.com/s/the-12th-key: "
+        "incomplete download (site=3,"
     )
 
 
@@ -811,7 +813,7 @@ def test_a_consistent_update_is_accepted(tmp_path: Path) -> None:
 
 
 def test_kept_removed_chapters_are_accepted(tmp_path: Path) -> None:
-    """An update where before + added == after and after >= site (kept deleted chapters) is accepted."""
+    """An update that kept removed chapters (before + added == after >= site) is accepted."""
     prior = prior_view()
     gateway = FakeGateway(
         _created(
@@ -831,7 +833,9 @@ def test_kept_removed_chapters_are_accepted(tmp_path: Path) -> None:
 
 def test_a_rejected_result_publishes_nothing(tmp_path: Path) -> None:
     """A rejected result does not report the 92 or 95 progress milestones."""
-    gateway = FakeGateway(_created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2))
+    gateway = FakeGateway(
+        _created(site_chapters=3, chapters_after=2, distinct_urls_after=2, added=2)
+    )
     ctx = FakeContext()
 
     with pytest.raises(SourcePullError):
