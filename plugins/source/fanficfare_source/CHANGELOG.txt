@@ -1,3 +1,6 @@
+== 1.4.0 ==
+Updating a story now downloads only its new chapters instead of the whole story, checks the newest chapter for edits, and keeps chapters the site has removed. Every update is checked before it is saved: if the result does not add up, the pull fails with the numbers and your book stays as it was. A book whose file FanFicFare cannot update, such as a merged book, now fails with a clear message instead of silently missing new chapters. Failures say what went wrong (story not found, login refused, site unreachable), and the progress bar follows the chapters. Needs FanFicFare 4.62 or later.
+
 == 1.3.0 ==
 A series named with its number, like "Harbour Stories [2]", is now stored as the series "Harbour Stories" with series number 2. Tags are stored in ebookerr's tags field. Needs ebookerr 2.22 or later.
 

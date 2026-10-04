@@ -1,6 +1,6 @@
 # ebookerr plugins
 
-20 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
+19 plugins — generated from the released packages by `python -m ebookerr_sdk.pack index`; do not edit by hand.
 
 | Plugin | Id | Kind | Version | Summary |
 |---|---|---|---|---|
@@ -15,7 +15,6 @@
 | RTF download | `rtf_download_source` | Source | 1.2.0 | Downloads an RTF and converts it to EPUB in the library. |
 | Text download | `text_download_source` | Source | 1.2.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
 | Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.1.0 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
-| Chapter URL Stamp | `epub_chapter_url` | EPUB | 1.1.0 | Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from. |
 | EPUB Merge | `epub_merge` | EPUB | 2.3.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
 | EPUB Normalize | `epub_normalize` | EPUB | 1.1.0 | Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins. |
 | EPUB Validate | `epub_validate` | EPUB | 1.2.0 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |

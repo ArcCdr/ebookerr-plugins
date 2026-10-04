@@ -11,9 +11,9 @@ floor and skip FanFicFare's dependency chain entirely.
 This is a thin wrapper: every call is forwarded to the injected :class:`FanFicFarePull`
 engine, which does the actual work (meta poll, no-new-content skip, download, verify,
 derive) and returns one complete ``BookPatch``. The core orchestrator applies that patch
-through the generic create/update path — this plugin persists nothing itself. It owns the
-staging-dir lifecycle, post-process, publish, chapter-count recompute (``DEC-31``), cover,
-baseline and notification, and provides the ``work_dir``.
+through the generic create/update path — this plugin persists nothing itself. The core owns
+the staging-dir lifecycle, post-process, publish, chapter-count recompute (``DEC-31``),
+cover, baseline and notification, and provides the ``work_dir``.
 
 ``check_for_update()`` delegates to the engine likewise; the Auto-Pull scan calls it
 directly when this Source is selected for a URL (``update_check=True`` in the manifest).
@@ -96,11 +96,11 @@ class FanFicFareSourcePlugin:
         """
         if self._pull is not None:
             return self._pull
-        from fanficfare_source.cli import FanFicFareCliGateway
+        from fanficfare_source.library import FanFicFareLibraryGateway
         from fanficfare_source.pull import FanFicFarePull
 
         circuit = getattr(ctx, "circuit", None) if ctx else None
-        return FanFicFarePull(FanFicFareCliGateway(personal_ini_path(), circuit=circuit))
+        return FanFicFarePull(FanFicFareLibraryGateway(personal_ini_path(), circuit=circuit))
 
     def settings_schema(self) -> SettingsSchema:
         """Return the (empty) settings schema — this plugin has no user-configurable options."""
@@ -126,13 +126,12 @@ class FanFicFareSourcePlugin:
         Args:
             url: The book's source URL.
             prior: The book's current snapshot, or ``None`` when unknown.
-            cancel_event: Set when the user cancels the scan; propagated to the engine.
+            cancel_event: Accepted for the SPI; a run is cancelled by ending the plugin process
+                (``LIB-D25``).
             ctx: Runtime services for the check (plugin state, auth headers), when the core
                 supplies them (SPI 2.30).
         """
-        return self._engine(ctx).check_for_update(
-            url, prior=prior, ctx=ctx, cancel_event=cancel_event
-        )
+        return self._engine(ctx).check_for_update(url, prior=prior, ctx=ctx)
 
     def pull(
         self,

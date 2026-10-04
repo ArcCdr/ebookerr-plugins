@@ -1,7 +1,8 @@
 name: index
 
-# Rebuild the registry index and the plugin list from every release, commit them to main when they
-# changed (site/index.json, site/README.md, README.md), then ask the pages workflow to publish that
+# Rebuild the registry index and the plugin list from every release of a plugin that still has a
+# folder in plugins/ (scripts/indexed_releases.py), commit them to main when they changed
+# (site/index.json, site/README.md, README.md), then ask the pages workflow to publish that
 # commit. The index is stamped with the newest release's date, so an unchanged catalogue rebuilds
 # byte for byte and commits nothing. Runs after every release, on a registry.toml change, or by hand.
 
@@ -47,14 +48,15 @@ jobs:
           mkdir -p packages
           gh release list --limit 1000 --json tagName,publishedAt > releases.json
           python -c "import json; rows = json.load(open('releases.json', encoding='utf-8')); json.dump({r['tagName']: r['publishedAt'] for r in rows}, open('published.json', 'w', encoding='utf-8'))"
-          for tag in $(python -c "import json; print(' '.join(json.load(open('published.json', encoding='utf-8'))))"); do
+          python scripts/indexed_releases.py published.json indexed.json
+          for tag in $(python -c "import json; print(' '.join(json.load(open('indexed.json', encoding='utf-8'))))"); do
             gh release download "$tag" --pattern "$tag.zip" --dir packages
           done
       - name: Build the index
         run: |
           set -euo pipefail
-          now="$(python -c "import json; print(max(json.load(open('published.json', encoding='utf-8')).values()))")"
-          python -m ebookerr_sdk.pack index registry --packages packages --published published.json --now "$now" --out site
+          now="$(python -c "import json; print(max(json.load(open('indexed.json', encoding='utf-8')).values()))")"
+          python -m ebookerr_sdk.pack index registry --packages packages --published indexed.json --now "$now" --out site
           cp site/README.md README.md
       - name: Commit the index and the plugin list
         id: commit

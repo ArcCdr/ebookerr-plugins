@@ -1,8 +1,8 @@
 """Lists story URLs and polls story metadata from an arbitrary page, via FanFicFare.
 
-This module imports ``fanficfare`` in-process (``EXT-D7``, ``EXT-TR-1``) — the only
-in-process use of a third-party converter library left in the core. Both callables are
-injected so tests never touch the network.
+This module uses FanFicFare in-process (``EXT-D7``, ``EXT-TR-1``) through the plugin's
+FanFicFare support module (``LIB-D26``). Both callables are injected so tests never touch
+the network.
 """
 
 from __future__ import annotations
@@ -13,17 +13,23 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import fanficfare
 from fanficfare import adapters
-from fanficfare.configurable import Configuration
 from fanficfare.geturls import get_urls_from_page
+
+from url_story_extractor.fff_support import (
+    build_configuration,
+    captured_stdout,
+    config_sections,
+    quiet_fanficfare_logging,
+)
 
 logger = logging.getLogger(__name__)
 
 Lister = Callable[[str, Any, bool], dict[str, Any]]
 MetadataFetcher = Callable[[str, Any], dict[str, Any] | None]
 
-# one retry instead of FanFicFare's four; one-shot listing must fail in seconds
+# one retry instead of FanFicFare's four, through its own max_request_retries option
+# (EXP-073); one-shot listing must fail in seconds
 LISTING_RETRIES = 1
 
 
@@ -64,12 +70,13 @@ class FanFicFarePagesGateway:
                 the adapter-driven metadata poll. Injected in tests.
 
             Configurations are cached per resolved section tuple, so a scan parses the
-            ini files once.
+            ini files once. Quiets FanFicFare's logging (``LIB-D26``).
         """
         self._personal_ini = personal_ini
         self._lister = lister or get_urls_from_page
         self._metadata_fetcher = metadata_fetcher or self._default_metadata_fetcher
         self._config_cache: dict[tuple[str, ...], Any] = {}
+        quiet_fanficfare_logging()
 
     def list_story_urls(self, url: str) -> list[str]:
         """Return every story URL found at *url*, or ``[]`` if the page was read but empty.
@@ -93,7 +100,8 @@ class FanFicFarePagesGateway:
             # longest raw href it saw. That is the URL the adapter reports as `storyUrl`, so a
             # catalog row and the book it later becomes share one identity — and it drops page
             # fragments and arbitrary chapter links that would otherwise be stored as the story.
-            result = self._lister(url, configuration, True)
+            with captured_stdout():
+                result = self._lister(url, configuration, True)
 
             urls = result.get("urllist", [])
             if not isinstance(urls, list):
@@ -129,7 +137,8 @@ class FanFicFarePagesGateway:
         start = time.monotonic()
         try:
             configuration = self._configuration(url)
-            result = self._metadata_fetcher(url, configuration)
+            with captured_stdout():
+                result = self._metadata_fetcher(url, configuration)
             elapsed = time.monotonic() - start
             logger.debug("Fetched metadata for %s in %.1fs", url, elapsed)
             return result
@@ -137,41 +146,15 @@ class FanFicFarePagesGateway:
             logger.warning("Could not fetch metadata for %s: %s", url, exc)
             return None
 
-    def _cap_retries(self, config: Any, key: tuple[str, ...]) -> None:
-        """Replace the fetcher's default four-retry backoff with ``LISTING_RETRIES`` (EXP-073).
-
-        Reads ``Configuration.get_fetcher().retries`` (an ``urllib3`` ``Retry``) and swaps a copy in
-        via ``Retry.new``; leaves a build without that attribute alone and logs at WARNING.
-
-        Args:
-            config: The FanFicFare Configuration object.
-            key: The sections tuple used as the cache key.
-        """
-        get_fetcher = getattr(config, "get_fetcher", None)
-        if get_fetcher is None:
-            return
-        fetcher = get_fetcher()
-        retries = getattr(fetcher, "retries", None)
-        if retries is None or not hasattr(retries, "new"):
-            logger.warning(
-                "Could not cap the FanFicFare retry budget for sections=%s: no retries attribute",
-                ",".join(key),
-            )
-            return
-        fetcher.retries = retries.new(total=LISTING_RETRIES, backoff_factor=1)
-        logger.debug(
-            "Capped the FanFicFare retry budget for sections=%s: total=%d",
-            ",".join(key),
-            LISTING_RETRIES,
-        )
-
     def _configuration(self, url: str) -> Any:
         """Build (or reuse) a FanFicFare ``Configuration`` for *url*, layered over personal.ini.
 
         Configurations are cached on ``self`` keyed by the resolved section tuple: a scan that
         enriches many stories from one site would otherwise re-parse ``defaults.ini`` and
         ``personal.ini`` once per story. A failed parse is never cached, so a fixed
-        ``personal.ini`` takes effect without restarting the process.
+        ``personal.ini`` takes effect without restarting the process. FanFicFare's own
+        ``max_request_retries`` option caps the retry budget at ``LISTING_RETRIES``
+        (``EXP-073``).
 
         Args:
             url: The story URL to configure for.
@@ -180,37 +163,26 @@ class FanFicFarePagesGateway:
             A FanFicFare Configuration object, possibly shared with an earlier call.
 
         Raises:
-            RuntimeError: ``personal.ini`` could not be parsed. Carries only the failing
-                exception's type name — a parsing error quotes the offending line verbatim,
-                which for ``personal.ini`` may be a site login credential, so its message never
-                reaches this exception or any log call.
+            ConfigurationError: ``personal.ini`` could not be parsed (a ``RuntimeError``).
+                Carries only the failing exception's type name — a parsing error quotes the
+                offending line verbatim, which for ``personal.ini`` may be a site login
+                credential, so its message never reaches this exception or any log call.
         """
-        try:
-            sections = adapters.getConfigSectionsFor(url)
-        except Exception:  # noqa: BLE001
-            sections = ["unknown"]
-
+        sections = config_sections(url, unknown_site_ok=True)
         key = tuple(sections)
         cached = self._config_cache.get(key)
         if cached is not None:
             logger.debug("Reusing the FanFicFare configuration for sections=%s", ",".join(key))
             return cached
 
-        config = Configuration(sections, "EPUB", lightweight=True)
-
-        # Find FanFicFare's defaults.ini
-        fanficfare_dir = Path(fanficfare.__file__).parent
-        defaults_ini = fanficfare_dir / "defaults.ini"
-
-        try:
-            config.read([str(defaults_ini), str(self._personal_ini)])
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                f"Could not parse FanFicFare configuration: {type(exc).__name__}"
-            ) from exc
-
+        config = build_configuration(
+            sections,
+            self._personal_ini,
+            fileform="EPUB",
+            overrides={"max_request_retries": str(LISTING_RETRIES)},
+            lightweight=True,
+        )
         self._config_cache[key] = config
-        self._cap_retries(config, key)
         logger.debug("Built a FanFicFare configuration for sections=%s", ",".join(key))
         return config
 

@@ -78,9 +78,9 @@ Prior art:
 - **tinycss2** (WeasyPrint lineage) — tokenizer/serializer chosen for round-trip
   fidelity over regex.
 
-Pipeline position: `priority=70` — after `epub_chapter_url` (60) and before
-`epub_chapter_reorder` (100). The core book-details step runs before every EPUB plugin in the
-pass. Styling is neutralised before chapters are reordered.
+Pipeline position: `priority=70` — after `epub_chapter_reorder` (55) and before
+`epub_validate` (950). The core book-details step runs before every EPUB plugin in the pass.
+Chapters are reordered before styling is neutralised.
 
 The plugin runs both unattended (on `EpubCreated`/`EpubModified` events) and on demand
 via the **Normalize** book-selection action. It returns no `BookPatch` because it

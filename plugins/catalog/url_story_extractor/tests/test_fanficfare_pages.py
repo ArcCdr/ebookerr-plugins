@@ -241,3 +241,32 @@ class TestFetchStoryMetadata:
 
         all_log_text = "\n".join(record.message for record in caplog.records)
         assert "hunter2" not in all_log_text
+
+
+def _printing_lister(url, configuration, normalize):  # noqa: ANN001, ANN201, D103
+    """Lister that prints to stdout."""
+    print("x")  # noqa: T201
+    return {"urllist": ["https://x.test/s/1"]}
+
+
+def test_a_listing_leaves_stdout_clean(capsys: Any) -> None:
+    """Listing does not leave output on stdout."""
+    gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=_printing_lister)
+
+    capsys.readouterr()  # discard any prior output
+    result = gateway.list_story_urls("https://x.test/a")
+
+    assert result == ["https://x.test/s/1"]
+    assert capsys.readouterr().out == ""
+
+
+def test_the_gateway_quiets_fanficfare_logging() -> None:
+    """The gateway quiets FanFicFare's logging."""
+    _gateway = FanFicFarePagesGateway(Path("personal.ini"))  # noqa: F841
+
+    log = logging.getLogger("fanficfare")
+
+    assert log.level == logging.WARNING
+    assert len(log.handlers) == 1
+    assert type(log.handlers[0]).__name__ == "_ForwardHandler"
+    assert type(log.handlers[0]).__module__ == "url_story_extractor.fff_support"

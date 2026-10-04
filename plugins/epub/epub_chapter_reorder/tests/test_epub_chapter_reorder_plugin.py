@@ -46,8 +46,8 @@ class TestManifest:
     def test_subscribes_to_epub_modified(self) -> None:
         assert api.PluginEventType.EPUB_MODIFIED in EpubChapterReorderPlugin().manifest.events
 
-    def test_priority_is_one_hundred(self) -> None:
-        assert EpubChapterReorderPlugin().manifest.priority == 100
+    def test_priority_is_fifty_five(self) -> None:
+        assert EpubChapterReorderPlugin().manifest.priority == 55
 
     def test_headless(self) -> None:
         assert EpubChapterReorderPlugin().manifest.headless is True
@@ -68,8 +68,8 @@ class TestManifest:
         assert manifest.id == "epub_chapter_reorder"
         assert manifest.name == "Chapter Reorder"
 
-    def test_version_is_2_1_0(self) -> None:
-        assert EpubChapterReorderPlugin().manifest.version == "2.1.0"
+    def test_version_is_2_2_0(self) -> None:
+        assert EpubChapterReorderPlugin().manifest.version == "2.2.0"
 
     def test_declares_one_book_selection_trigger(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
@@ -83,7 +83,7 @@ class TestManifest:
 
     def test_priority_and_events_are_unchanged(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
-        assert manifest.priority == 100
+        assert manifest.priority == 55
         assert manifest.events == (
             api.PluginEventType.EPUB_CREATED,
             api.PluginEventType.EPUB_MODIFIED,

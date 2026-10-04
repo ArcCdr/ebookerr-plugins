@@ -1,3 +1,6 @@
+== 2.4.0 ==
+A merged book keeps the web address each chapter page declares as its own, including a canonical address, instead of being given the book's address. ebookerr now records the merged chapters' real web addresses for the merged book.
+
 == 2.3.0 ==
 Declares that it accepts merge suggestions in the new manifest format. Needs ebookerr 2.21 or later.
 

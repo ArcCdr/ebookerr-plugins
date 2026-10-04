@@ -1,6 +1,6 @@
 id = "url_story_extractor"
 name = "URL Story Extractor"
-version = "1.2.0"
+version = "1.3.0"
 type = "catalog"
 spi_version = "2.32"
 description = "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping."
@@ -13,7 +13,7 @@ license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
-requirements = ["fanficfare>=4.58.1"]
+requirements = ["fanficfare>=4.62.0"]
 entrypoint = "entrypoint.py"
 
 [roles.story_extractor]

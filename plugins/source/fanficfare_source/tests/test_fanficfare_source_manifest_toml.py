@@ -23,4 +23,11 @@ def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
 
     assert FanFicFareSourcePlugin.manifest.update_check is True
     assert FanFicFareSourcePlugin.manifest.roles.fallback_source is True
-    assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.58.1",)
+    assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.62.0",)
+
+
+def test_the_source_is_version_1_4_0() -> None:
+    """The 2.22.1 release of the FanFicFare Source is 1.4.0."""
+    from fanficfare_source.plugin import FanFicFareSourcePlugin
+
+    assert FanFicFareSourcePlugin.manifest.version == "1.4.0"

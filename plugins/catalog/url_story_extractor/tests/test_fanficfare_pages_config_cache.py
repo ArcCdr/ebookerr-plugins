@@ -29,6 +29,13 @@ class _CountingConfig:
         """Increment read counter and do nothing else."""
         type(self).reads += 1
 
+    def has_section(self, section):  # noqa: ANN001, ANN201, D102
+        """Report every section present, so no section is added."""
+        return True
+
+    def set(self, section, option, value):  # noqa: ANN001, ANN201, D102
+        """Ignore a per-call override."""
+
 
 def test_two_calls_for_the_same_sections_parse_the_ini_once(
     tmp_path: Path, monkeypatch: Any
@@ -41,10 +48,10 @@ def test_two_calls_for_the_same_sections_parse_the_ini_once(
         return ["a"]
 
     monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
+        "url_story_extractor.fff_support.adapters.getConfigSectionsFor",
         mock_get_config_sections_for,
     )
-    monkeypatch.setattr("url_story_extractor.pages.Configuration", _CountingConfig)
+    monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
     personal_ini = tmp_path / "personal.ini"
     personal_ini.write_text("")
@@ -71,10 +78,10 @@ def test_different_sections_get_their_own_configuration(tmp_path: Path, monkeypa
         return ["b"]
 
     monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
+        "url_story_extractor.fff_support.adapters.getConfigSectionsFor",
         mock_get_config_sections_for,
     )
-    monkeypatch.setattr("url_story_extractor.pages.Configuration", _CountingConfig)
+    monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
     personal_ini = tmp_path / "personal.ini"
     personal_ini.write_text("")
@@ -108,15 +115,22 @@ def test_a_failed_parse_is_not_cached(tmp_path: Path, monkeypatch: Any) -> None:
             if call_count[0] == 1:
                 raise ValueError("boom")
 
+        def has_section(self, section):  # noqa: ANN001, ANN201, D102
+            """Report every section present, so no section is added."""
+            return True
+
+        def set(self, section, option, value):  # noqa: ANN001, ANN201, D102
+            """Ignore a per-call override."""
+
     def mock_get_config_sections_for(url: str) -> list[str]:  # noqa: ANN001, ARG001
         """Always return the same sections."""
         return ["a"]
 
     monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
+        "url_story_extractor.fff_support.adapters.getConfigSectionsFor",
         mock_get_config_sections_for,
     )
-    monkeypatch.setattr("url_story_extractor.pages.Configuration", _FailOnceConfig)
+    monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _FailOnceConfig)
 
     personal_ini = tmp_path / "personal.ini"
     personal_ini.write_text("")
@@ -143,10 +157,10 @@ def test_configuration_reuse_logs_at_debug(tmp_path: Path, monkeypatch: Any, cap
         return ["a"]
 
     monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
+        "url_story_extractor.fff_support.adapters.getConfigSectionsFor",
         mock_get_config_sections_for,
     )
-    monkeypatch.setattr("url_story_extractor.pages.Configuration", _CountingConfig)
+    monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
     personal_ini = tmp_path / "personal.ini"
     personal_ini.write_text("")
@@ -170,7 +184,7 @@ def test_listing_failure_raises(tmp_path: Path, monkeypatch: Any, caplog: Any) -
         return ["a"]
 
     monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
+        "url_story_extractor.fff_support.adapters.getConfigSectionsFor",
         mock_get_config_sections_for,
     )
 
@@ -196,85 +210,12 @@ def test_no_dead_elapsed_assignment_in_the_failure_branch() -> None:
     )
 
 
-def test_listing_retry_budget_is_capped(tmp_path: Path, monkeypatch: Any) -> None:
-    """Listing retry budget is capped to one retry."""
+def test_listing_retry_budget_is_capped(tmp_path: Path) -> None:
+    """Listing retry budget is capped to one retry through max_request_retries (EXP-073)."""
+    packaged = Path(__file__).resolve().parents[1] / "url_story_extractor" / "personal.ini"
+    gateway = FanFicFarePagesGateway(packaged)
 
-    def mock_get_config_sections_for(url: str) -> list[str]:  # noqa: ANN001, ARG001
-        """Always return the same sections."""
-        return ["a"]
+    config = gateway._configuration("http://test1.com?sid=1")
 
-    monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
-        mock_get_config_sections_for,
-    )
-
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
-    gateway = FanFicFarePagesGateway(
-        personal_ini,
-        lister=lambda u, c, n: {"urllist": []},  # noqa: ANN001
-        metadata_fetcher=lambda u, c: None,  # noqa: ANN001
-    )
-
-    config = gateway._configuration("https://x.test/a")
+    assert config.getConfig("max_request_retries") == "1"
     assert config.get_fetcher().retries.total == 1
-
-
-def test_retry_cap_is_logged_at_debug(tmp_path: Path, monkeypatch: Any, caplog: Any) -> None:
-    """Retry cap is logged at debug level."""
-    caplog.set_level(logging.DEBUG, logger="url_story_extractor.pages")
-
-    def mock_get_config_sections_for(url: str) -> list[str]:  # noqa: ANN001, ARG001
-        """Always return the same sections."""
-        return ["a"]
-
-    monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
-        mock_get_config_sections_for,
-    )
-
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
-    gateway = FanFicFarePagesGateway(
-        personal_ini,
-        lister=lambda u, c, n: {"urllist": []},  # noqa: ANN001
-        metadata_fetcher=lambda u, c: None,  # noqa: ANN001
-    )
-
-    gateway._configuration("https://x.test/a")
-
-    assert "Capped the FanFicFare retry budget for sections=a: total=1" in caplog.text
-
-
-def test_retry_cap_survives_a_fetcher_without_retries(
-    tmp_path: Path, monkeypatch: Any, caplog: Any
-) -> None:
-    """Retry cap handles missing retries gracefully."""
-    caplog.set_level(logging.WARNING, logger="url_story_extractor.pages")
-
-    def mock_get_config_sections_for(url: str) -> list[str]:  # noqa: ANN001, ARG001
-        """Always return the same sections."""
-        return ["a"]
-
-    monkeypatch.setattr(
-        "url_story_extractor.pages.adapters.getConfigSectionsFor",
-        mock_get_config_sections_for,
-    )
-    monkeypatch.setattr(
-        "url_story_extractor.pages.Configuration.get_fetcher",
-        lambda self, make_new=False: object(),  # noqa: ANN001, ARG001
-    )
-
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
-    gateway = FanFicFarePagesGateway(
-        personal_ini,
-        lister=lambda u, c, n: {"urllist": []},  # noqa: ANN001
-        metadata_fetcher=lambda u, c: None,  # noqa: ANN001
-    )
-
-    config = gateway._configuration("https://x.test/a")
-    assert config is not None
-
-    expected_msg = "Could not cap the FanFicFare retry budget for sections=a: no retries attribute"
-    assert expected_msg in caplog.text

@@ -1,2 +1,5 @@
+== 2.2.0 ==
+Chapter Reorder now runs first among the automatic EPUB plugins, before chapter URLs are stamped and styling is normalized. An execution order you saved yourself is kept.
+
 == 2.1.0 ==
 Moved out of the ebookerr core.

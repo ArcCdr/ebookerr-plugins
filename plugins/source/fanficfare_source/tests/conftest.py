@@ -11,5 +11,5 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 @pytest.fixture(scope="session")
 def fanficfare_fixtures() -> Path:
-    """Directory of real captured FanFicFare CLI stdout/stderr."""
+    """Directory of captured FanFicFare metadata (JSON and one command-line capture)."""
     return FIXTURES_DIR

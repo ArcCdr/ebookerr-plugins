@@ -45,10 +45,9 @@ def dl(
 ) -> DownloadResult:
     """Build a canned DownloadResult."""
     return DownloadResult(
-        ok=ok,
+        "created" if ok else "failed",
         json_data=json if json is not None else fff_json(),
         output_filename=output,
-        was_update=False,
         error=error,
     )
 
@@ -190,6 +189,7 @@ class TestInit:
         plugin = FanFicFareSourcePlugin()
         # Engine construction doesn't require an injected engine
         assert plugin._engine(None) is not None
+        assert type(plugin._engine(None)._fanficfare).__name__ == "FanFicFareLibraryGateway"
 
 
 # ---------------------------------------------------------------------------
@@ -296,18 +296,9 @@ class FakeEngine:
         self.check_for_update_calls: list[dict[str, Any]] = []
         self._check_result: api.UpdateCheck | None = None
 
-    def check_for_update(
-        self,
-        url: str,
-        *,
-        prior: Any = None,
-        ctx: Any = None,
-        cancel_event: Any = None,
-    ) -> api.UpdateCheck:
+    def check_for_update(self, url: str, *, prior: Any = None, ctx: Any = None) -> api.UpdateCheck:
         """Record the call and return the canned result (or a default)."""
-        self.check_for_update_calls.append(
-            dict(url=url, prior=prior, ctx=ctx, cancel_event=cancel_event)
-        )
+        self.check_for_update_calls.append(dict(url=url, prior=prior, ctx=ctx))
         if self._check_result is not None:
             return self._check_result
         return api.UpdateCheck(needs_update=True, meta={"numChapters": "42"}, book_id=None)
@@ -335,16 +326,14 @@ def test_check_for_update_delegates_to_the_engine() -> None:
     assert fake.check_for_update_calls[0]["url"] == URL
 
 
-def test_check_for_update_forwards_cancel_event() -> None:
-    """check_for_update() forwards cancel_event to the engine."""
+def test_check_for_update_accepts_cancel_event_for_the_spi() -> None:
+    """check_for_update() accepts cancel_event for the SPI but does not forward it."""
     fake = FakeEngine()
-    fake.set_check_result(api.UpdateCheck(needs_update=False, meta=None, book_id=None))
     plugin = FanFicFareSourcePlugin(pull=fake)  # type: ignore[arg-type]
-    cancel_event = threading.Event()
 
-    plugin.check_for_update(URL, cancel_event=cancel_event)
+    plugin.check_for_update(URL, cancel_event=threading.Event())
 
-    assert fake.check_for_update_calls[0]["cancel_event"] is cancel_event
+    assert fake.check_for_update_calls == [dict(url=URL, prior=None, ctx=None)]
 
 
 def test_check_for_update_forwards_prior() -> None:
