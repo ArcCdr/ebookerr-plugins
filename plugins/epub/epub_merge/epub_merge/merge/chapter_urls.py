@@ -10,6 +10,10 @@ each input book contributes:
   one is the book URL stamped onto all of them, so the merged book still points somewhere
   meaningful.
 
+A chapter *declares* a URL when it carries a non-empty ``<meta name="chapterurl">`` or a
+canonical / ``og:url`` link (``ChapterDocument.canonical_url``) — the same signals ``chapter_key``
+reads, so a merge never stamps the book URL over a chapter's own address (``LIB-D40``).
+
 Filling individual gaps in a partially-annotated book is deliberately not done: that chapter is
 not at the book URL, and guessing would record a wrong address.
 """
@@ -99,13 +103,13 @@ def _process_book(
         pos for pos in positions if chapters[pos].item_id.lower() not in TITLE_PAGE_ITEM_IDS
     ]
 
-    # Parse each chapter to see if it has a chapterurl
+    # A chapter declares a URL when it carries a non-empty chapterurl or a canonical/og:url link — the signals chapter_key reads (LIB-D40)
     declared_urls: dict[int, str | None] = {}
     for pos in positions:
         chapter = chapters[pos]
         try:
             doc = ChapterDocument.parse(chapter.xhtml.decode("utf-8"))
-            declared_urls[pos] = doc.meta("chapterurl")
+            declared_urls[pos] = doc.meta("chapterurl") or doc.canonical_url()
         except (MalformedEpubError, Exception):
             # Parse error: chapter counts as declaring nothing
             declared_urls[pos] = None
@@ -118,9 +122,9 @@ def _process_book(
         result[pos] = stamped_chapter
         book_stamped = 1 if was_stamped else 0
     elif len(content_positions) > 1:
-        # Multiple content chapters: check if any declared a URL
-        any_declared = any(declared_urls[pos] is not None for pos in content_positions)
-        if not any_declared and url:
+        # Multiple content chapters: stamp all only when none declares a URL
+        declaring = sum(1 for pos in content_positions if declared_urls[pos])
+        if not declaring and url:
             # None declared and we have a URL: stamp all content chapters
             book_stamped = 0
             for pos in content_positions:
@@ -130,6 +134,15 @@ def _process_book(
                     book_stamped += 1
         else:
             book_stamped = 0
+            if declaring:
+                logger.debug(
+                    'Merge left the chapter URLs of input %d ("%s") as declared: '
+                    "%d of %d chapter(s) declare one",
+                    book.index,
+                    book.title,
+                    declaring,
+                    len(content_positions),
+                )
     else:
         # No content chapters (only title page)
         book_stamped = 0
