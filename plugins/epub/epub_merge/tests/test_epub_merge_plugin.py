@@ -702,9 +702,9 @@ def test_settings_schema_method_matches_manifest() -> None:
 
 
 def test_manifest_version_bumped() -> None:
-    """Manifest version is bumped to 2.3.0."""
+    """Manifest version is bumped to 2.4.0."""
     manifest = EpubMergePlugin().manifest
-    assert manifest.version == "2.3.0"
+    assert manifest.version == "2.4.0"
 
 
 def test_a_merge_returns_no_read_position_patches(
