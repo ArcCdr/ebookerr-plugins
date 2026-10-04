@@ -8,7 +8,8 @@ persist. A pending ``restore_target`` is consumed only when the call actually at
 provider write (:func:`~ebookerr_sdk.providers.restore_marker.restore_marker_patch`, ``EXP-155``); a
 read-only ``enrich`` leaves it pending for the next sync.
 It also answers the core's live read-state calls (read_state_changes, refresh_read_state;
-LIB-D14), both read-only.
+LIB-D14), both read-only. It writes a reading client's position through to Komga (write_read_state,
+RDG-D4).
 """
 
 from __future__ import annotations
@@ -27,7 +28,9 @@ from ebookerr_sdk.spi import (
     InvocationMode,
     PluginContext,
     PluginEventType,
+    ReadPosition,
     ReadStateChanges,
+    ReadStateWrite,
     SettingsField,
     SettingsSchema,
 )
@@ -543,3 +546,37 @@ class KomgaSyncPlugin:
             "Komga read-state refresh: %d of %d book(s) answered", len(patches), len(books)
         )
         return patches
+
+    def write_read_state(
+        self, book: BookView, position: ReadPosition, ctx: PluginContext
+    ) -> ReadStateWrite:
+        """Write a reading position through to Komga, then read it back (``RDG-D4``).
+
+        One short call by the stored Komga id (:meth:`KomgaService.write_position`): no
+        discovery, metadata push, scan or restore-marker handling. Settings are read fresh.
+        A ``written`` or ``already`` answer carries the read-back as a patch holding only
+        ``READ_STATE_FIELDS`` and the captured ``read_position``.
+
+        Args:
+            book: The linked book (``external.item_id`` set).
+            position: Where the reader is, in the book's current chapter table.
+            ctx: Plugin invocation context (settings, logger).
+
+        Returns:
+            The outcome and, for ``written`` or ``already``, the read-back.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its breaker is open.
+        """
+        service = _build_service(ctx)
+        status, result = service.write_position(book, position)
+        if result is None:
+            return ReadStateWrite(status=status)
+        return ReadStateWrite(
+            status=status,
+            patch=BookPatch(
+                book_id=book.book_id,
+                fields={k: v for k, v in result.fields.items() if k in READ_STATE_FIELDS},
+                read_position=result.read_position,
+            ),
+        )
