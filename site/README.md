@@ -7,15 +7,15 @@
 | Literotica search | `literotica_stories` | Catalog | 2.2.0 | Fetches stories with Literotica search |
 | Literotica - My Home | `my_literotica` | Catalog | 1.1.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
 | Patreon memberships | `patreon_stories` | Catalog | 2.2.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
-| URL Story Extractor | `url_story_extractor` | Catalog | 1.2.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
+| URL Story Extractor | `url_story_extractor` | Catalog | 1.3.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
 | DOCX download | `docx_download_source` | Source | 1.1.0 | Downloads a DOCX and converts it to EPUB in the library. |
 | EPUB download | `epub_download_source` | Source | 1.1.0 | Downloads a story EPUB from a direct download URL. |
-| FanFicFare | `fanficfare_source` | Source | 1.3.0 | Downloads stories from any site FanFicFare supports. |
+| FanFicFare | `fanficfare_source` | Source | 1.4.0 | Downloads stories from any site FanFicFare supports. |
 | PDF download | `pdf_download_source` | Source | 1.2.0 | Downloads a PDF and converts it to EPUB in the library. |
 | RTF download | `rtf_download_source` | Source | 1.2.0 | Downloads an RTF and converts it to EPUB in the library. |
 | Text download | `text_download_source` | Source | 1.2.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
-| Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.1.0 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
-| EPUB Merge | `epub_merge` | EPUB | 2.3.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
+| Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.2.0 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
+| EPUB Merge | `epub_merge` | EPUB | 2.4.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
 | EPUB Normalize | `epub_normalize` | EPUB | 1.1.0 | Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins. |
 | EPUB Validate | `epub_validate` | EPUB | 1.2.0 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |
 | File metadata sync | `file_meta_sync` | Book | 2.1.0 | Syncs sidecar files (cover candidates, synopsis) with the library |
