@@ -142,9 +142,10 @@ def _duplicate_idrefs(
 
     Two entries are flagged when they share a non-empty URL identity **other than the
     book's own ``story_url``**, or when their ``unicode_identity(title)`` values match and
-    are non-empty. The book-level URL is excluded because ``epub_chapter_url`` deliberately
-    stamps it on every chapter of a book that declares none, which would otherwise flag
-    every chapter. Advisory only: the caller never pre-deselects or removes anything.
+    are non-empty. The book-level URL is excluded because a merge stamps it on every
+    merged chapter of an input that declares none, and books from releases before 2.22.2
+    carry it on every chapter the same way (``LIB-D38``) — it would otherwise flag every
+    chapter. Advisory only: the caller never pre-deselects or removes anything.
 
     Args:
         doc: The EPUB document.

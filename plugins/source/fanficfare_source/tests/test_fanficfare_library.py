@@ -118,7 +118,7 @@ def _rename_chapter_files(epub: Path) -> None:
 
 
 def _stamp_story_url(epub: Path, story_url: str) -> int:
-    """Stamp *story_url* on every chapterurl meta, as epub_chapter_url does; return the count."""
+    """Stamp *story_url* on every chapterurl meta, as releases before 2.22.2 did; return the count."""
     with zipfile.ZipFile(epub) as zin:
         items = [(info.filename, zin.read(info.filename)) for info in zin.infolist()]
     stamped = 0

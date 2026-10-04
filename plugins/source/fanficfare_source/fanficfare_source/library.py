@@ -77,10 +77,12 @@ def _rekey_stamped_chapter(
 ) -> None:
     """Give a one-chapter book's stamped chapter the site's first chapter URL (``LIB-D30``).
 
-    ``epub_chapter_url`` stamps the book's own URL onto a one-chapter book's chapter. When the site
-    lists other chapter URLs, FanFicFare would keep that chapter as one the site removed
-    (``update_preserve_deleted_chapters``) beside a fresh chapter 1. When the staged file holds
-    exactly one chapter, keyed by a URL the site does not list, it is the site's first chapter.
+    Books from ebookerr releases before 2.22.2 can carry the book's own URL stamped onto a
+    one-chapter book's chapter (the retired Chapter URL Stamp plugin did that, ``LIB-D38``).
+    When the site lists other chapter URLs, FanFicFare would keep that chapter as one the site
+    removed (``update_preserve_deleted_chapters``) beside a fresh chapter 1. When the staged
+    file holds exactly one chapter, keyed by a URL the site does not list, it is the site's
+    first chapter.
 
     Args:
         adapter: The FanFicFare adapter, its old-chapter maps already loaded.
