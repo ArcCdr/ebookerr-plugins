@@ -2,7 +2,7 @@ id = "komga_sync"
 name = "Komga Sync"
 version = "1.4.0"
 type = "book"
-spi_version = "2.33"
+spi_version = "2.34"
 description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
 headless = true
 headed = true
@@ -29,6 +29,7 @@ reader_url_template = "{external_url}/book/{book_id}/read-epub"
 server_url_setting = "server"
 public_url_setting = "external_url"
 live_read_state = true
+write_read_state = true
 
 [[ui_triggers]]
 scope = "book_selection_action"
