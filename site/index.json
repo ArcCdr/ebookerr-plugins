@@ -96,49 +96,6 @@
       ]
     },
     {
-      "id": "epub_chapter_url",
-      "name": "Chapter URL Stamp",
-      "type": "epub",
-      "summary": "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from.",
-      "description": "Records each chapter's own web address inside the EPUB, so a chapter can be traced back to the page it came from.",
-      "author": "ArcCdr",
-      "license": "MIT",
-      "icon": "link",
-      "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
-      "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_url",
-      "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
-      "official": true,
-      "exclusive_group": null,
-      "deprecated": null,
-      "releases": [
-        {
-          "version": "1.1.0",
-          "published_at": "2026-09-25T22:10:21Z",
-          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_url-1.1.0/epub_chapter_url-1.1.0.zip",
-          "sha256": "be8f46cb2d2f1cc8fc23deec2f3bc6ed9f56b98e0d26f5e5e20be71efee42f59",
-          "size": 3901,
-          "spi_version": "2.30",
-          "min_app_version": "",
-          "changelog": "Moved out of the ebookerr core.",
-          "sites": [],
-          "formats": [],
-          "capabilities": {
-            "network": false,
-            "auth_sites": [],
-            "writes_epub": true,
-            "events": [
-              "EpubCreated",
-              "EpubModified"
-            ],
-            "deferred": false,
-            "catch_all": false,
-            "roles": []
-          },
-          "requirements": []
-        }
-      ]
-    },
-    {
       "id": "epub_download_source",
       "name": "EPUB download",
       "type": "source",
