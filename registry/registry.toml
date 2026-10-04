@@ -12,9 +12,6 @@ official = true
 [plugins.epub_chapter_reorder]
 official = true
 
-[plugins.epub_chapter_url]
-official = true
-
 [plugins.epub_download_source]
 official = true
 
