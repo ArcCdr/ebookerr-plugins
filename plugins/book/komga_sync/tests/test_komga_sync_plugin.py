@@ -2736,6 +2736,110 @@ class TestLiveReadState:
         assert isinstance(plugin, api.LiveReadState)
         assert plugin.manifest.roles.library_server.live_read_state is True
 
+
+# ---------------------------------------------------------------------------
+# Reading-position write-through (RDG-D4)
+# ---------------------------------------------------------------------------
+
+
+class _WriteStub:
+    """A KomgaService stub for the write-through call."""
+
+    def __init__(self, status: str, result: Any = None, error: Exception | None = None) -> None:
+        self.status = status
+        self.result = result
+        self.error = error
+        self.calls: list[tuple[api.BookView, api.ReadPosition]] = []
+
+    def write_position(self, book: api.BookView, target: api.ReadPosition) -> Any:
+        self.calls.append((book, target))
+        if self.error is not None:
+            raise self.error
+        return self.status, self.result
+
+
+_WRITE_TARGET = api.ReadPosition(
+    captured_at="2026-10-03T12:00:00+00:00",
+    chapter_index=3,
+    chapter_progress=0.5,
+    chapter_key="c3.xhtml",
+)
+
+
+class TestReadStateWrite:
+    """Tests for the reading-position write-through (RDG-D4)."""
+
+    def test_the_plugin_answers_read_state_writing(self) -> None:
+        """KomgaSyncPlugin implements the SDK's ReadStateWriting protocol."""
+        assert isinstance(KomgaSyncPlugin(), api.ReadStateWriting)
+
+    def test_write_read_state_keeps_only_read_state(self) -> None:
+        """A written answer's patch keeps READ_STATE_FIELDS and the captured position."""
+        from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+        from komga_sync.service import SyncResult
+
+        read_back = SyncResult(
+            True,
+            "refreshed",
+            fields={
+                "external_read_position": 5,
+                "external_locator": '{"locator": {"href": "c3.xhtml"}}',
+                "external_progress_modified": "2026-10-03T12:00:01+00:00",
+                "external_item_id": "KB1",
+            },
+            read_position=api.ReadPosition(
+                captured_at="2026-10-03T12:00:01+00:00",
+                chapter_index=3,
+                chapter_progress=0.5,
+            ),
+        )
+        stub = _WriteStub("written", read_back)
+        ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
+        view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
+
+        with mock.patch.object(komga_sync, "_build_service", return_value=stub):
+            write = KomgaSyncPlugin().write_read_state(view, _WRITE_TARGET, ctx)
+
+        assert write.status == "written"
+        assert write.patch is not None
+        assert write.patch.book_id == "b1"
+        assert write.patch.fields == {
+            "external_read_position": 5,
+            "external_locator": '{"locator": {"href": "c3.xhtml"}}',
+            "external_progress_modified": "2026-10-03T12:00:01+00:00",
+        }
+        assert write.patch.read_position is not None
+        assert write.patch.read_position.chapter_index == 3
+        assert stub.calls == [(view, _WRITE_TARGET)]
+
+    def test_an_answer_without_a_read_back_has_no_patch(self) -> None:
+        """unmatched (and every answer without a read-back) carries no patch."""
+        from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+
+        stub = _WriteStub("unmatched")
+        ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
+        view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
+
+        with mock.patch.object(komga_sync, "_build_service", return_value=stub):
+            write = KomgaSyncPlugin().write_read_state(view, _WRITE_TARGET, ctx)
+
+        assert write == api.ReadStateWrite(status="unmatched")
+
+    def test_an_unreachable_komga_propagates(self) -> None:
+        """ProviderUnreachable from the service reaches the core unchanged."""
+        from ebookerr_sdk.providers.connection import ProviderUnreachable
+        from ebookerr_sdk.testing import make_book_view as sdk_make_book_view
+
+        stub = _WriteStub("written", error=ProviderUnreachable("Komga is not reachable"))
+        ctx = _FakeCtx(settings={"server": "http://k", "api_key": "s"})
+        view = sdk_make_book_view(book_id="b1", external=api.ExternalLink(item_id="KB1"))
+
+        with (
+            mock.patch.object(komga_sync, "_build_service", return_value=stub),
+            pytest.raises(ProviderUnreachable),
+        ):
+            KomgaSyncPlugin().write_read_state(view, _WRITE_TARGET, ctx)
+
     def test_read_state_changes_delegates_to_the_service(self) -> None:
         """read_state_changes delegates to service and logs at debug."""
         stub = _LiveStub(changes=api.ReadStateChanges(items=("B1",), marker="m2"))
