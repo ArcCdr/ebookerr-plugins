@@ -2515,3 +2515,100 @@ def test_refresh_read_state_raises_when_kavita_is_unreachable() -> None:
         pytest.raises(ProviderUnreachable),
     ):
         plugin.refresh_read_state((make_book_view(book_id="b1"),), ctx)
+
+
+# ---------------------------------------------------------------------------
+# Reading-position write-through (RDG-D4)
+# ---------------------------------------------------------------------------
+
+
+class _WriteStub:
+    """A KavitaService stub for the write-through call."""
+
+    def __init__(self, status: str, result: Any = None, error: Exception | None = None) -> None:
+        self.status = status
+        self.result = result
+        self.error = error
+        self.calls: list[tuple[api.BookView, api.ReadPosition]] = []
+
+    def write_position(self, book: api.BookView, target: api.ReadPosition) -> Any:
+        self.calls.append((book, target))
+        if self.error is not None:
+            raise self.error
+        return self.status, self.result
+
+
+_WRITE_TARGET = api.ReadPosition(
+    captured_at="2026-10-03T12:00:00+00:00",
+    chapter_index=7,
+    chapter_progress=0.72,
+    chapter_key="https://example.com/s/1?page=7",
+)
+
+
+def test_the_plugin_answers_read_state_writing() -> None:
+    """KavitaSyncPlugin implements the SDK's ReadStateWriting protocol."""
+    assert isinstance(KavitaSyncPlugin(), api.ReadStateWriting)
+
+
+def test_write_read_state_keeps_only_read_state() -> None:
+    """A written answer's patch keeps READ_STATE_FIELDS and the captured position."""
+    from ebookerr_sdk.testing import make_book_view
+
+    read_back = SyncResult(
+        True,
+        "refreshed",
+        fields={
+            "external_read_position": 7,
+            "external_read_percent": 0.7,
+            "external_item_url": "http://kavita.test/library/1/series/7",
+        },
+        read_position=api.ReadPosition(
+            captured_at="2026-10-03T12:00:01+00:00",
+            chapter_index=7,
+            chapter_progress=0.0,
+        ),
+    )
+    stub = _WriteStub("written", read_back)
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+    view = make_book_view(book_id="b1")
+
+    with patch("kavita_sync.plugin._build_service", return_value=stub):
+        write = KavitaSyncPlugin().write_read_state(view, _WRITE_TARGET, ctx)
+
+    assert write.status == "written"
+    assert write.patch is not None
+    assert write.patch.book_id == "b1"
+    assert write.patch.fields == {"external_read_position": 7, "external_read_percent": 0.7}
+    assert write.patch.read_position is not None
+    assert write.patch.read_position.chapter_progress == 0.0
+    assert stub.calls == [(view, _WRITE_TARGET)]
+
+
+def test_write_read_state_without_a_read_back_has_no_patch() -> None:
+    """stale (and every answer without a read-back) carries no patch."""
+    from ebookerr_sdk.testing import make_book_view
+
+    stub = _WriteStub("stale")
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+
+    with patch("kavita_sync.plugin._build_service", return_value=stub):
+        write = KavitaSyncPlugin().write_read_state(
+            make_book_view(book_id="b1"), _WRITE_TARGET, ctx
+        )
+
+    assert write == api.ReadStateWrite(status="stale")
+
+
+def test_write_read_state_lets_unreachable_propagate() -> None:
+    """ProviderUnreachable from the service reaches the core unchanged."""
+    from ebookerr_sdk.testing import make_book_view
+
+    stub = _WriteStub("written", error=ProviderUnreachable("Kavita is not reachable"))
+    ctx = FakeContext(settings={"server": "http://kavita.test", "api_key": "k"})
+
+    with (
+        patch("kavita_sync.plugin._build_service", return_value=stub),
+        pytest.raises(ProviderUnreachable),
+    ):
+        KavitaSyncPlugin().write_read_state(make_book_view(book_id="b1"), _WRITE_TARGET, ctx)
