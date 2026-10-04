@@ -13,7 +13,7 @@ def test_the_provider_asks_for_the_network_and_names_its_required_settings() -> 
 
 
 def test_the_manifest_declares_the_library_server_role() -> None:
-    """The manifest declares the library_server role with expected values and spi_version 2.33."""
+    """The manifest declares the library_server role with expected values and spi_version 2.34."""
     manifest = KavitaSyncPlugin.manifest
     role = manifest.roles.library_server
     assert role is not None
@@ -23,5 +23,6 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert role.reader_url_template == reader_url
     assert role.server_url_setting == "server"
     assert role.public_url_setting == "external_url"
-    assert manifest.spi_version == "2.33"
+    assert manifest.spi_version == "2.34"
     assert role.live_read_state is True
+    assert role.write_read_state is True
