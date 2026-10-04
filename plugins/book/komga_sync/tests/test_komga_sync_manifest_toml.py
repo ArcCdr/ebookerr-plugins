@@ -34,6 +34,7 @@ def test_the_manifest_declares_the_library_server_role() -> None:
         "server_url_setting": "server",
         "public_url_setting": "external_url",
         "live_read_state": True,
+        "write_read_state": True,
     }
 
     # Verify legacy top-level keys are gone
@@ -43,4 +44,13 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert "reader_url_template" not in data or data.get("reader_url_template") is None
 
     # Verify SPI version
-    assert data["spi_version"] == "2.33"
+    assert data["spi_version"] == "2.34"
+
+
+def test_the_manifest_declares_the_read_state_write_through() -> None:
+    """The parsed manifest declares write_read_state (SPI 2.34, RDG-D4)."""
+    manifest = KomgaSyncPlugin.manifest
+    role = manifest.roles.library_server
+    assert role is not None
+    assert role.write_read_state is True
+    assert manifest.spi_version == "2.34"
