@@ -103,7 +103,8 @@ def _process_book(
         pos for pos in positions if chapters[pos].item_id.lower() not in TITLE_PAGE_ITEM_IDS
     ]
 
-    # A chapter declares a URL when it carries a non-empty chapterurl or a canonical/og:url link — the signals chapter_key reads (LIB-D40)
+    # A chapter declares a URL when it carries a non-empty chapterurl or a canonical/og:url
+    # link — the signals chapter_key reads (LIB-D40)
     declared_urls: dict[int, str | None] = {}
     for pos in positions:
         chapter = chapters[pos]

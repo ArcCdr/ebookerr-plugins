@@ -695,7 +695,11 @@ class TestStampChapterUrls:
         chapters = [
             _make_planned_chapter("Chapter 1", "chapter_001.xhtml", "c001", "OEBPS/ch1.xhtml"),
             _make_planned_chapter(
-                "Chapter 2", "chapter_002.xhtml", "c002", "OEBPS/ch2.xhtml", chapter_url="https://x/2"
+                "Chapter 2",
+                "chapter_002.xhtml",
+                "c002",
+                "OEBPS/ch2.xhtml",
+                chapter_url="https://x/2",
             ),
             _make_planned_chapter("Chapter 3", "chapter_003.xhtml", "c003", "OEBPS/ch3.xhtml"),
         ]
