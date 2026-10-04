@@ -26,6 +26,9 @@ immediately, and one ``KavitaService`` is built per call:
 - Any other event -> ``service.sync(view, restore_target=view.restore_target)``.
 - The core's live read-state calls (LIB-D14) -> ``read_state_changes`` / ``refresh_read_state``,
   both read-only.
+- A reading client's position (RDG-D4) -> ``write_read_state``: one
+  ``service.write_position(view, position)`` call; its read-back, when there is one, becomes
+  a read-state-only patch.
 
 **Settings** (schema-driven, ``plugin.kavita_sync.*``): ``server`` (Kavita base URL),
 ``api_key`` (secret), ``external_url`` (optional, used for deep links, defaults to ``server``),
@@ -63,7 +66,9 @@ from ebookerr_sdk.spi import (
     BookView,
     PluginContext,
     PluginEventType,
+    ReadPosition,
     ReadStateChanges,
+    ReadStateWrite,
     SettingsField,
     SettingsSchema,
 )
@@ -569,3 +574,37 @@ class KavitaSyncPlugin:
             "Kavita read-state refresh: %d of %d book(s) answered", len(patches), len(books)
         )
         return patches
+
+    def write_read_state(
+        self, book: BookView, position: ReadPosition, ctx: PluginContext
+    ) -> ReadStateWrite:
+        """Write a reading position through to Kavita, then read it back (``RDG-D4``).
+
+        One short call (:meth:`KavitaService.write_position`): no search beyond the file's
+        own chapter, no rating, scan or restore-marker handling. Settings are read fresh. A
+        ``written`` or ``already`` answer carries the read-back as a patch holding only
+        ``READ_STATE_FIELDS`` and the captured ``read_position``.
+
+        Args:
+            book: The linked book (stored chapter, series and library ids).
+            position: Where the reader is, in the book's current chapter table.
+            ctx: Plugin invocation context (settings, logger).
+
+        Returns:
+            The outcome and, for ``written`` or ``already``, the read-back.
+
+        Raises:
+            ProviderUnreachable: Kavita did not answer, or its breaker is open.
+        """
+        service = _build_service(ctx, enabled=_configured(ctx))
+        status, result = service.write_position(book, position)
+        if result is None:
+            return ReadStateWrite(status=status)
+        return ReadStateWrite(
+            status=status,
+            patch=BookPatch(
+                book_id=book.book_id,
+                fields={k: v for k, v in result.fields.items() if k in READ_STATE_FIELDS},
+                read_position=result.read_position,
+            ),
+        )
