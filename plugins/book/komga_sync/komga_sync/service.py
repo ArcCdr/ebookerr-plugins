@@ -54,7 +54,9 @@ The sync, for one freshly-downloaded book (:meth:`KomgaService.sync`):
 
 The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker) (the
 library's books, newest reading change first) and refresh(book) (one stored id; no discovery,
-push, scan or write).
+push, scan or write). A reading client's write-through (RDG-D4) is write_position(book, target):
+the same stored id, Komga's chapter table checked first, the target placed quietly by the
+semantic restore and the book read back as refresh reads it.
 
 The service reports Komga's own fresh finished flag on every sync/enrich, read from the
 record refreshed this call, never from the pre-sync merged view (``RPH-SRC-4``), and returns
@@ -83,7 +85,7 @@ import re
 import time
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -96,7 +98,10 @@ from ebookerr_sdk.providers.anchoring import (
     REANCHOR_ALREADY,
     REANCHOR_FINISHED,
     REANCHOR_NOT_APPLICABLE,
+    REANCHOR_REJECTED,
     REANCHOR_RESOLVED,
+    REANCHOR_STALE,
+    REANCHOR_UNMATCHED,
     REANCHOR_WRITTEN,
     AnchorJoin,
     ReanchorOutcome,
@@ -132,6 +137,15 @@ _LIVE_MAX_PAGES = 5
 
 _EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
 """The baseline of a library nobody has read in yet: every later reading change is newer."""
+
+_WRITE_STATUSES: Mapping[str, str] = {
+    REANCHOR_WRITTEN: "written",
+    REANCHOR_ALREADY: "already",
+    REANCHOR_STALE: "stale",
+    REANCHOR_UNMATCHED: "unmatched",
+    REANCHOR_REJECTED: "rejected",
+}
+"""A write-through's restore outcome as a ``READ_STATE_WRITE_STATUSES`` member (``RDG-D4``)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -831,6 +845,8 @@ class KomgaService:
         target: ReadPosition,
         join: AnchorJoin,
         provider_finished: bool,
+        *,
+        quiet: bool = False,
     ) -> tuple[dict[str, Any], ReanchorOutcome]:
         """Deliver a pending semantic restore through the core anchoring orchestrator.
 
@@ -860,6 +876,8 @@ class KomgaService:
             provider_finished: The provider's finished flag read during this sync
                 (``RPH-SRC-4``), forwarded to :func:`restore_to_target` so a restore whose
                 target the bookmark already stands at is not rewritten (``RPH-REST-5``).
+            quiet: Passed to :func:`restore_to_target`: ``True`` logs its success lines at DEBUG — a
+                reading client writing through (``RDG-D4``).
 
         Returns:
             A tuple of the fields to persist and the raw ``ReanchorOutcome``:
@@ -877,6 +895,7 @@ class KomgaService:
             book_read=book.progress.completed,
             book_title=book.title,
             provider_name="Komga",
+            quiet=quiet,
         )
         if not outcome.written:
             return {}, outcome
@@ -1648,6 +1667,75 @@ class KomgaService:
             fields["external_read_completed"],
         )
         return SyncResult(True, "refreshed", fields=fields, read_position=read_position)
+
+    def write_position(self, book: BookView, target: ReadPosition) -> tuple[str, SyncResult | None]:
+        """Put Komga's reading position at *target*, then read the book back (``RDG-D4``).
+
+        The write-through of one of ebookerr's reading clients. It uses the stored Komga id
+        only, like :meth:`refresh`: no discovery, metadata push, scan or analyze. Komga's
+        chapter table must describe the file on disk; the target is then placed by
+        :meth:`_restore_semantic` (``quiet``: a reader saves every few seconds) and the book
+        is read back by :meth:`_refresh_reachable`. A failed probe or an open breaker raises
+        without this service's batch outage warning: the core reports an outage once.
+
+        Args:
+            book: A book linked to Komga (``external.item_id`` set).
+            target: Where the reader is, in the book's current chapter table.
+
+        Returns:
+            The status (one of ``READ_STATE_WRITE_STATUSES``) and, for ``written`` or
+            ``already``, the read-back — after a write its ``fields`` also carry
+            ``external_locator``, the progression envelope just written; ``None`` otherwise.
+            ``rejected`` without a stored id or when Komga no longer has it; ``stale`` when
+            Komga's chapter table does not describe the file on disk.
+
+        Raises:
+            ProviderUnreachable: Komga is not configured, did not answer its probe, or its
+                breaker is open.
+        """
+        if not self._enabled:
+            raise ProviderUnreachable("Komga is not configured")
+        item_id = book.external.item_id
+        if not item_id:
+            status: str = "rejected"
+            result: SyncResult | None = None
+        else:
+            if self._circuit is not None and self._circuit.is_open(self._circuit_key):
+                raise ProviderUnreachable("circuit open")
+            try:
+                with self._guard():
+                    if not self._connection_ok():
+                        raise ProviderUnreachable("connection probe failed")
+                    status, result = self._write_reachable(book, item_id, target)
+            except CircuitOpenError as exc:
+                raise ProviderUnreachable("circuit open") from exc
+        logger.debug('Komga write-through for "%s": %s', book.title, status)
+        return status, result
+
+    def _write_reachable(
+        self, book: BookView, item_id: str, target: ReadPosition
+    ) -> tuple[str, SyncResult | None]:
+        """The write-through once Komga answered its probe (see :meth:`write_position`)."""
+        self._positions_cache.clear()
+        self._progression_cache.clear()
+        self._written_progression.clear()
+        komga_book = self._client.get_book(item_id)
+        if komga_book is None:
+            return "rejected", None
+        join = self._build_join(book, item_id)
+        if not join.consistent:
+            return "stale", None
+        provider_finished = bool((komga_book.get("readProgress") or {}).get("completed"))
+        restored, outcome = self._restore_semantic(
+            item_id, book, target, join, provider_finished=provider_finished, quiet=True
+        )
+        status = _WRITE_STATUSES[outcome.action]
+        if status not in ("written", "already"):
+            return status, None
+        read_back = self._refresh_reachable(book, item_id)
+        if not read_back.ok:
+            return status, None
+        return status, replace(read_back, fields={**read_back.fields, **restored})
 
     def _scan_progress_changes(
         self, previous: datetime | None, library_id: str
