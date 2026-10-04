@@ -37,7 +37,6 @@ import logging
 from collections.abc import Sequence
 
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.epub.chapters import Chapter, chapter_table
 from ebookerr_sdk.spi import (
     BookPatch,
     ChapterLink,
@@ -179,15 +178,14 @@ def _build_view(
 
 
 def _absorbed_chapter_links(
-    survivor: EpubItem, others: Sequence[EpubItem], merged: Sequence[Chapter]
+    survivor: EpubItem, others: Sequence[EpubItem], merged: Sequence[tuple[str, str | None, int]]
 ) -> tuple[ChapterLink, ...]:
     """Every story URL the merged book now contains, in a stable order.
 
-    For each merged chapter whose key starts with http:// or https://, emits a ChapterLink
-    with that key as URL and the chapter's ordinal. Then emits the survivor's own chapter URLs
-    (its more specific identity) before its story URL, then each absorbed book's story URL
-    before that book's own chapter URLs, all with ordinal 0. Deduplicated by URL keeping the
-    first occurrence, so re-merging is idempotent.
+    For each chapter link the merged file declares (``EpubDocument.chapter_links``: ``(url, title, ordinal)``), emits a ChapterLink with that ordinal
+    (``LIB-D40``). Then emits the survivor's own chapter URLs (its more specific identity) before its
+    story URL, then each absorbed book's story URL before that book's own chapter URLs, all with
+    ordinal 0. Deduplicated by URL keeping the first occurrence, so re-merging is idempotent.
 
     Without this the merged-away books' URLs vanish with their rows, and the Stories page
     stops recognising stories whose content is sitting inside the merged EPUB.
@@ -195,10 +193,10 @@ def _absorbed_chapter_links(
     Args:
         survivor: The book that absorbs every other item's chapters.
         others: The books being merged away and deleted.
-        merged: The merged book's chapter table with ``ordinal`` and ``key`` attributes.
+        merged: The merged file's chapter links, ``(url, title, ordinal)``.
 
     Returns:
-        The union as ``ChapterLink`` rows with proper ordinals (``CHC-D13``).
+        The union as ``ChapterLink`` rows with proper ordinals (``LIB-D40``).
     """
     links: list[ChapterLink] = []
     seen: set[str] = set()
@@ -210,10 +208,9 @@ def _absorbed_chapter_links(
         seen.add(url)
         links.append(ChapterLink(url=url, title=title, ordinal=ordinal))
 
-    # First: merged chapters with URLs as their key
-    for ch in merged:
-        if ch.key and (ch.key.startswith("http://") or ch.key.startswith("https://")):
-            add(ch.key, ch.title, ordinal=ch.ordinal)
+    # First: the chapter URLs the merged file declares (LIB-D40)
+    for url, title, ordinal in merged:
+        add(url, title, ordinal=ordinal)
 
     # Then: survivor's chapter URLs, then its story URL
     for link in survivor.book.chapters:
@@ -525,13 +522,9 @@ class EpubMergePlugin:
 
         ctx.check_cancelled()
 
-        # Read the merged EPUB's chapter table: the absorbed books' chapter URLs are
-        # re-pointed onto it.
-        merged_doc = EpubDocument.open(survivor.epub_path)
-        merged_chapters_tuple = chapter_table(merged_doc)
-
-        # Create merged chapters list indexed by ordinal (subtract 1 when accessing)
-        merged_chapters = list(merged_chapters_tuple)
+        # Read the merged EPUB's declared chapter URLs: the absorbed books' URLs are
+        # re-pointed onto them (LIB-D40).
+        merged_links = EpubDocument.open(survivor.epub_path).chapter_links()
 
         title = survivor.book.title or survivor.book.book_id
         merged_fields: dict[str, int | str] = {"num_chapters": outcome.chapter_count}
@@ -545,7 +538,7 @@ class EpubMergePlugin:
                 survivor.book.book_id,
             )
 
-        absorbed = _absorbed_chapter_links(survivor, others, merged_chapters)
+        absorbed = _absorbed_chapter_links(survivor, others, merged_links)
         logger.info(
             'EPUB merge absorbed %d chapter URL(s) into "%s" (book_id=%s)',
             len(absorbed),
