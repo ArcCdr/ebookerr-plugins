@@ -437,14 +437,14 @@ def _propagate_author(patches: list[StoryPatch]) -> tuple[list[StoryPatch], int,
 class UrlStoryExtractorPlugin:
     """Catch-all story extractor: lists the stories on any page FanFicFare can read.
 
-    The extraction mirror of ``FanFicFareSourcePlugin``: the ``story_extractor`` role's ``url_patterns``
-    set to ``("^https?://",)`` at ``priority=1000`` makes it the floor beneath every more specific
-    extractor (``EXT-D3``), so a future site-specialised catalog registered at a lower priority wins
-    its own URLs with no core change.
+    The extraction mirror of ``FanFicFareSourcePlugin``: the ``story_extractor`` role's
+    ``url_patterns`` set to ``("^https?://",)`` at ``priority=1000`` makes it the floor
+    beneath every more specific extractor (``EXT-D3``), so a future site-specialised catalog
+    registered at a lower priority wins its own URLs with no core change.
 
-    ``scan`` covers every URL in the ``extract_urls`` setting (a full snapshot); ``extract_stories``
-    answers one ad-hoc URL (merged in, never pruning); ``enrich_stories`` enriches metadata for
-    already-extracted URLs without re-listing their pages.
+    ``scan`` covers every URL in the ``extract_urls`` setting (a full snapshot);
+    ``extract_stories`` answers one ad-hoc URL (merged in, never pruning); ``enrich_stories``
+    enriches metadata for already-extracted URLs without re-listing their pages.
     """
 
     manifest = package_manifest(__file__)
@@ -624,7 +624,8 @@ class UrlStoryExtractorPlugin:
     def claims_url(self, url: str) -> bool:
         """Return whether this plugin claims the given URL.
 
-        Matches against the ``story_extractor`` role's ``url_patterns``, compiled once in ``__init__``.
+        Matches against the ``story_extractor`` role's ``url_patterns``, compiled once in
+        ``__init__``.
 
         Args:
             url: The URL to check.
