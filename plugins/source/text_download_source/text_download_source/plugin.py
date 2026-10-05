@@ -35,7 +35,24 @@ logger = logging.getLogger(__name__)
 
 
 class TextDownloadSourcePlugin:
-    """Direct Source plugin for TXT/Markdown downloads with site authentication."""
+    """Direct Source plugin for TXT/Markdown downloads with site authentication.
+
+    This plugin is a Source: it claims URLs ending in .txt or .md (`claims`,
+    `claims_format`), reports whether a newer version exists (`check_for_update`),
+    downloads the file (`pull`), declares its settings (`settings_schema`), and
+    converts the text to EPUB (`convert`). The conversion is performed by the
+    `convert_text_to_epub` function from the SDK.
+
+    The SDK helpers `download_convert_stage` and `convert_stage` orchestrate the
+    full download-convert-stage workflow. Site authentication headers are resolved
+    via `PluginContext.auth_headers()` based on the target URL profile.
+
+    Lifecycle and invariants:
+        The `pull()` method returns a `BookPatch` on success, raising
+        `SourcePullError` on download or conversion failure. The `convert()`
+        method also returns a `BookPatch`. The instance retains the HTTP session
+        and timeout across method calls within one invocation.
+    """
 
     manifest = package_manifest(__file__)
 
