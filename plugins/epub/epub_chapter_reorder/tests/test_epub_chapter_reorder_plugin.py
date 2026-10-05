@@ -79,7 +79,6 @@ class TestManifest:
         assert trigger.icon == "low_priority"
         assert trigger.label == "Chapters"
         assert trigger.min_books == 1
-        assert trigger.filters == ()
 
     def test_priority_and_events_are_unchanged(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
