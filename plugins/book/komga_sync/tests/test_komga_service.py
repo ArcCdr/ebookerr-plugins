@@ -1,4 +1,4 @@
-"""Tests for KomgaService business rules (F3 / ARCHITECTURE.md §2.2)."""
+"""Tests for KomgaService business rules (the core's PLUGIN_ARCHITECTURE_REQUIREMENTS.md §5)."""
 
 from __future__ import annotations
 

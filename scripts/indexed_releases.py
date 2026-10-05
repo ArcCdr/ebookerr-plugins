@@ -2,7 +2,8 @@
 
 The index workflow (``.github/workflows/index.yml``) downloads every GitHub release and builds the
 registry index from them. A plugin removed from ``plugins/`` must leave the index too (``LIB-D41``
-in the ebookerr core's ARCHITECTURE), so an installed copy shows as no longer available, while its
+in the core's ``docs/requirements/LIBRARY_FIELDS_REQUIREMENTS.md``), so an installed copy shows as
+no longer available, while its
 old releases stay on GitHub as history. This script keeps only the releases whose plugin folder
 ``plugins/<type>/<id>/`` (holding a ``manifest.toml``) still exists.
 

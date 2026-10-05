@@ -121,7 +121,7 @@ def sanitize(value: str | None) -> str | None:
     """F3 field sanitiser: strip HTML tags, decode entities, trim the ends.
 
     Applied to every local/FanFicFare string field before it is compared against or
-    submitted to Komga (ARCHITECTURE.md §F3). Internal whitespace is preserved; only the
+    submitted to Komga. Internal whitespace is preserved; only the
     ends are stripped. ``None`` (and any non-string) passes through unchanged.
     """
     if not isinstance(value, str):
