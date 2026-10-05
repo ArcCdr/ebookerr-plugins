@@ -55,10 +55,6 @@ class TestManifest:
     def test_satisfies_epub_plugin_protocol(self) -> None:
         assert isinstance(EpubChapterReorderPlugin(), api.EpubPlugin)
 
-    def test_plugin_is_headed(self) -> None:
-        manifest = EpubChapterReorderPlugin().manifest
-        assert manifest.headed is True
-
     def test_id_and_name_are_unchanged(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
         assert manifest.id == "epub_chapter_reorder"

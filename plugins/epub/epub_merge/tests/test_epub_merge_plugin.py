@@ -64,7 +64,6 @@ def test_manifest_contract() -> None:
     assert manifest.id == "epub_merge"
     assert manifest.plugin_type == api.PluginType.EPUB
     assert manifest.accepts_list is True
-    assert manifest.headed is True
     assert manifest.priority == 50
     assert manifest.events == ()
 

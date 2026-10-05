@@ -1,13 +1,10 @@
 id = "file_meta_sync"
 name = "File metadata sync"
 version = "2.1.0"
-default_enabled = true
 type = "book"
 spi_version = "2.30"
 entrypoint = "entrypoint.py"
 description = "Syncs sidecar files (cover candidates, synopsis) with the library"
-network = false
-headed = true
 accepts_list = true
 events = ["BookCreated", "BookUpdated", "BookImported", "BookDeleted", "EpubCreated", "EpubModified"]
 icon = "snippet_folder"

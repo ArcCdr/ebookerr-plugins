@@ -69,4 +69,3 @@ def test_the_chapter_editor_confirm_names_its_changes() -> None:
 
     plugin = EpubChapterReorderPlugin()
     assert plugin.manifest.id == "epub_chapter_reorder"
-    assert plugin.manifest.headed is True

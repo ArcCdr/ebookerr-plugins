@@ -21,7 +21,7 @@ def test_manifest_keeps_its_identity() -> None:
     assert 'id = "file_meta_sync"' in _MANIFEST
     assert 'type = "book"' in _MANIFEST
     assert "accepts_list = true" in _MANIFEST
-    assert "headed = true" in _MANIFEST
+    assert 'scope = "book_selection_action"' in _MANIFEST
 
 
 def test_manifest_keeps_both_ui_triggers() -> None:

@@ -4,7 +4,6 @@ version = "1.2.0"
 type = "epub"
 spi_version = "2.32"
 description = "Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file."
-headed = true
 priority = 950
 accepts_list = true
 events = ["EpubCreated", "EpubModified"]

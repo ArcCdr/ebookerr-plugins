@@ -83,10 +83,6 @@ class TestManifest:
             api.PluginEventType.EPUB_MODIFIED,
         )
 
-    def test_manifest_runs_headed(self) -> None:
-        plugin = EpubNormalizePlugin()
-        assert plugin.manifest.headed is True
-
     def test_manifest_ui_trigger(self) -> None:
         plugin = EpubNormalizePlugin()
         triggers = plugin.manifest.ui_triggers

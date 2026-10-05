@@ -5,7 +5,6 @@ type = "catalog"
 spi_version = "2.32"
 description = "Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping."
 priority = 1000
-network = true
 run_timeout_s = 1800
 icon = "travel_explore"
 author = "ArcCdr"

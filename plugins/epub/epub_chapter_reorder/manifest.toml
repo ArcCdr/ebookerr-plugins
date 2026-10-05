@@ -4,7 +4,6 @@ version = "2.2.0"
 type = "epub"
 spi_version = "2.30"
 description = "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched."
-headed = true
 events = ["EpubCreated", "EpubModified"]
 priority = 55
 run_timeout_s = 600

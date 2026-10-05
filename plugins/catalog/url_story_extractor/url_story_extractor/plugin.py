@@ -1,9 +1,9 @@
 """Catch-all story extractor: lists stories on any page FanFicFare can read.
 
-The extraction mirror of ``FanFicFareSourcePlugin``: ``extract_url_patterns=("^https?://",)``
-at ``priority=1000`` makes it the floor beneath every more specific extractor (``EXT-D3``), so
-a future site-specialised catalog registered at a lower priority wins its own URLs with no
-core change.
+The extraction mirror of ``FanFicFareSourcePlugin``: the ``story_extractor`` role's ``url_patterns``
+set to ``("^https?://",)`` at ``priority=1000`` makes it the floor beneath every more specific
+extractor (``EXT-D3``), so a future site-specialised catalog registered at a lower priority wins
+its own URLs with no core change.
 
 ``scan`` covers every URL in the ``extract_urls`` setting (a full snapshot); ``extract_stories``
 answers one ad-hoc URL (merged in, never pruning); ``enrich_stories`` enriches metadata for
@@ -437,10 +437,10 @@ def _propagate_author(patches: list[StoryPatch]) -> tuple[list[StoryPatch], int,
 class UrlStoryExtractorPlugin:
     """Catch-all story extractor: lists the stories on any page FanFicFare can read.
 
-    The extraction mirror of ``FanFicFareSourcePlugin``: ``extract_url_patterns=("^https?://",)``
-    at ``priority=1000`` makes it the floor beneath every more specific extractor (``EXT-D3``), so
-    a future site-specialised catalog registered at a lower priority wins its own URLs with no
-    core change.
+    The extraction mirror of ``FanFicFareSourcePlugin``: the ``story_extractor`` role's ``url_patterns``
+    set to ``("^https?://",)`` at ``priority=1000`` makes it the floor beneath every more specific
+    extractor (``EXT-D3``), so a future site-specialised catalog registered at a lower priority wins
+    its own URLs with no core change.
 
     ``scan`` covers every URL in the ``extract_urls`` setting (a full snapshot); ``extract_stories``
     answers one ad-hoc URL (merged in, never pruning); ``enrich_stories`` enriches metadata for
@@ -624,7 +624,7 @@ class UrlStoryExtractorPlugin:
     def claims_url(self, url: str) -> bool:
         """Return whether this plugin claims the given URL.
 
-        Matches against the manifest's ``extract_url_patterns``, compiled once in ``__init__``.
+        Matches against the ``story_extractor`` role's ``url_patterns``, compiled once in ``__init__``.
 
         Args:
             url: The URL to check.

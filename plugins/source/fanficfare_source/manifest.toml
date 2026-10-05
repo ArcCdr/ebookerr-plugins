@@ -4,7 +4,6 @@ version = "1.4.0"
 type = "source"
 spi_version = "2.33"
 description = "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first."
-headless = true
 priority = 1000
 url_patterns = ["^https?://"]
 update_check = true
