@@ -4166,3 +4166,24 @@ def test_epub_merge_declares_the_capability() -> None:
     """EpubMergePlugin declares merge_proposals role."""
     plugin = EpubMergePlugin()
     assert plugin.manifest.roles.merge_proposals is True
+
+
+def test_the_survivor_picker_is_a_strict_string_field(tmp_path: Path) -> None:
+    """The survivor field in the merge view is type='string' with options_strict=True."""
+    from epub_merge.plugin import _build_view
+
+    items = (
+        _make_item("b1", tmp_path / "a.epub", "Book A"),
+        _make_item("b2", tmp_path / "b.epub", "Book B"),
+        _make_item("b3", tmp_path / "c.epub", "Book C"),
+    )
+
+    view = _build_view(items[0], items, "b1")
+
+    # Find the survivor field in the FIELDS section
+    fields_section = next(s for s in view.sections if s.kind == api.ViewSectionKind.FIELDS)
+    survivor_field = next(f for f in fields_section.fields if f.key == "survivor")
+
+    assert survivor_field.type == "string"
+    assert survivor_field.options_strict is True
+    assert survivor_field.options == ("b1", "b2", "b3")

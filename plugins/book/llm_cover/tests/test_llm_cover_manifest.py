@@ -80,7 +80,7 @@ def test_image_model_row_fields() -> None:
     field_tuples = [(f.key, f.type) for f in IMAGE_MODEL_FIELDS]
     expected = [
         ("label", "string"),
-        ("api", "select"),
+        ("api", "string"),
         ("base_url", "url"),
         ("model", "string"),
         ("width", "int"),
@@ -179,3 +179,23 @@ def test_the_legacy_default_is_a_previous_default() -> None:
     prompt_field = next(f for f in schema.fields if f.key == "prompt_template")
     assert prompt_field.previous_defaults == (LEGACY_DEFAULT_IMAGE_PROMPT_TEMPLATE,)
     assert LEGACY_DEFAULT_IMAGE_PROMPT_TEMPLATE.endswith("Opening of the book:\n{book_text}")
+
+
+def test_no_field_uses_a_retired_type() -> None:
+    """Verify no field or sub-field uses a retired type like 'select'."""
+    schema = LlmCoverPlugin().settings_schema()
+    valid_types = p.SETTINGS_FIELD_TYPES
+
+    # Check top-level fields
+    for field in schema.fields:
+        assert field.type in valid_types, f"Field {field.key} has retired type {field.type}"
+        # Check sub-fields of record_list fields
+        if field.type == "record_list" and field.fields:
+            for sub_field in field.fields:
+                assert sub_field.type in valid_types, (
+                    f"Sub-field {sub_field.key} in {field.key} has retired type {sub_field.type}"
+                )
+
+    # Also check IMAGE_MODEL_FIELDS directly
+    for field in IMAGE_MODEL_FIELDS:
+        assert field.type in valid_types, f"IMAGE_MODEL_FIELDS field {field.key} has retired type {field.type}"
