@@ -35,7 +35,26 @@ __all__ = ["DocxDownloadSourcePlugin"]
 
 
 class DocxDownloadSourcePlugin:
-    """Direct Source plugin for DOCX downloads with site authentication."""
+    """Direct Source plugin for DOCX downloads with site authentication.
+
+    The plugin is a Source: it claims URLs ending in ``.docx`` via ``claims()``
+    and claims the ``'docx'`` media format via ``claims_format()``; reports whether
+    a newer version exists via ``check_for_update()``; downloads and converts the
+    DOCX to EPUB via ``pull()`` and ``convert()``; and declares its settings schema
+    via ``settings_schema()``.
+
+    The conversion logic lives in the ``docx_to_epub`` module. The plugin uses SDK
+    helpers ``download_convert_stage`` and ``convert_stage`` from
+    ``ebookerr_sdk.download.document`` and ``check_download_update`` from
+    ``ebookerr_sdk.download.check``. Site authentication headers come from
+    ``ctx.auth_headers(url)``.
+
+    Lifecycle and invariants:
+        On success, ``pull()`` returns a ``BookPatch`` with title, author, and
+        content hash; on failure it raises ``SourcePullError`` or
+        ``ContentTypeMismatchError``. Files are staged under the *work_dir*
+        parameter. The instance stores the HTTP session and timeout in ``__init__``.
+    """
 
     manifest = package_manifest(__file__)
 
