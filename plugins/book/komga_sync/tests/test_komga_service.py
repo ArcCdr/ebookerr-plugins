@@ -7105,7 +7105,7 @@ def test_place_bookmark_writes_the_nearest_valid_position(
     repo: _FakeBookRepository,
 ) -> None:
     """place_bookmark() finds nearest progression and writes it with title."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKomga()
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
@@ -7136,7 +7136,7 @@ def test_place_bookmark_records_the_envelope_it_wrote(
     repo: _FakeBookRepository,
 ) -> None:
     """place_bookmark() stores the written envelope in _written_progression."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKomga()
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
@@ -7152,7 +7152,7 @@ def test_place_bookmark_records_the_envelope_it_wrote(
 
 def test_place_bookmark_refuses_an_anchor_the_positions_table_does_not_have() -> None:
     """place_bookmark() returns False when anchor.ref is not in positions."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKomga()
     anchor = ProviderAnchor("OEBPS/gone.xhtml", None, 0)
@@ -7167,7 +7167,7 @@ def test_place_bookmark_refuses_an_anchor_the_positions_table_does_not_have() ->
 
 def test_place_bookmark_reports_false_when_komga_rejects_the_write() -> None:
     """place_bookmark() returns False and doesn't record when put_progression fails."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKomga()
     client.put_progression_ok = False

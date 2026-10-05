@@ -2617,7 +2617,7 @@ def test_read_bookmark_reports_no_bookmark_without_a_resolved_ref() -> None:
 
 def test_place_bookmark_computes_the_page_from_the_span() -> None:
     """place_bookmark computes page from anchor start, span, and progression."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = BACKWARD_TOC
@@ -2641,7 +2641,7 @@ def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() ->
     see ``test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last``
     for the case where it is not.
     """
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = BACKWARD_TOC
@@ -2659,7 +2659,7 @@ def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() ->
 
 def test_place_bookmark_uses_the_book_end_for_the_last_anchor() -> None:
     """place_bookmark spans from last anchor to total_pages."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = BACKWARD_TOC
@@ -2677,7 +2677,7 @@ def test_place_bookmark_uses_the_book_end_for_the_last_anchor() -> None:
 
 def test_place_bookmark_refuses_an_anchor_the_toc_does_not_have() -> None:
     """place_bookmark returns False when anchor.ref is not in the current TOC."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = BACKWARD_TOC
@@ -2695,7 +2695,7 @@ def test_place_bookmark_refuses_an_anchor_the_toc_does_not_have() -> None:
 
 def test_place_bookmark_refuses_without_a_resolved_ref() -> None:
     """place_bookmark returns False when _ref_cache has no entry."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     svc = service(client)  # Empty _ref_cache
@@ -2758,7 +2758,7 @@ def test_the_ref_memo_is_cleared_between_calls() -> None:
 
 def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
     """place_bookmark logs the page computation at DEBUG level."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = BACKWARD_TOC
@@ -2779,7 +2779,7 @@ def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
 @pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_at_full_progress_stays_in_the_chapter() -> None:
     """At 100% progression, land on chapter's last page, never next chapter's first (RPH-ANC-7)."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     # Probe TOC: Title Page@1, Ch 1@5, Ch 2@20; total_pages=25
     probe_toc = [
@@ -2821,7 +2821,7 @@ def test_place_bookmark_at_full_progress_lands_on_the_chapter_end() -> None:
     must clamp to ``start + span - 1`` on a non-last chapter, never bleeding into the next
     chapter's first page.
     """
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     client = FakeKavita()
     client.book_chapters_result = [
@@ -2848,7 +2848,7 @@ def test_place_bookmark_completed_stays_in_the_chapter_when_it_is_no_longer_last
     jump to the book's current last page once a later append (e.g. a merge) adds a chapter
     after it — it must still land within its own chapter's span (RPH-ANC-7).
     """
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     # Probe TOC: Ch 1@0, Ch 2@1, Ch 3@2, Ch 4@3; total_pages=4 (one page per chapter).
     probe_toc = [
@@ -2884,7 +2884,7 @@ def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() 
     used to read as "this is the last chapter" and clamp to the book's stale end instead of
     this chapter's real span (RPH-ANC-7).
     """
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     # Probe TOC: Ch 1@0, Ch 2@1, Ch 3@2, Ch 4@3 — Ch 4 already exists in the fresh TOC, but
     # total_pages=3 is stale, still reporting the book's page count from before Ch 4 existed.
@@ -2912,7 +2912,7 @@ def test_place_bookmark_ignores_a_stale_total_pages_that_understates_the_book() 
 @pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_at_zero_lands_on_the_start_page() -> None:
     """Restore at 0% progression lands on the chapter's start page (RPH-ANC-7)."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     probe_toc = [
         {"title": "Title Page", "page": 1},
@@ -2936,7 +2936,7 @@ def test_place_bookmark_at_zero_lands_on_the_start_page() -> None:
 @pytest.mark.pins("RPH-ANC-7")
 def test_place_bookmark_round_trip_stays_within_one_page() -> None:
     """Round-trip place→read stays within one page for any progression (RPH-ANC-7)."""
-    from ebookerr_sdk.spi import ProviderAnchor, ProviderBookmark
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 
     probe_toc = [
         {"title": "Title Page", "page": 1},
