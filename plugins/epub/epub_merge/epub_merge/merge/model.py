@@ -1,4 +1,23 @@
-"""EPUB merge neutral data model and path constants."""
+"""EPUB merge neutral data model and path constants.
+
+The module defines the data structures that flow through the merge pipeline,
+from reading source books through planning the output to rendering the merged
+result, independent of how input books are read or written. Sibling modules
+in ``merge/`` (metadata, chapters, cover, plan, chapter_urls, render, merge,
+landmarks, links, reader, assets, pages, and styles) all import from this
+module to exchange data between pipeline stages.
+
+The constants ``OPF_DIR``, ``OPF_PATH``, ``NCX_HREF``, and ``NAV_HREF``
+name standard locations and file references within an EPUB: the Open
+Publication Structure directory ("OEBPS"), the package document path, the
+EPUB 2.0 table of contents file, and the EPUB 3.0 navigation document.
+
+The frozen dataclasses define: ``MergeOptions`` (caller's merge operation
+configuration), ``MergeOutcome`` (result of a completed merge), ``InputChapter``
+and ``InputResource`` (read-in chapter and resource data from a source book),
+``InputBook`` (complete metadata and content of a source book), and
+``PlannedChapter`` (a chapter in the merged book's planned output structure).
+"""
 
 from __future__ import annotations
 
