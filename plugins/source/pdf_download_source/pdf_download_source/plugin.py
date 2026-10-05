@@ -61,9 +61,9 @@ class PdfDownloadSourcePlugin:
 
     Lifecycle and invariants:
         On success, ``pull()`` returns a ``BookPatch`` with title, author, and
-        content hash; on failure it raises ``SourcePullError``. Files are staged
-        under the *work_dir* parameter. The instance stores the HTTP session and
-        timeout in ``__init__``.
+        content hash; on failure it raises ``SourcePullError`` or
+        ``ContentTypeMismatchError``. Files are staged under the *work_dir*
+        parameter. The instance stores the HTTP session and timeout in ``__init__``.
     """
 
     manifest = package_manifest(__file__)

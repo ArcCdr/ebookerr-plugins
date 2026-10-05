@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """My Literotica catalog plugin - the authenticated activity wall as StoryPatches.
 
-The module serves as the plugin's subprocess entrypoint. `main()` reads a scan request from
+The module serves as the plugin's subprocess entrypoint. ``main()`` reads a scan request from
 stdin, authorizes with stored site-auth credentials, drains the activity wall via the
 Literotica API, maps each story publication to a StoryPatch dict, and writes a JSON response
 to stdout.
 
-`login` logs in to the auth host and returns the durable ``sessionid`` cookie value.
-`mint_token` exchanges that cookie for a fresh one-hour bearer token. `resolve_token` turns
-the stored literotica.com site-auth profile into a wall bearer token. `fetch_wall_page`
-reads one page of the activity wall. `fetch_activities` drains the activity wall page by
-page until exhausted. `map_activity` maps one wall entry to a StoryPatch wire dict. `scan`
-enumerates every story publication the wall holds. `main` is the subprocess entrypoint.
+``login`` logs in to the auth host and returns the durable ``sessionid`` cookie value.
+``mint_token`` exchanges that cookie for a fresh one-hour bearer token. ``resolve_token``
+turns the stored literotica.com site-auth profile into a wall bearer token.
+``fetch_wall_page`` reads one page of the activity wall. ``fetch_activities`` drains the
+activity wall page by page until exhausted. ``map_activity`` maps one wall entry to a
+StoryPatch wire dict. ``scan`` enumerates every story publication the wall holds. ``main`` is
+the subprocess entrypoint.
 
 The module communicates with the core via the stdio channel (circuit breaker protocol,
-EXP-269) and with literotica.com via HTTP. When the circuit breaker is open, `scan` raises
-`CatalogHostUnreachable` and makes no request. The sibling literotica_stories catalog plugin
+EXP-269) and with literotica.com via HTTP. When the circuit breaker is open, ``scan`` raises
+``CatalogHostUnreachable`` and makes no request. The sibling literotica_stories catalog plugin
 shares the same circuit breaker, so one host outage is one breaker, not two.
 """
 

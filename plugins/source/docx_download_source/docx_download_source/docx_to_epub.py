@@ -5,17 +5,18 @@ format. This module handles metadata preservation, chapter structure
 detection via document heading styles, and cover image extraction from DOCX
 files.
 
-Public names: `DocxConversionError` is raised when DOCX extraction fails;
-`extract_docx_book` returns a `Book` with metadata, chapters, and paragraph
-text; `convert_docx_to_epub` produces an EPUB file with metadata, chapters,
-optional cover image, and the first paragraph of document text.
+Public names: ``DocxConversionError`` is raised when DOCX extraction fails;
+``extract_docx_book`` returns a ``Book`` with metadata, chapters, and paragraph
+text; ``convert_docx_to_epub`` writes an EPUB file with metadata, chapters, and an
+optional cover image, and returns a ``ConversionResult`` that also carries the
+first paragraph of document text, a title-fallback candidate (EXP-224).
 
-Chapter and cover detection: `extract_docx_book` identifies chapter
-boundaries by examining paragraph styles and treats paragraphs with style
-names starting with "Heading" or "Title" as chapter titles, with subsequent
-body paragraphs forming the chapter content. Cover image is extracted via
-`_extract_docx_cover`, which locates the first image in the document
-relationships (EXP-224).
+Chapter and cover detection: ``extract_docx_book`` identifies chapter
+boundaries by examining paragraph styles and treats paragraphs whose style
+name starts with "Heading" or is exactly "Title" as chapter titles, with
+subsequent body paragraphs forming the chapter content. Cover image is
+extracted via ``_extract_docx_cover``, which locates the first image in the
+document relationships.
 """
 
 import logging

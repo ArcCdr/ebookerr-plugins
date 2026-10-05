@@ -383,16 +383,20 @@ class KomgaSyncPlugin:
     Collaborators: The plugin delegates all sync mechanics to ``KomgaService``, which
     it instantiates fresh per call via ``_build_service`` with a ``RequestsKomgaClient``
     built from the connection settings. The service returns ``SyncResult`` objects; the
-    plugin translates these into ``BookPatch`` objects (containing ``READ_STATE_FIELDS``
-    and ``read_position``) for the core to persist. The plugin makes no DB writes itself.
+    plugin translates these into ``BookPatch`` objects for the core to persist: for
+    ``enrich`` the result's fields (with the restore-marker and link-attempt fields) and
+    ``read_position``, for the read-state hooks only ``READ_STATE_FIELDS`` and
+    ``read_position``. The plugin makes no DB writes itself.
 
     Lifecycle and invariants:
         One ``KomgaService`` is built per ``enrich`` call; settings are read fresh each
-        time. When Komga is unreachable, ``enrich`` returns patches carrying only the
-        link-attempt outcome (``LINK_ERROR_FIELD``), ``test_connection`` returns
-        ``(False, message)`` naming the issue, and ``read_state_changes`` /
-        ``refresh_read_state`` raise ``ProviderUnreachable``. The plugin never raises
-        to the host on Komga errors — all failures surface as return values.
+        time. When Komga is unreachable, ``enrich`` records no link attempt (no lookup
+        ran): its patch for the book carries only a cleared ``external_chapter_count``,
+        and the core is told through ``ctx.report_failure`` (``ctx.report_skip`` when the
+        circuit breaker answered from memory). ``test_connection`` returns
+        ``(False, message)`` naming the issue. ``enrich`` and ``test_connection`` never
+        raise ``ProviderUnreachable``; ``read_state_changes``, ``refresh_read_state`` and
+        ``write_read_state`` let it propagate to the core.
     """
 
     manifest = package_manifest(__file__)

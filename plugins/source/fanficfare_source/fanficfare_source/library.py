@@ -108,26 +108,26 @@ class FanFicFareLibraryGateway:
     """FanFicFare run in this plugin's own process (``LIB-D25``).
 
     This gateway runs FanFicFare inside the plugin's process to fetch metadata
-    (`fetch_metadata`) and download a story (`download`), writing the EPUB with
-    FanFicFare's own writer via `_write`. The `fetch_metadata()` method returns
-    the story's metadata as a dict or `None` on any failure. The `download()`
-    method returns a `DownloadResult` and never raises (failures are encoded in
+    (``fetch_metadata``) and download a story (``download``), writing the EPUB with
+    FanFicFare's own writer via ``_write``. The ``fetch_metadata()`` method returns
+    the story's metadata as a dict or ``None`` on any failure. The ``download()``
+    method returns a ``DownloadResult`` and never raises (failures are encoded in
     the result).
 
-    The instance receives the FanFicFare configuration file (`personal_ini` as a
-    Path) and an optional circuit breaker (`circuit` as a CircuitGuard). The
-    `_configuration()` method builds the story's configuration with fixed update
-    overrides. The circuit breaker is consulted via `_circuit_key()` to extract
-    the host key and label, `_blocked()` to check if a call should be refused,
-    and `_record()` to report an outage as a failure.
+    The instance receives the FanFicFare configuration file (``personal_ini`` as a
+    Path) and an optional circuit breaker (``circuit`` as a CircuitGuard). The
+    ``_configuration()`` method builds the story's configuration with fixed update
+    overrides. The circuit breaker is consulted via ``_circuit_key()`` to extract
+    the host key and label, ``_blocked()`` to check if a call should be refused,
+    and ``_record()`` to report an outage as a failure.
 
     Lifecycle and invariants:
-        When the circuit is open (returned by `_blocked()`), a call is refused
-        without making any request and a `DownloadResult` with status "failed"
-        is returned. A failure is recorded only when an outage occurs (via
-        `_record(ok=False)`). The instance retains the configuration file path
-        and circuit breaker across multiple calls and uses them for all
-        subsequent invocations.
+        When the host's circuit is open (``_blocked()`` returns its label), a call is
+        refused without making any request: ``fetch_metadata`` returns ``None`` and
+        ``download`` returns a ``DownloadResult`` with status ``"failed"``. A failure
+        is recorded only when an outage occurs (via ``_record(ok=False)``). The
+        instance retains the configuration file path and circuit breaker across
+        multiple calls and uses them for all subsequent invocations.
     """
 
     def __init__(self, personal_ini: Path, *, circuit: CircuitGuard | None = None) -> None:

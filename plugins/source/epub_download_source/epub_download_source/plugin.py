@@ -117,23 +117,23 @@ def _guard(circuit: CircuitGuard | None, key: str, host: str) -> AbstractContext
 class EpubDownloadSourcePlugin:
     """Direct Source plugin for EPUB downloads with site authentication.
 
-    This plugin is a Source: it claims URLs ending in .epub (`claims`,
-    `claims_format`), reports whether a newer version exists (`check_for_update`),
-    downloads the file (`pull`), and declares its settings (`settings_schema`).
-    It downloads the EPUB as-is, reads its metadata (`_read_epub_metadata`), and
-    builds the fields (`_build_fields`) from the extracted metadata.
+    This plugin is a Source: it claims URLs ending in ``.epub`` (``claims``,
+    ``claims_format``), reports whether a newer version exists (``check_for_update``),
+    downloads the file (``pull``), and declares its settings (``settings_schema``).
+    It downloads the EPUB as-is, reads its metadata (``_read_epub_metadata``), and
+    builds the fields (``_build_fields``) from the extracted metadata.
 
-    The SDK helper `check_download_update` provides cheap update detection via HTTP
-    validators (ETag/Last-Modified/Content-Length). The `EpubDocument` class reads
+    The SDK helper ``check_download_update`` provides cheap update detection via HTTP
+    validators (ETag/Last-Modified/Content-Length). The ``EpubDocument`` class reads
     EPUB metadata. Site authentication headers are resolved via
-    `PluginContext.auth_headers()` based on the target URL profile.
+    ``PluginContext.auth_headers()`` based on the target URL profile.
 
     Lifecycle and invariants:
-        The `pull()` method returns a `BookPatch` on success, raising
-        `SourcePullError` on download failure or invalid EPUB. The patch carries
-        real fields (title, author, output_filename) and custom values (validators
-        and content hash). The instance retains the HTTP session and timeout across
-        method calls within one invocation.
+        The ``pull()`` method returns a ``BookPatch`` on success; on failure it raises
+        ``SourcePullError`` (download failure, too-large file or invalid EPUB) or
+        ``ContentTypeMismatchError``. The patch carries real fields (title, author,
+        output_filename) and custom values (validators and content hash). The instance
+        stores the HTTP session and timeout in ``__init__``.
     """
 
     manifest = package_manifest(__file__)

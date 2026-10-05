@@ -4,18 +4,19 @@ Extracts text and chapters from PDF documents and converts them to EPUB
 format. This module handles metadata preservation, chapter structure
 detection, and cover image extraction from PDF files.
 
-Public names: `PdfConversionError` is raised when PDF extraction fails;
-`extract_pdf_book` returns a `Book` with metadata, chapters, and paragraph
-text; `convert_pdf_to_epub` produces an EPUB file with metadata, chapters,
-cover image, and the first line of document text.
+Public names: ``PdfConversionError`` is raised when PDF extraction fails;
+``extract_pdf_book`` returns a ``Book`` with metadata, chapters, and paragraph
+text; ``convert_pdf_to_epub`` writes an EPUB file with metadata, chapters, and a
+cover image, and returns a ``ConversionResult`` that also carries the first line
+of document text, a title-fallback candidate (EXP-224).
 
 Chapter detection follows this order: attempt to extract chapters from the
-PDF's table of contents via `_extract_chapters_from_toc`, fall back to
-heuristic heading detection via `_extract_chapters_from_heuristic` which
-detects large-text lines as chapter boundaries via `_compute_body_text_size`,
-`_find_heading_chapters`, and `_extract_paragraphs_from_range`, and finally
+PDF's table of contents via ``_extract_chapters_from_toc``, fall back to
+heuristic heading detection via ``_extract_chapters_from_heuristic`` which
+detects large-text lines as chapter boundaries via ``_compute_body_text_size``,
+``_find_heading_chapters``, and ``_extract_paragraphs_from_range``, and finally
 return a single untitled chapter with full text via
-`_fallback_full_text_chapter` if no structure is found (EXP-224).
+``_fallback_full_text_chapter`` if no structure is found.
 """
 
 import logging

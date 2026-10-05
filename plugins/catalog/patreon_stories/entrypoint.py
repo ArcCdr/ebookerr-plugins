@@ -6,16 +6,17 @@ writes a story listing response to stdout. It discovers every Patreon membership
 holds and enumerates posts the account can access, returning a list of stories with full metadata
 fetched (``SPI 2.11``).
 
-The module exports `parse_campaigns` (parses membership campaigns from the account API response),
-`parse_posts_page` (parses a paginated posts API page response), `select_story_media` (selects
-the best media file for download by format preference), `build_story` (constructs a StoryPatch
-wire dict from a post and media file), `scan` (scans all memberships for posts within a look-back
-window and returns stories and logs), and `main` (the CLI entrypoint).
+The module exports ``parse_campaigns`` (parses membership campaigns from the account API
+response), ``parse_posts_page`` (parses a paginated posts API page response),
+``select_story_media`` (selects the best media file for download by format preference),
+``build_story`` (constructs a StoryPatch wire dict from a post and media file), ``scan``
+(scans all memberships for posts within a look-back window and returns stories and logs), and
+``main`` (the CLI entrypoint).
 
 The plugin queries Patreon's API directly over HTTPS with the account's session cookie. Before
-any request, it checks the host circuit breaker (``EXP-269``, ``SPI 2.21``) via `_circuit`;
-when the breaker is open, `CatalogHostUnreachable` is raised without making a network call. The
-scan never writes to disk, only reads from stdin and writes JSON to stdout.
+any request, it checks the host circuit breaker (``EXP-269``, ``SPI 2.21``) via ``_circuit``;
+when the breaker is open, ``CatalogHostUnreachable`` is raised without making a network call.
+The scan never writes to disk, only reads from stdin and writes JSON to stdout.
 """
 
 from __future__ import annotations
