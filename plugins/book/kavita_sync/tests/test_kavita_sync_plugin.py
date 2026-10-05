@@ -45,15 +45,6 @@ class _FakeCtx:
     def report_skip(self, book_id: str, reason: str) -> None:
         self.item_skips.append((book_id, reason))
 
-    def queue(
-        self,
-        *,
-        plugin_id: str,
-        event: api.PluginEventType,
-        targets: tuple[str, ...],
-    ) -> None:
-        pass
-
     def ask_yes_no(self, message: str, yes: str, no: str) -> bool:
         return False
 
