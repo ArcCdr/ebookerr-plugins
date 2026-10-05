@@ -46,7 +46,33 @@ def _redact(headers: Mapping[str, str | bytes]) -> dict[str, str | bytes]:
 
 
 class RequestsKomgaClient:
-    """Thin REST wrapper around a :class:`requests.Session`."""
+    """Thin REST wrapper around a :class:`requests.Session`.
+
+    Implements the provider's client protocol (``KomgaClient`` in ``protocol.py``
+    of the same package), making HTTP calls only with no business rules (those
+    live in :mod:`komga_sync.service`). Method calls are grouped as: connection
+    testing (``test_connection``), book lookups (``find_book_id``, ``get_book``,
+    ``book_exists``, ``get_series``), reading state access (``read_progress_changes``,
+    ``get_progression``, ``get_positions``), progress and metadata writes
+    (``put_progression``, ``patch_book_metadata``, ``patch_series_metadata``),
+    library operations (``trigger_analyze``, ``trigger_library_scan``,
+    ``scan_library``), deletion (``delete_book_file``, ``empty_trash``,
+    ``empty_trash_for``), and bulk listing (``list_library_books``).
+
+    Initialized with a Komga server ``base_url`` (trailing slash stripped),
+    ``api_key`` (sent as the ``X-API-Key`` HTTP header), ``library_id`` (UUID for
+    library-scoped operations; may be empty), an optional injectable ``session``
+    (:class:`requests.Session` for test mocking), and ``timeout`` (per-request
+    duration in seconds). The HTTP session is retained across all calls.
+
+    Lifecycle and invariants:
+        Transport failures and HTTP 502/503/504 responses raise
+        ``ProviderUnreachable`` from :meth:`_request` (see ``DFT-D41``).
+        The ``test_connection`` method probes reachability and credentials
+        instead, returning ``ConnectionTestResult`` without raising.
+        The session is either injected at construction or created once
+        and reused for the lifetime of the client instance.
+    """
 
     def __init__(
         self,

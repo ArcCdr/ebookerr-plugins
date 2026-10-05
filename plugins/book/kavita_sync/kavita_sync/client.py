@@ -98,7 +98,32 @@ class KavitaSeriesUnresolved:
 
 
 class RequestsKavitaClient:
-    """Thin REST wrapper around a :class:`requests.Session`."""
+    """Thin REST wrapper around a :class:`requests.Session`.
+
+    Implements the provider's client protocol (``KavitaClient`` in ``protocol.py``
+    of the same package), making HTTP calls only with no business rules (those
+    live in :mod:`kavita_sync.service`). Method calls are grouped as: connection
+    testing (``test_connection``), chapter and file lookups (``find_chapter``,
+    ``book_chapters``), series operations (``recently_read_series``,
+    ``rate_series``, ``series_rating``), reading state access (``get_progress``),
+    progress writes (``save_progress``), library scans (``scan_folder``,
+    ``scan_library``), and internal helpers (``_find_matching_file``,
+    ``_get_series_ids``).
+
+    Initialized with a Kavita server ``server`` (trailing slash stripped),
+    ``api_key`` (Kavita plugin key exchanged for a bearer token; see ``_token``),
+    an optional injectable ``session`` (:class:`requests.Session` for test
+    mocking), and ``external_url`` (retained but unused). The bearer token is
+    obtained lazily on first use via ``_token`` and returned by ``_headers``.
+
+    Lifecycle and invariants:
+        Transport failures and HTTP 502/503/504 responses raise
+        ``ProviderUnreachable`` from :meth:`_send` (see ``DFT-D41``).
+        The ``test_connection`` method probes reachability and credentials
+        instead, returning ``ConnectionTestResult`` without raising.
+        The session is either injected at construction or created once
+        and reused for the lifetime of the client instance.
+    """
 
     def __init__(
         self,
