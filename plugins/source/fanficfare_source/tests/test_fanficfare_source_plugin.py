@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import threading
 from pathlib import Path
 from typing import Any
@@ -319,21 +320,11 @@ def test_check_for_update_delegates_to_the_engine() -> None:
     fake.set_check_result(expected)
     plugin = FanFicFareSourcePlugin(pull=fake)  # type: ignore[arg-type]
 
-    result = plugin.check_for_update(URL)
+    result = plugin.check_for_update(URL, prior=None, ctx=FakeContext())
 
     assert result == expected
     assert len(fake.check_for_update_calls) == 1
     assert fake.check_for_update_calls[0]["url"] == URL
-
-
-def test_check_for_update_accepts_cancel_event_for_the_spi() -> None:
-    """check_for_update() accepts cancel_event for the SPI but does not forward it."""
-    fake = FakeEngine()
-    plugin = FanFicFareSourcePlugin(pull=fake)  # type: ignore[arg-type]
-
-    plugin.check_for_update(URL, cancel_event=threading.Event())
-
-    assert fake.check_for_update_calls == [dict(url=URL, prior=None, ctx=None)]
 
 
 def test_check_for_update_forwards_prior() -> None:
@@ -342,7 +333,7 @@ def test_check_for_update_forwards_prior() -> None:
     prior = make_book_view()
     plugin = FanFicFareSourcePlugin(pull=fake)  # type: ignore[arg-type]
 
-    plugin.check_for_update(URL, prior=prior)
+    plugin.check_for_update(URL, prior=prior, ctx=FakeContext())
 
     assert fake.check_for_update_calls[0]["prior"] is prior
 
@@ -353,6 +344,15 @@ def test_check_for_update_forwards_ctx() -> None:
     ctx = FakeContext()
     plugin = FanFicFareSourcePlugin(pull=fake)  # type: ignore[arg-type]
 
-    plugin.check_for_update(URL, ctx=ctx)
+    plugin.check_for_update(URL, prior=None, ctx=ctx)
 
     assert fake.check_for_update_calls[0]["ctx"] is ctx
+
+
+def test_check_for_update_has_the_spi_3_signature() -> None:
+    """The check_for_update method has the SPI 3.0 signature."""
+    sig = inspect.signature(FanFicFareSourcePlugin.check_for_update)
+    assert "cancel_event" not in sig.parameters
+    assert sig.parameters["ctx"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert sig.parameters["ctx"].default is inspect.Parameter.empty
+    assert sig.parameters["prior"].default is inspect.Parameter.empty

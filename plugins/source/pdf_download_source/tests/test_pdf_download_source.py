@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import logging
 import re
 from pathlib import Path
@@ -317,13 +318,21 @@ class TestCheckForUpdateDelegates:
             },
         )
 
-        result = plugin.check_for_update(url, prior=prior)
+        result = plugin.check_for_update(url, prior=prior, ctx=FakeContext())
 
         assert result.needs_update is False
         assert result.error is None
 
         assert len(responses.calls) == 1
         assert responses.calls[0].request.method == "HEAD"
+
+    def test_check_for_update_has_the_spi_3_signature(self) -> None:
+        """The check_for_update method has the SPI 3.0 signature."""
+        sig = inspect.signature(PdfDownloadSourcePlugin.check_for_update)
+        assert "cancel_event" not in sig.parameters
+        assert sig.parameters["ctx"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert sig.parameters["ctx"].default is inspect.Parameter.empty
+        assert sig.parameters["prior"].default is inspect.Parameter.empty
 
 
 class TestPullPersistsValidatorsAndPdfHash:

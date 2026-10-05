@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import logging
 import re
 from datetime import UTC, datetime
@@ -632,7 +633,7 @@ class TestCheckForUpdateDelegates:
             },
         )
 
-        result = plugin.check_for_update(url, prior=prior)
+        result = plugin.check_for_update(url, prior=prior, ctx=FakeContext())
 
         # Verify it returns an UpdateCheck with needs_update=False (etag matches)
         from ebookerr_sdk.spi import UpdateCheck
@@ -640,6 +641,14 @@ class TestCheckForUpdateDelegates:
         assert isinstance(result, UpdateCheck)
         assert result.needs_update is False
         assert result.error is None
+
+    def test_check_for_update_has_the_spi_3_signature(self) -> None:
+        """The check_for_update method has the SPI 3.0 signature."""
+        sig = inspect.signature(EpubDownloadSourcePlugin.check_for_update)
+        assert "cancel_event" not in sig.parameters
+        assert sig.parameters["ctx"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert sig.parameters["ctx"].default is inspect.Parameter.empty
+        assert sig.parameters["prior"].default is inspect.Parameter.empty
 
 
 class TestExtractFilename:
