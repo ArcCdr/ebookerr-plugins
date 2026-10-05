@@ -676,7 +676,64 @@ def _chapter_table(
 
 
 class KomgaService:
-    """Synchronise one downloaded book with Komga (see module docstring)."""
+    """Business rules of the Komga sync for one book and one library server.
+
+    ``sync`` finds the book in Komga (asking for a library scan when it is not there yet), pushes
+    the local-mastered metadata, restores or re-anchors the read position and reads the reading
+    state back; ``sync_batch`` runs it over several books and logs one summary. ``enrich`` is the
+    read-only lookup that finds the book and reads its ids, reading state, rating and catalog
+    back, ``read_state_changes`` and ``refresh`` are the read-only calls of the live read-state
+    lane (``LIB-D14``), and ``write_position`` puts a reading client's position at Komga and
+    reads the book back (``RDG-D4``). ``list_anchors``, ``read_bookmark`` and ``place_bookmark``
+    list the book's chapter anchors, read Komga's stored bookmark and write a bookmark to an
+    anchor, which is the provider half of the core's read-position anchoring (``SPI 2.19``).
+    ``delete_remote_book`` removes a deleted book from Komga: its file, then a library scan and
+    an emptied trash. The module docstring is the reference for the provider rules and for the
+    numbered sequence of one sync; this docstring describes the class as a whole.
+
+    ``__init__`` receives the client behind the ``KomgaClient`` protocol, the ``enabled`` switch,
+    the scan poll budget (``scan_retry_max``, ``scan_retry_delay``) and the settings that address
+    the work: ``server_url`` and ``external_url`` build the link to the book in Komga,
+    ``app_external_url`` the link back to ebookerr, ``library_id`` limits discovery and scans to
+    one Komga library and ``library_folder`` is where the EPUBs live. The core supplies
+    ``link_owner`` (which book already holds a Komga id), ``circuit`` (the shared circuit
+    breakers) and ``scan_requests`` (the ledger of scans already asked for), and ``sleep``,
+    ``now`` and ``monotonic`` are the injectable time functions tests replace. The class owns no
+    HTTP of its own: every request goes through the injected client, the SDK's anchoring
+    primitives (``join_anchors``, ``reanchor_bookmark``, ``restore_to_target``,
+    ``capture_position``) decide where a reader belongs, and the module-level ``_book_patch`` and
+    ``_series_patch`` decide what is pushed.
+
+    Lifecycle and invariants:
+        - ``sync``, ``enrich`` and ``refresh`` never raise for a disabled service or an
+          unreachable server: they return a non-``ok`` result, with ``unreachable=True`` for an
+          outage, which is logged once per instance (``EXP-192``). An open circuit breaker
+          answers without a probe (``EXP-269``). ``read_state_changes`` and ``write_position``
+          raise ``ProviderUnreachable`` instead, and ``delete_remote_book`` logs the outage and
+          stops.
+        - ``enrich``, ``refresh`` and ``read_state_changes`` write nothing to Komga. The only
+          writes of ``sync`` are a PATCH of the book and series fields whose sanitised local
+          value differs from Komga's, a library-scan request and a progression to restore,
+          re-anchor or repair the reader's position. Reading state is otherwise Komga's and is
+          only read back.
+        - Nothing here writes to the app's database: the caller persists ``SyncResult.fields``
+          and ``SyncResult.read_position``.
+        - A book without a stored id is discovered by file path, then by title and author; a
+          linked one is only checked, and re-linked when the stored id no longer names its own
+          file. A scan is asked for only when the book cannot be found (and ``allow_scan`` is
+          true) or its file changed, and for a changed file it is skipped when the
+          ``scan_requests`` ledger already holds a request covering the change (``DFT-D21``).
+        - The instance keeps state between calls: the connection probe cache (a success is
+          remembered for 60 s, a failure never), the once-only outage flag, the library URL
+          index (fetched on first use, refetched on each discovery-scan poll) and the set of
+          series already pushed, so only the first book of a series sends the series PATCH.
+          Three per-call memos (positions, progression, the envelope last written) are cleared
+          at the start of every ``sync``, ``enrich``, ``refresh`` and ``write_position`` that
+          reaches Komga. The plugin builds a new instance for each entry-point call, so all of
+          this spans one batch of books; what outlives an instance is held by its
+          collaborators: the shared circuit breakers and the ``scan_requests`` ledger, which
+          lives in the plugin's own state.
+    """
 
     def __init__(
         self,

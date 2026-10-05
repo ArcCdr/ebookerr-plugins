@@ -251,7 +251,64 @@ def _span_from(anchors: Sequence[ProviderAnchor], start: int, total_pages: int) 
 
 
 class KavitaService:
-    """Synchronise one downloaded book with Kavita (see module docstring)."""
+    """Business rules of the Kavita sync for one book and one library server.
+
+    ``sync`` finds the book's chapter in Kavita (asking for a folder scan on a book's first
+    attempt and when its file changed), pushes the local rating (or adopts Kavita's when the book
+    has none), restores or re-anchors the read position and reads the reading state back.
+    ``enrich`` is the read-only lookup that finds the book and reads its ids, reading state and
+    rating back, ``read_state_changes`` and ``refresh`` are the read-only calls of the live
+    read-state lane (``LIB-D14``), and ``write_position`` puts a reading client's position at
+    Kavita and reads the book back (``RDG-D4``). ``list_anchors``, ``read_bookmark`` and
+    ``place_bookmark`` list the book's chapter anchors, read Kavita's stored bookmark and write a
+    bookmark to an anchor, which is the provider half of the core's read-position anchoring
+    (``SPI 2.19``). Deleting a book is a nudge only, since Kavita has no delete API:
+    ``rescan_library_after_delete`` asks Kavita to rescan the book's library by id and
+    ``nudge_folder_after_delete`` asks it to scan the folder the book came from. The module
+    docstring is the reference for the provider rules and for the numbered sequence of one sync;
+    this docstring describes the class as a whole.
+
+    ``__init__`` receives the client behind the ``KavitaClient`` protocol, the ``enabled`` switch,
+    the poll budget for a changed file to be re-indexed (``scan_retry_max``,
+    ``scan_retry_delay``) and the settings that address the work: ``server_url`` and
+    ``external_url`` build the link to the book in Kavita, ``library_folder`` is where the EPUBs
+    live and ``library_path`` is where Kavita sees them. The core supplies ``link_owner`` (which
+    book already holds a Kavita chapter id), ``circuit`` (the shared circuit breakers) and
+    ``scan_requests`` (the ledger of scans already asked for), and ``sleep``, ``now`` and
+    ``monotonic`` are the injectable time functions tests replace. The class owns no HTTP of its
+    own: every request goes through the injected client, and the SDK's anchoring primitives
+    (``join_anchors``, ``reanchor_bookmark``, ``restore_to_target``, ``capture_position``) decide
+    where a reader belongs.
+
+    Lifecycle and invariants:
+        - ``sync``, ``enrich`` and ``refresh`` never raise for a disabled service or an
+          unreachable server: they return a non-``ok`` result, with ``unreachable=True`` for an
+          outage, which is logged once per instance (``EXP-192``). An open circuit breaker
+          answers without a probe (``EXP-269``). ``read_state_changes`` and ``write_position``
+          raise ``ProviderUnreachable`` instead, and so can ``rescan_library_after_delete`` and
+          ``nudge_folder_after_delete``, which do not catch it.
+        - ``enrich``, ``refresh`` and ``read_state_changes`` write nothing to Kavita. ``sync``
+          never pushes local metadata fields; its only writes are the local rating (when set), a
+          folder-scan request and a page to restore or re-anchor the reader's position. Reading
+          state is otherwise Kavita's and is only read back.
+        - Nothing here writes to the app's database: the caller persists ``SyncResult.fields``
+          and ``SyncResult.read_position``.
+        - Every ``sync`` and ``enrich`` finds the book's chapter again by its ``output_filename``,
+          because Kavita gives a re-indexed file a new chapter id; a different id from the stored
+          one is reported as ``relinked``. A folder scan, which needs ``library_path``, is asked
+          for on a book's first attempt and again only when its file changed, and it is skipped
+          when the ``scan_requests`` ledger already holds a request covering the change
+          (``DFT-D21``).
+        - The instance keeps state between calls: the connection probe cache (a success is
+          remembered for 60 s, a failure never), the once-only outage flag and one per-call memo,
+          the ``KavitaRef`` of the book in hand, cleared at the start of every ``sync``,
+          ``enrich``, ``refresh`` and ``write_position`` that reaches Kavita. Outside a call that
+          cached it, ``list_anchors`` returns ``[]``, ``read_bookmark`` ``None`` and
+          ``place_bookmark`` ``False``. The plugin builds a new instance for each entry-point
+          call, so all of this spans one batch of books; what outlives an instance is held by
+          its collaborators: the shared circuit breakers and the ``scan_requests`` ledger, which
+          lives in the plugin's own state.
+    """
 
     def __init__(
         self,
