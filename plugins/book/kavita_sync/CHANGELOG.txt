@@ -1,5 +1,5 @@
 == 1.5.0 ==
-ebookerr's own web reader and KOReader sync can now save your reading position to Kavita: it lands on the chapter you are in, on that chapter's page. Needs ebookerr 2.23 or later.
+ebookerr's own web reader and KOReader sync can now save your reading position to Kavita: it lands on the chapter you are in, at the page of that chapter nearest your place. Needs ebookerr 2.23 or later.
 
 == 1.4.0 ==
 Reading progress you make in Kavita now reaches ebookerr within about a minute while an ebookerr page is open, and at once when you open the book's page in ebookerr. Every read-back carries Kavita's own timestamp, so an older report never overwrites a newer reading position. Needs ebookerr 2.22 or later.
