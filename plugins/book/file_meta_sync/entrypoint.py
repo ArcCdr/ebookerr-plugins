@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""FileMetaSync bundled plugin entrypoint — 3-way merge for cover candidates and synopsis."""
+"""FileMetaSync bundled plugin entrypoint — 3-way merge for cover candidates and synopsis.
+
+This subprocess entrypoint reads a book metadata request from stdin as JSON and writes a patch
+response to stdout. It synchronises cover images and synopsis text between sidecar files in the
+library directory and the database, using 3-way merge logic to resolve conflicts.
+
+The module exports `discover_candidates` (imports sidecar cover images as stored candidates),
+`merge_text` and `merge_bytes` (3-way merge with ruled precedence), `handle_purge_action`
+(unlinks candidate and source files on purge events), `process_book` (processes one book and
+returns a patch dict or `None`), and `main` (the CLI entrypoint).
+
+The plugin interacts with the core via stdin/stdout: `_ask_yes_no` emits dialog operations on
+stdout and reads replies, raising `PromptAbandoned` if the core closes the channel or abandons
+the prompt (``EXP-233``). Progress is reported fire-and-forget via `_report_progress`, and
+durable notifications (on conflicts) via `_notify_durable` (``SPI 2.16``). No patched data is
+written when a prompt is abandoned.
+"""
 
 from __future__ import annotations
 
