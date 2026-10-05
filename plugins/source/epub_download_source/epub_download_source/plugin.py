@@ -20,7 +20,6 @@ after the bytes are actually in hand — see its docstring for the content-hash 
 from __future__ import annotations
 
 import logging
-import threading
 import zipfile
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
@@ -170,15 +169,19 @@ class EpubDownloadSourcePlugin:
         return media_format == "epub"
 
     def check_for_update(
-        self,
-        url: str,
-        *,
-        prior: BookView | None = None,
-        cancel_event: threading.Event | None = None,
+        self, url: str, *, prior: BookView | None, ctx: PluginContext
     ) -> UpdateCheck:
         """Check for update via HEAD request and validator comparison.
 
         The HEAD request carries no site credentials.
+
+        Args:
+            url: The book's source URL.
+            prior: The book's current snapshot, or ``None`` when unknown.
+            ctx: The call's plugin context (unused by this check).
+
+        Returns:
+            The validator comparison's verdict.
         """
         return check_download_update(
             url,
@@ -186,7 +189,6 @@ class EpubDownloadSourcePlugin:
             auth_headers={},
             prior=prior,
             namespace=self.manifest.id,
-            cancel_event=cancel_event,
         )
 
     def pull(  # noqa: C901 — sequential checks: HEAD skip, circuit guard, status/content-type/hash

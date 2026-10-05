@@ -24,7 +24,6 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -111,12 +110,7 @@ class FanFicFareSourcePlugin:
         return url.startswith(("http://", "https://"))
 
     def check_for_update(
-        self,
-        url: str,
-        *,
-        prior: BookView | None = None,
-        cancel_event: threading.Event | None = None,
-        ctx: PluginContext | None = None,
+        self, url: str, *, prior: BookView | None, ctx: PluginContext
     ) -> UpdateCheck:
         """Poll for updates via FanFicFare.
 
@@ -126,10 +120,7 @@ class FanFicFareSourcePlugin:
         Args:
             url: The book's source URL.
             prior: The book's current snapshot, or ``None`` when unknown.
-            cancel_event: Accepted for the SPI; a run is cancelled by ending the plugin process
-                (``LIB-D25``).
-            ctx: Runtime services for the check (plugin state, auth headers), when the core
-                supplies them (SPI 2.30).
+            ctx: The call's plugin context, passed to the pull engine.
         """
         return self._engine(ctx).check_for_update(url, prior=prior, ctx=ctx)
 

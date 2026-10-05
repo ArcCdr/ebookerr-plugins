@@ -12,7 +12,6 @@ Unlike FanFicFare (priority=1000 catch-all), this plugin claims .txt/.md URLs di
 from __future__ import annotations
 
 import logging
-import threading
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -89,15 +88,19 @@ class TextDownloadSourcePlugin:
         return media_format == "txt"
 
     def check_for_update(
-        self,
-        url: str,
-        *,
-        prior: BookView | None = None,
-        cancel_event: threading.Event | None = None,
+        self, url: str, *, prior: BookView | None, ctx: PluginContext
     ) -> UpdateCheck:
         """Check for update via HEAD request and validator comparison.
 
         The HEAD request carries no site credentials.
+
+        Args:
+            url: The book's source URL.
+            prior: The book's current snapshot, or ``None`` when unknown.
+            ctx: The call's plugin context (unused by this check).
+
+        Returns:
+            The validator comparison's verdict.
         """
         return check_download_update(
             url,
@@ -105,7 +108,6 @@ class TextDownloadSourcePlugin:
             auth_headers={},
             prior=prior,
             namespace=self.manifest.id,
-            cancel_event=cancel_event,
         )
 
     def pull(
