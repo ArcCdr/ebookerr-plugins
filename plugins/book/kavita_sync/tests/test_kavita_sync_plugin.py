@@ -150,8 +150,6 @@ class TestManifest:
         plugin = KavitaSyncPlugin()
         # Check headed is True
         assert plugin.manifest.headed is True
-        # Check headless is still True
-        assert plugin.manifest.headless is True
         # Check ui_triggers contains exactly one trigger
         assert len(plugin.manifest.ui_triggers) == 1
         trigger = plugin.manifest.ui_triggers[0]

@@ -49,19 +49,15 @@ class TestManifest:
     def test_priority_is_fifty_five(self) -> None:
         assert EpubChapterReorderPlugin().manifest.priority == 55
 
-    def test_headless(self) -> None:
-        assert EpubChapterReorderPlugin().manifest.headless is True
-
     def test_settings_schema_empty(self) -> None:
         assert EpubChapterReorderPlugin().settings_schema() == api.SettingsSchema()
 
     def test_satisfies_epub_plugin_protocol(self) -> None:
         assert isinstance(EpubChapterReorderPlugin(), api.EpubPlugin)
 
-    def test_plugin_is_both_headed_and_headless(self) -> None:
+    def test_plugin_is_headed(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
         assert manifest.headed is True
-        assert manifest.headless is True
 
     def test_id_and_name_are_unchanged(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest

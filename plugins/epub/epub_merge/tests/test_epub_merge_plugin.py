@@ -65,7 +65,6 @@ def test_manifest_contract() -> None:
     assert manifest.plugin_type == api.PluginType.EPUB
     assert manifest.accepts_list is True
     assert manifest.headed is True
-    assert manifest.headless is False
     assert manifest.priority == 50
     assert manifest.events == ()
 
@@ -585,7 +584,6 @@ def test_manifest_is_unchanged() -> None:
     """accepts_list, headless, events, and the Merge trigger's min_books are unchanged."""
     manifest = EpubMergePlugin().manifest
     assert manifest.accepts_list is True
-    assert manifest.headless is False
     assert manifest.events == ()
     assert manifest.ui_triggers[0].label == "Merge"
     assert manifest.ui_triggers[0].min_books == 2

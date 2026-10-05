@@ -77,7 +77,6 @@ class TestManifestIdentity:
         assert m.id == "epub_validate"
         assert m.plugin_type is PluginType.EPUB
         assert m.priority == 950
-        assert m.headless is True
         assert m.headed is True
         assert m.accepts_list is True
 
