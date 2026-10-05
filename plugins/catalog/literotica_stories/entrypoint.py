@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""Literotica search catalog plugin - pure API mapping functions."""
+"""Literotica search catalog plugin - pure API mapping functions.
+
+The module serves as the plugin's subprocess entrypoint. `main()` reads a scan request from
+stdin, executes searches against the Literotica API according to stored search settings,
+maps each raw story to a StoryPatch dict, applies minimum-value thresholds, and writes a
+JSON response to stdout.
+
+`parse_search_url` parses a search.literotica.com URL into API params and start page.
+`build_api_url` builds a Literotica API URL with compact JSON params. `fetch_json` fetches
+and parses JSON from a URL, guarded by the circuit breaker. `map_story` maps a raw
+Literotica API story object to a StoryPatch dict. `apply_thresholds` filters stories by
+thresholds. `unknown_params` returns a sorted list of query parameter keys not recognized.
+`scan` scans multiple search URLs for stories with pagination and thresholds. `main` is the
+subprocess entrypoint.
+
+The module communicates with the core via the stdio channel (circuit breaker protocol,
+EXP-269) and with literotica.com via HTTP. When the circuit breaker is open, `scan` raises
+`CatalogHostUnreachable` and makes no request. The sibling my_literotica catalog plugin
+shares the same circuit breaker, so one host outage is one breaker, not two.
+"""
 
 from __future__ import annotations
 
