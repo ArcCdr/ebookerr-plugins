@@ -198,4 +198,6 @@ def test_no_field_uses_a_retired_type() -> None:
 
     # Also check IMAGE_MODEL_FIELDS directly
     for field in IMAGE_MODEL_FIELDS:
-        assert field.type in valid_types, f"IMAGE_MODEL_FIELDS field {field.key} has retired type {field.type}"
+        assert field.type in valid_types, (
+            f"IMAGE_MODEL_FIELDS field {field.key} has retired type {field.type}"
+        )

@@ -79,7 +79,7 @@ IMAGE_MODEL_FIELDS: tuple[SettingsField, ...] = (
     ),
     SettingsField(
         key="api",
-        type="select",
+        type="string",
         label="API",
         default="a1111",
         options=("openai", "a1111"),

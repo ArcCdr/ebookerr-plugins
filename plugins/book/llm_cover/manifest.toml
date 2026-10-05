@@ -96,7 +96,7 @@ help = "A short unique name for this model; it names the candidate, e.g. flux-de
 
 [[settings_schema.fields.fields]]
 key = "api"
-type = "select"
+type = "string"
 label = "API"
 default = "a1111"
 options = ["openai", "a1111"]

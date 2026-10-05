@@ -118,7 +118,7 @@ def _build_view(
         fields=(
             SettingsField(
                 key="survivor",
-                type="select",
+                type="string",
                 label="Keep this book",
                 default=elected_survivor_id,
                 options=tuple(item.book.book_id for item in items),
