@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 class KavitaClient(Protocol):
     """Thin Kavita REST client — calls only, no business rules.
 
-    Business rules live in :mod:`kavita_sync.service`. Contract
-    documented in ARCHITECTURE.md §2.2.
+    Business rules live in :mod:`kavita_sync.service`. Contract documented in the core's
+    ``docs/requirements/PLUGIN_ARCHITECTURE_REQUIREMENTS.md`` §5.
     """
 
     def test_connection(self) -> ConnectionTestResult:

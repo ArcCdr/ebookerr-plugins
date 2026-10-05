@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 class KomgaClient(Protocol):
     """Thin Komga REST client — calls only, no business rules.
 
-    Business rules live in :mod:`komga_sync.service`. Contract
-    documented in ARCHITECTURE.md §2.2.
+    Business rules live in :mod:`komga_sync.service`. Contract documented in the core's
+    ``docs/requirements/PLUGIN_ARCHITECTURE_REQUIREMENTS.md`` §5.
     """
 
     def test_connection(self) -> ConnectionTestResult:

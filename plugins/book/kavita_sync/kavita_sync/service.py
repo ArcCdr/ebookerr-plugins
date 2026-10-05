@@ -1,4 +1,7 @@
-"""Kavita sync business rules (see ARCHITECTURE.md §2.2 for the cross-provider contract).
+"""Kavita sync business rules.
+
+The cross-provider contract is in the core's
+``docs/requirements/PLUGIN_ARCHITECTURE_REQUIREMENTS.md`` §5.
 
 Kavita is a read-server for manga/EPUBs; each book maps to one Kavita "chapter" inside
 one "series" behind the ``KavitaClient`` protocol (:mod:`kavita_sync.protocol`).

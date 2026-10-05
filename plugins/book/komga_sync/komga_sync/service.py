@@ -1,4 +1,7 @@
-"""Komga sync business rules (see ARCHITECTURE.md §2.2 for the cross-provider contract).
+"""Komga sync business rules.
+
+The cross-provider contract is in the core's
+``docs/requirements/PLUGIN_ARCHITECTURE_REQUIREMENTS.md`` §5.
 
 Operates on the merged ``BookView`` snapshot: a user's metadata edits are what gets
 pushed to Komga (``EDIT-D14``). Local/FanFicFare metadata is master for everything
