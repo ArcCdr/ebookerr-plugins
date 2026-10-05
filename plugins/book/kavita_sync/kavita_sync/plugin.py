@@ -430,7 +430,28 @@ def _sync_book(ctx: PluginContext, service: KavitaService, view: BookView) -> Bo
 
 
 class KavitaSyncPlugin:
-    """Sync book metadata with Kavita via the KavitaService."""
+    """Sync book metadata with Kavita via the KavitaService.
+
+    Responsibility: This plugin is the Kavita ``BookPlugin`` entry point. It declares
+    the connection settings (``settings_schema``), probes the Kavita server
+    (``test_connection``), enriches a book's metadata and links (``enrich``), and
+    exposes the read-state hooks (``read_state_changes``, ``refresh_read_state``,
+    ``write_read_state``).
+
+    Collaborators: The plugin delegates all sync mechanics to ``KavitaService``, which
+    it instantiates fresh per call via ``_build_service`` with a ``RequestsKavitaClient``
+    built from the connection settings. The service returns ``SyncResult`` objects; the
+    plugin translates these into ``BookPatch`` objects (containing ``READ_STATE_FIELDS``
+    and ``read_position``) for the core to persist. The plugin makes no DB writes itself.
+
+    Lifecycle and invariants:
+        One ``KavitaService`` is built per ``enrich`` call; settings are read fresh each
+        time. When Kavita is unreachable, ``enrich`` returns patches carrying only the
+        link-attempt outcome (``LINK_ERROR_FIELD``), ``test_connection`` returns
+        ``(False, message)`` naming the issue, and ``read_state_changes`` /
+        ``refresh_read_state`` raise ``ProviderUnreachable``. The plugin never raises
+        to the host on Kavita errors — all failures surface as return values.
+    """
 
     manifest = package_manifest(__file__)
 

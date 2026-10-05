@@ -372,7 +372,28 @@ def _sync_book(
 
 
 class KomgaSyncPlugin:
-    """Sync book metadata with Komga via the KomgaService (``EDIT-FR-14``)."""
+    """Sync book metadata with Komga via the KomgaService (``EDIT-FR-14``).
+
+    Responsibility: This plugin is the Komga ``BookPlugin`` entry point. It declares
+    the connection settings (``settings_schema``), probes the Komga server
+    (``test_connection``), enriches a book's metadata and links (``enrich``), and
+    exposes the read-state hooks (``read_state_changes``, ``refresh_read_state``,
+    ``write_read_state``).
+
+    Collaborators: The plugin delegates all sync mechanics to ``KomgaService``, which
+    it instantiates fresh per call via ``_build_service`` with a ``RequestsKomgaClient``
+    built from the connection settings. The service returns ``SyncResult`` objects; the
+    plugin translates these into ``BookPatch`` objects (containing ``READ_STATE_FIELDS``
+    and ``read_position``) for the core to persist. The plugin makes no DB writes itself.
+
+    Lifecycle and invariants:
+        One ``KomgaService`` is built per ``enrich`` call; settings are read fresh each
+        time. When Komga is unreachable, ``enrich`` returns patches carrying only the
+        link-attempt outcome (``LINK_ERROR_FIELD``), ``test_connection`` returns
+        ``(False, message)`` naming the issue, and ``read_state_changes`` /
+        ``refresh_read_state`` raise ``ProviderUnreachable``. The plugin never raises
+        to the host on Komga errors — all failures surface as return values.
+    """
 
     manifest = package_manifest(__file__)
 
