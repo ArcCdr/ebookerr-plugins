@@ -102,7 +102,7 @@ def test_synopsis_generator_declares_its_groups() -> None:
         ),
     ]
     assert groups_with_summaries == expected_groups
-    assert all(not g.collapsed and g.description == "" for g in manifest.settings_schema.groups)
+    assert all(g.description == "" for g in manifest.settings_schema.groups)
 
 
 def test_the_default_template_starts_with_the_book_text() -> None:

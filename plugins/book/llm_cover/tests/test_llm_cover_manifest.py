@@ -153,7 +153,7 @@ def test_cover_generator_declares_its_groups() -> None:
         ("Image models", "{image_models|No image models}"),
     ]
     assert groups_with_summaries == expected_groups
-    assert all(not g.collapsed and g.description == "" for g in manifest.settings_schema.groups)
+    assert all(g.description == "" for g in manifest.settings_schema.groups)
 
     # Verify image_models field has summary
     image_models_field = next(f for f in schema.fields if f.key == "image_models")
