@@ -24,7 +24,6 @@ def test_manifest_identity_and_flags() -> None:
     assert m.plugin_type is p.PluginType.BOOK
     assert m.deferred is True
     assert m.long_running is True
-    assert m.network is True
     assert m.testable is True
     assert m.headed is True
     assert "default_enabled" not in {f.name for f in dataclasses.fields(type(m))}

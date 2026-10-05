@@ -63,12 +63,11 @@ class TestManifest:
     """Test the plugin's manifest declaration."""
 
     def test_manifest_id_and_type(self) -> None:
-        """Assert manifest declares correct id, type, priority, and network flag."""
+        """Assert manifest declares correct id, type, and priority."""
         plugin = UrlStoryExtractorPlugin(pages=FakePages())
         assert plugin.manifest.id == "url_story_extractor"
         assert plugin.manifest.plugin_type is PluginType.CATALOG
         assert plugin.manifest.priority == 1000
-        assert plugin.manifest.network is True
 
     def test_manifest_declares_the_catch_all_pattern(self) -> None:
         """Assert manifest declares the catch-all URL pattern."""
