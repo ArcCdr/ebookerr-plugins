@@ -88,8 +88,8 @@ class _CallFailedError(Exception):
 def _record(circuit: CircuitGuard, *, ok: bool) -> bool:
     """Report one call's outcome against this host's breaker; return whether it is open now.
 
-    The SDK host's guard asks, records and answers over the same ``circuit`` frames the script
-    wrote by hand (``EXP-269``): an answered call is a success, a transport failure a failure.
+    The SDK host's guard asks, records and answers over ``circuit`` frames (``EXP-269``): an
+    answered call is a success, a transport failure a failure.
     """
     try:
         with circuit.guard(CIRCUIT_KEY, label=CIRCUIT_LABEL):

@@ -64,7 +64,7 @@ def _story_patch(story: Mapping[str, Any]) -> StoryPatch:
     """Build the SPI ``StoryPatch`` from one story dict this catalog's mapping returns.
 
     Absent and ``None`` fields stay unset and a date the SDK cannot parse is left unset; the core
-    validates every field again when it decodes the patch, exactly as it did the script's dicts.
+    validates every field again when it decodes the patch.
 
     Args:
         story: A story dict with at least ``url``.
@@ -110,11 +110,11 @@ class LiteroticaStoriesPlugin:
             One ``StoryPatch`` per unique story the search URLs list, thresholds applied.
 
         Raises:
-            CatalogScanError: The scan failed; its message is the one the script reported.
+            CatalogScanError: The scan failed; its message is the failure's own message.
         """
         try:
             stories, logs = catalog.scan(dict(ctx.settings), ctx)
-        except Exception as exc:  # noqa: BLE001 — the script reported every failure by its message
+        except Exception as exc:  # noqa: BLE001 — every failure is answered by its message
             raise CatalogScanError(str(exc)) from exc
         _emit_logs(ctx.logger, logs)
         return [_story_patch(story) for story in stories]

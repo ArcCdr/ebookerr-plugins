@@ -66,7 +66,7 @@ def _story_patch(story: Mapping[str, Any]) -> StoryPatch:
     """Build the SPI ``StoryPatch`` from one story dict this catalog's mapping returns.
 
     Absent and ``None`` fields stay unset and a date the SDK cannot parse is left unset; the core
-    validates every field again when it decodes the patch, exactly as it did the script's dicts.
+    validates every field again when it decodes the patch.
 
     Args:
         story: A story dict with at least ``url``.
