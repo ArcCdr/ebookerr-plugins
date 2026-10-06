@@ -1,7 +1,8 @@
 """File metadata sync on the SDK host: 3-way merge of cover candidates, cover and synopsis.
 
 ``FileMetaSyncPlugin.enrich`` serves one call: on ``BookDeleted`` it unlinks the book's sidecar
-files (``handle_delete``); for the ``purge_cover_candidates``/``purge_assets`` actions it unlinks
+files and removes the folders that leaves empty (``handle_delete``, ``LIB-D44``); for the
+``purge_cover_candidates``/``purge_assets`` actions it unlinks
 the purged candidates' files (``handle_purge_action``); otherwise it syncs each book's sidecars
 with its record (``process_book``: ``discover_candidates``, ``merge_text``, ``merge_bytes``).
 
@@ -114,7 +115,8 @@ def discover_candidates(book_dir: Path, stem: str, assets: list[Any]) -> list[An
     A new or changed sidecar matching the candidate pattern is emitted as a stored write
     carrying base64 ``data`` and ``meta`` (``source_file``, ``sha256``); one whose sha256
     still matches its stored row is skipped as unchanged. An own row (library or stored)
-    whose source file has vanished from disk is emitted as a delete. Rows owned by
+    whose source file is no longer one of this EPUB's candidates (it vanished from disk, or now
+    belongs to another EPUB) is emitted as a delete. Rows owned by
     another plugin's namespace are never written to or deleted. The plugin's own
     ``<stem>.cover.png`` export is never treated as a candidate.
 
