@@ -90,15 +90,15 @@ def test_the_allowlist_is_live():
 
 
 def test_file_meta_sync_names_t2i_only_in_its_delete_list():
-    """file_meta_sync entrypoint contains T2I exactly twice, never t2i (lowercase).
+    """file_meta_sync plugin module contains T2I exactly twice, never t2i (lowercase).
 
     T2I appears only in the files_to_unlink delete list and its comment.
     The lowercase t2i must not appear anywhere.
     """
-    entrypoint_path = ROOT / "plugins/book/file_meta_sync/entrypoint.py"
-    assert entrypoint_path.exists(), f"Expected file_meta_sync entrypoint at {entrypoint_path}"
+    plugin_path = ROOT / "plugins/book/file_meta_sync/file_meta_sync/plugin.py"
+    assert plugin_path.exists(), f"Expected file_meta_sync plugin module at {plugin_path}"
 
-    content = entrypoint_path.read_text()
+    content = plugin_path.read_text()
 
     # Count occurrences of "T2I" (uppercase)
     t2i_count = content.count("T2I")
@@ -118,11 +118,6 @@ def test_no_other_plugin_code_names_t2i():
 
     llm_cover/plugin.py is exempt because it reuses the t2i_prompt asset kind (GEN-FR-2).
     """
-    exempt = {
-        "plugins/book/llm_cover/llm_cover/plugin.py",  # GEN-FR-2 reuses the t2i_prompt asset kind
-        "plugins/book/file_meta_sync/file_meta_sync/plugin.py",  # T2I from moved BookDeleted logic
-    }
-
     violations = []
 
     for py_file in code_files():
@@ -133,12 +128,12 @@ def test_no_other_plugin_code_names_t2i():
 
         relative_posix = relative.as_posix()
 
-        # Skip exempted files
-        if relative_posix in exempt:
+        # Skip the file_meta_sync plugin module (it has its own test)
+        if relative_posix == "plugins/book/file_meta_sync/file_meta_sync/plugin.py":
             continue
 
-        # Skip the file_meta_sync/entrypoint.py (it has its own test)
-        if relative_posix == "plugins/book/file_meta_sync/entrypoint.py":
+        # Skip llm_cover plugin (it reuses the t2i_prompt asset kind, GEN-FR-2)
+        if relative_posix == "plugins/book/llm_cover/llm_cover/plugin.py":
             continue
 
         content = py_file.read_text()
@@ -147,6 +142,6 @@ def test_no_other_plugin_code_names_t2i():
 
     assert not violations, (
         "The following plugin files contain t2i or T2I references "
-        "(only file_meta_sync/entrypoint.py and llm_cover/llm_cover/plugin.py may):\n"
+        "(only file_meta_sync/file_meta_sync/plugin.py and llm_cover/llm_cover/plugin.py may):\n"
         + "\n".join(f"  {v}" for v in violations)
     )
