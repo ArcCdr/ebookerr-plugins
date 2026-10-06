@@ -120,7 +120,7 @@ def test_no_other_plugin_code_names_t2i():
     """
     exempt = {
         "plugins/book/llm_cover/llm_cover/plugin.py",  # GEN-FR-2 reuses the t2i_prompt asset kind
-        "plugins/book/file_meta_sync/file_meta_sync/plugin.py",  # the BookDeleted delete list, moving from entrypoint.py
+        "plugins/book/file_meta_sync/file_meta_sync/plugin.py",  # T2I from moved BookDeleted logic
     }
 
     violations = []
