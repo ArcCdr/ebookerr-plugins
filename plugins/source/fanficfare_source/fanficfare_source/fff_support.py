@@ -189,7 +189,8 @@ def apply_sign_in(config: Configuration, credential: SiteCredential | None, host
         return
     if credential.kind != "basic":
         logger.warning(
-            "FanFicFare uses only a username and password; the %s sign-in for %s is not used",
+            "FanFicFare uses only a username and password; "
+            "the %s sign-in stored for %s is not used",
             credential.kind,
             host,
         )
