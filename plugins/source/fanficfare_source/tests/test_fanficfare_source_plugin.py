@@ -162,10 +162,12 @@ class TestClaims:
 
 
 class TestSettingsSchema:
-    def test_settings_schema_empty(self) -> None:
-        """settings_schema() returns an empty SettingsSchema."""
+    def test_settings_schema_is_the_manifests(self) -> None:
+        """settings_schema() returns the manifest's SettingsSchema with 6 fields (C36)."""
         plugin = FanFicFareSourcePlugin()
-        assert plugin.settings_schema() == api.SettingsSchema()
+        manifest_schema = FanFicFareSourcePlugin.manifest.settings_schema
+        assert plugin.settings_schema() == manifest_schema
+        assert len(manifest_schema.fields) == 6
 
 
 # ---------------------------------------------------------------------------
