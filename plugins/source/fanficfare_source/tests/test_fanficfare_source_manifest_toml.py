@@ -41,7 +41,14 @@ def test_the_manifest_declares_its_fanficfare_settings() -> None:
     assert len(schema.fields) == 6
 
     keys = [f.key for f in schema.fields]
-    assert keys == ["is_adult", "include_images", "keep_summary_html", "make_firstimage_cover", "include_subject_tags", "extra_options"]
+    assert keys == [
+        "is_adult",
+        "include_images",
+        "keep_summary_html",
+        "make_firstimage_cover",
+        "include_subject_tags",
+        "extra_options",
+    ]
 
     types = [f.type for f in schema.fields]
     assert types == ["bool", "bool", "bool", "bool", "string", "textarea"]
@@ -57,19 +64,33 @@ def test_the_manifest_declares_its_fanficfare_settings() -> None:
 
     assert schema.fields[2].label == "Keep the summary's formatting"
     assert schema.fields[2].default is True
-    assert schema.fields[2].help == "Keep links, emphasis and images in the summary instead of plain text."
+    assert (
+        schema.fields[2].help
+        == "Keep links, emphasis and images in the summary instead of plain text."
+    )
 
     assert schema.fields[3].label == "Use the first image as the cover"
     assert schema.fields[3].default is True
-    assert schema.fields[3].help == "When a story has images, the first one becomes the book's cover."
+    assert (
+        schema.fields[3].help == "When a story has images, the first one becomes the book's cover."
+    )
 
     assert schema.fields[4].label == "Tags to keep"
-    assert schema.fields[4].default == "extratags, genre, category, characters, ships, lastupdate, status"
-    assert schema.fields[4].help == "The story details written as the book's tags, separated by commas."
+    tags_default = "extratags, genre, category, characters, ships, lastupdate, status"
+    assert schema.fields[4].default == tags_default
+    assert (
+        schema.fields[4].help
+        == "The story details written as the book's tags, separated by commas."
+    )
 
     assert schema.fields[5].label == "Advanced FanFicFare options"
     assert schema.fields[5].default == ""
-    assert schema.fields[5].help == "More FanFicFare settings in its own format, for example a [www.example.com] section. Sign-ins belong in Settings → Credentials; ebookerr chooses file names and folders."
+    advanced_help = (
+        "More FanFicFare settings in its own format, for example a [www.example.com] "
+        "section. Sign-ins belong in Settings → Credentials; ebookerr chooses file "
+        "names and folders."
+    )
+    assert schema.fields[5].help == advanced_help
 
 
 def test_the_source_receives_the_sign_in_of_any_site() -> None:

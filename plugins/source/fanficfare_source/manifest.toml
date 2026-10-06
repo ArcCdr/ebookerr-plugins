@@ -15,6 +15,49 @@ homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_sour
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["fanficfare>=4.62.0"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.fallback_source]
+
+[[settings_schema.fields]]
+key = "is_adult"
+type = "bool"
+label = "Confirm adult content"
+default = true
+help = "Answer yes when a site asks you to confirm you are an adult."
+
+[[settings_schema.fields]]
+key = "include_images"
+type = "bool"
+label = "Include images"
+default = true
+help = "Download the images inside chapters and the summary."
+
+[[settings_schema.fields]]
+key = "keep_summary_html"
+type = "bool"
+label = "Keep the summary's formatting"
+default = true
+help = "Keep links, emphasis and images in the summary instead of plain text."
+
+[[settings_schema.fields]]
+key = "make_firstimage_cover"
+type = "bool"
+label = "Use the first image as the cover"
+default = true
+help = "When a story has images, the first one becomes the book's cover."
+
+[[settings_schema.fields]]
+key = "include_subject_tags"
+type = "string"
+label = "Tags to keep"
+default = "extratags, genre, category, characters, ships, lastupdate, status"
+help = "The story details written as the book's tags, separated by commas."
+
+[[settings_schema.fields]]
+key = "extra_options"
+type = "textarea"
+label = "Advanced FanFicFare options"
+default = ""
+help = "More FanFicFare settings in its own format, for example a [www.example.com] section. Sign-ins belong in Settings → Credentials; ebookerr chooses file names and folders."

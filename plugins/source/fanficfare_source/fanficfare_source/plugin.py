@@ -83,8 +83,8 @@ class FanFicFareSourcePlugin:
         )
 
     def settings_schema(self) -> SettingsSchema:
-        """Return the (empty) settings schema — this plugin has no user-configurable options."""
-        return SettingsSchema()
+        """Return the settings the manifest declares (C36)."""
+        return self.manifest.settings_schema
 
     def claims(self, url: str) -> bool:
         """Claim any HTTP(S) URL — the catch-all floor beneath every more specific Source."""
