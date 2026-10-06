@@ -76,16 +76,16 @@ def test_map_story_core_fields() -> None:
     """map_story returns correct core StoryPatch fields."""
     story_a = _FIXTURE_DATA["data"][0]
     result = _MODULE.map_story(story_a)
-    assert result["url"] == "https://www.literotica.com/s/not-another-spiral-story"
-    assert result["title"] == "Not Another Spiral Story"
-    assert result["author"] == "4SomeoneSpecial"
-    assert result["author_url"] == "https://www.literotica.com/authors/4SomeoneSpecial"
+    assert result["url"] == "https://www.literotica.com/s/sample-sigma"
+    assert result["title"] == "Sample Sigma"
+    assert result["author"] == "reader_five"
+    assert result["author_url"] == "https://www.literotica.com/authors/reader_five"
     assert result["category"] == "Mind Control"
     assert result["tags"] == "wlw, hypnosis"
     assert result["rating"] == 4.52
     assert result["num_words"] == 2999
     assert result["date_published"] == "2026-07-03"
-    assert result["story_id"] == "4450510"
+    assert result["story_id"] == "9000007"
     assert result["site"] == "literotica.com"
     assert "series" not in result
     assert "series_url" not in result
@@ -132,8 +132,8 @@ def test_map_story_series() -> None:
     """map_story with series dict extracts series fields."""
     story_b = _FIXTURE_DATA["data"][1]
     result = _MODULE.map_story(story_b)
-    assert result["series"] == "Bad Mom And Naughty Shrink"
-    assert result["series_url"] == "https://www.literotica.com/series/se/495401236"
+    assert result["series"] == "Sample Tau"
+    assert result["series_url"] == "https://www.literotica.com/series/se/900000009"
     assert result["custom"]["Series Parts"] == 2
 
 

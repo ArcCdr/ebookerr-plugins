@@ -616,8 +616,8 @@ def test_story_url_audio_uses_s_prefix() -> None:
 def test_story_url_poem_uses_p_prefix() -> None:
     """story_url with 'poem' type uses p prefix."""
     assert (
-        _MODULE.story_url("poem", "an-ode-to-mr-strand")
-        == "https://www.literotica.com/p/an-ode-to-mr-strand"
+        _MODULE.story_url("poem", "an-ode-to-sample-rho")
+        == "https://www.literotica.com/p/an-ode-to-sample-rho"
     )
 
 
@@ -640,14 +640,14 @@ def test_story_url_matches_the_fixture_poem() -> None:
     """story_url correctly builds URL from fixture poem data."""
     what = _FIXTURE_DATA["data"][2]["what"]
     result = _MODULE.story_url(what["type"], what["url"])
-    assert result == "https://www.literotica.com/p/an-ode-to-mr-strand"
+    assert result == "https://www.literotica.com/p/an-ode-to-sample-rho"
 
 
 def test_story_url_matches_the_fixture_story() -> None:
     """story_url correctly builds URL from fixture story data."""
     what = _FIXTURE_DATA["data"][0]["what"]
     result = _MODULE.story_url(what["type"], what["url"])
-    assert result == "https://www.literotica.com/s/bimbo-potion-the-aftermath"
+    assert result == "https://www.literotica.com/s/sample-omicron-the-aftermath"
 
 
 def test_build_custom_fields_story_without_series() -> None:
@@ -739,18 +739,18 @@ def test_build_custom_fields_values_are_all_wire_safe() -> None:
 def test_map_activity_core_fields() -> None:
     """map_activity extracts core fields from a story without series."""
     r = _MODULE.map_activity(_FIXTURE_DATA["data"][0])
-    assert r["url"] == "https://www.literotica.com/s/bimbo-potion-the-aftermath"
-    assert r["story_id"] == "4480762"
-    assert r["title"] == "Bimbo Potion: The Aftermath"
-    assert r["author"] == "fidget1"
-    assert r["author_url"] == "https://www.literotica.com/authors/fidget1"
+    assert r["url"] == "https://www.literotica.com/s/sample-omicron-the-aftermath"
+    assert r["story_id"] == "9100001"
+    assert r["title"] == "Sample Omicron: The Aftermath"
+    assert r["author"] == "reader_one"
+    assert r["author_url"] == "https://www.literotica.com/authors/reader_one"
     assert r["category"] == "Mind Control"
     assert r["tags"] == "breast expansion, sluttification"
     assert r["rating"] == 4.45
     assert r["num_words"] == 3475
     assert r["date_published"] == "2026-07-30"
     assert r["site"] == "literotica.com"
-    assert r["description"] == "Jake fucking his slutty bimbo has predictable consequences."
+    assert r["description"] == "A potion wears off at the worst moment."
     assert "series" not in r
     assert "series_url" not in r
 
@@ -758,17 +758,17 @@ def test_map_activity_core_fields() -> None:
 def test_map_activity_series_fields() -> None:
     """map_activity extracts series fields and series part count."""
     r = _MODULE.map_activity(_FIXTURE_DATA["data"][1])
-    assert r["series"] == "Fighting Them There"
-    assert r["series_url"] == "https://www.literotica.com/series/se/494140239"
+    assert r["series"] == "Sample Pi"
+    assert r["series_url"] == "https://www.literotica.com/series/se/900000008"
     assert r["custom"]["Series Parts"] == 2
-    assert r["title"] == "Fighting Them There Ch. 37"
+    assert r["title"] == "Sample Pi Ch. 37"
 
 
 def test_map_activity_poem_uses_the_poem_url() -> None:
     """map_activity uses the p prefix for poems."""
     r = _MODULE.map_activity(_FIXTURE_DATA["data"][2])
-    assert r["url"] == "https://www.literotica.com/p/an-ode-to-mr-strand"
-    assert r["story_id"] == "4459984"
+    assert r["url"] == "https://www.literotica.com/p/an-ode-to-sample-rho"
+    assert r["story_id"] == "9100003"
     assert r["category"] == "Non-Erotic Poetry"
     assert r["custom"]["Type"] == "poem"
     assert r["date_published"] == "2026-07-12"
@@ -1183,7 +1183,7 @@ def test_scan_maps_the_fixture_wall(monkeypatch) -> None:
 
     result, logs = _MODULE.scan(_AUTH)
     assert len(result) == 3
-    assert [s["story_id"] for s in result] == ["4480762", "4480507", "4459984"]
+    assert [s["story_id"] for s in result] == ["9100001", "9100002", "9100003"]
 
 
 def test_scan_dedupes_by_story_id(monkeypatch) -> None:
