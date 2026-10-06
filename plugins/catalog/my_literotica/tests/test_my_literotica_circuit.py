@@ -272,10 +272,13 @@ def test_a_broken_channel_never_blocks_a_scan() -> None:
 @pytest.mark.pins("EXP-269")
 def test_the_key_matches_the_sibling_catalog_exactly() -> None:
     """Both catalogs use the same circuit key to share one breaker."""
-    # Read both entrypoint sources
+    # Read both sources: this script, and the search catalog's package module
     my_literotica_path = Path(__file__).resolve().parents[1] / "entrypoint.py"
     literotica_stories_path = (
-        Path(__file__).resolve().parents[2] / "literotica_stories" / "entrypoint.py"
+        Path(__file__).resolve().parents[2]
+        / "literotica_stories"
+        / "literotica_stories"
+        / "catalog.py"
     )
 
     my_lit_content = my_literotica_path.read_text()
