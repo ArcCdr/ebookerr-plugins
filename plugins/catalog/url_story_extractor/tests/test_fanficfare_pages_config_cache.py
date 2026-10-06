@@ -40,9 +40,7 @@ class _CountingConfig:
         """Ignore a per-call override."""
 
 
-def test_two_calls_for_the_same_sections_parse_the_ini_once(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_two_calls_for_the_same_sections_parse_the_ini_once(monkeypatch: Any) -> None:
     """Two calls with the same sections parse the ini files once."""
     _CountingConfig.reads = 0
 
@@ -56,10 +54,8 @@ def test_two_calls_for_the_same_sections_parse_the_ini_once(
     )
     monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
     gateway = FanFicFarePagesGateway(
-        personal_ini,
+        {},
         lister=lambda u, c, n: {"urllist": []},  # noqa: ANN001
         metadata_fetcher=lambda u, c: None,  # noqa: ANN001
     )
@@ -70,7 +66,7 @@ def test_two_calls_for_the_same_sections_parse_the_ini_once(
     assert _CountingConfig.reads == 1
 
 
-def test_different_sections_get_their_own_configuration(tmp_path: Path, monkeypatch: Any) -> None:
+def test_different_sections_get_their_own_configuration(monkeypatch: Any) -> None:
     """Different sections result in separate configuration parses."""
     _CountingConfig.reads = 0
 
@@ -86,10 +82,8 @@ def test_different_sections_get_their_own_configuration(tmp_path: Path, monkeypa
     )
     monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
     gateway = FanFicFarePagesGateway(
-        personal_ini,
+        {},
         lister=lambda u, c, n: {"urllist": []},  # noqa: ANN001
         metadata_fetcher=lambda u, c: None,  # noqa: ANN001
     )
@@ -100,7 +94,7 @@ def test_different_sections_get_their_own_configuration(tmp_path: Path, monkeypa
     assert _CountingConfig.reads == 2
 
 
-def test_a_failed_parse_is_not_cached(tmp_path: Path, monkeypatch: Any) -> None:
+def test_a_failed_parse_is_not_cached(monkeypatch: Any) -> None:
     """A failed parse is not cached and can be retried."""
 
     call_count = [0]
@@ -138,9 +132,7 @@ def test_a_failed_parse_is_not_cached(tmp_path: Path, monkeypatch: Any) -> None:
     )
     monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _FailOnceConfig)
 
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
-    gateway = FanFicFarePagesGateway(personal_ini, lister=lambda u, c, n: {"urllist": []})  # noqa: ANN001
+    gateway = FanFicFarePagesGateway({}, lister=lambda u, c, n: {"urllist": []})  # noqa: ANN001
 
     # First call should raise
     with pytest.raises(RuntimeError) as exc_info:
@@ -153,7 +145,7 @@ def test_a_failed_parse_is_not_cached(tmp_path: Path, monkeypatch: Any) -> None:
     assert result is not None
 
 
-def test_configuration_reuse_logs_at_debug(tmp_path: Path, monkeypatch: Any, caplog: Any) -> None:
+def test_configuration_reuse_logs_at_debug(monkeypatch: Any, caplog: Any) -> None:
     """Configuration reuse logs at DEBUG level."""
     caplog.set_level(logging.DEBUG, logger="url_story_extractor.pages")
     _CountingConfig.reads = 0
@@ -168,9 +160,7 @@ def test_configuration_reuse_logs_at_debug(tmp_path: Path, monkeypatch: Any, cap
     )
     monkeypatch.setattr("url_story_extractor.fff_support.Configuration", _CountingConfig)
 
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
-    gateway = FanFicFarePagesGateway(personal_ini)
+    gateway = FanFicFarePagesGateway({})
 
     gateway._configuration("https://x.test/a")
     gateway._configuration("https://x.test/b")
@@ -179,7 +169,7 @@ def test_configuration_reuse_logs_at_debug(tmp_path: Path, monkeypatch: Any, cap
     assert "Reusing the FanFicFare configuration for sections=a" in caplog.text
 
 
-def test_listing_failure_raises(tmp_path: Path, monkeypatch: Any, caplog: Any) -> None:
+def test_listing_failure_raises(monkeypatch: Any, caplog: Any) -> None:
     """Listing failure raises ListingError and does not reference elapsed."""
     from url_story_extractor.pages import ListingError
 
@@ -194,10 +184,8 @@ def test_listing_failure_raises(tmp_path: Path, monkeypatch: Any, caplog: Any) -
         mock_get_config_sections_for,
     )
 
-    personal_ini = tmp_path / "personal.ini"
-    personal_ini.write_text("")
     gateway = FanFicFarePagesGateway(
-        personal_ini,
+        {},
         lister=lambda u, c, n: (_ for _ in ()).throw(RuntimeError("nope")),  # noqa: ANN001
     )
 
@@ -216,10 +204,9 @@ def test_no_dead_elapsed_assignment_in_the_failure_branch() -> None:
     )
 
 
-def test_listing_retry_budget_is_capped(tmp_path: Path) -> None:
+def test_listing_retry_budget_is_capped() -> None:
     """Listing retry budget is capped to one retry through max_request_retries (EXP-073)."""
-    packaged = Path(__file__).resolve().parents[1] / "url_story_extractor" / "personal.ini"
-    gateway = FanFicFarePagesGateway(packaged)
+    gateway = FanFicFarePagesGateway({})
 
     config = gateway._configuration("http://test1.com?sid=1")
 
