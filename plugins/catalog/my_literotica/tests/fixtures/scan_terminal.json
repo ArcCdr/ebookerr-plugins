@@ -1,0 +1,130 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "url": "https://www.literotica.com/s/sample-omicron-the-aftermath",
+      "story_id": "9100001",
+      "site": "literotica.com",
+      "metadata_fetched": true,
+      "title": "Sample Omicron: The Aftermath",
+      "description": "A potion wears off at the worst moment.",
+      "rating": 4.45,
+      "num_words": 3475,
+      "author": "reader_one",
+      "author_url": "https://www.literotica.com/authors/reader_one",
+      "category": "Mind Control",
+      "tags": "breast expansion, sluttification",
+      "date_published": "2026-07-30",
+      "custom": {
+        "Votes": 33,
+        "Views": 3501,
+        "Favorites": 5,
+        "Comments": 0,
+        "Reading Lists": 21,
+        "Is Hot": false,
+        "Is New": true,
+        "Writer's Pick": false,
+        "Contest Winner": false,
+        "Downloadable": false,
+        "Voting Enabled": true,
+        "Comments Enabled": true,
+        "Language": "en",
+        "Type": "story",
+        "Author Stories": 86,
+        "Author Poems": 0,
+        "Author Audios": 0,
+        "Author Illustrations": 0,
+        "Announced": "2026-07-30T05:55:03+00:00"
+      }
+    },
+    {
+      "url": "https://www.literotica.com/s/sample-pi-ch-37",
+      "story_id": "9100002",
+      "site": "literotica.com",
+      "metadata_fetched": true,
+      "title": "Sample Pi Ch. 37",
+      "description": "Training goes on below the old keep.",
+      "rating": 4.86,
+      "num_words": 13177,
+      "author": "reader_two",
+      "author_url": "https://www.literotica.com/authors/reader_two",
+      "category": "Sci-Fi & Fantasy",
+      "tags": "monster girl, harem",
+      "date_published": "2026-07-30",
+      "series": "Sample Pi",
+      "series_url": "https://www.literotica.com/series/se/900000008",
+      "custom": {
+        "Votes": 169,
+        "Views": 2242,
+        "Favorites": 7,
+        "Comments": 1,
+        "Reading Lists": 16,
+        "Is Hot": true,
+        "Is New": true,
+        "Writer's Pick": false,
+        "Contest Winner": false,
+        "Downloadable": false,
+        "Voting Enabled": true,
+        "Comments Enabled": true,
+        "Language": "en",
+        "Type": "story",
+        "Series Parts": 2,
+        "Author Stories": 88,
+        "Author Poems": 0,
+        "Author Audios": 0,
+        "Author Illustrations": 0,
+        "Announced": "2026-07-30T05:55:03+00:00"
+      }
+    },
+    {
+      "url": "https://www.literotica.com/p/an-ode-to-sample-rho",
+      "story_id": "9100003",
+      "site": "literotica.com",
+      "metadata_fetched": true,
+      "title": "An Ode to Sample Rho",
+      "description": "Non Erotic Rhyming Poem",
+      "rating": 3.8,
+      "num_words": 90,
+      "author": "reader_three",
+      "author_url": "https://www.literotica.com/authors/reader_three",
+      "category": "Non-Erotic Poetry",
+      "tags": "ode, poem",
+      "date_published": "2026-07-12",
+      "custom": {
+        "Votes": 5,
+        "Views": 205,
+        "Favorites": 1,
+        "Comments": 4,
+        "Reading Lists": 2,
+        "Is Hot": false,
+        "Is New": false,
+        "Writer's Pick": false,
+        "Contest Winner": false,
+        "Downloadable": false,
+        "Voting Enabled": true,
+        "Comments Enabled": true,
+        "Language": "en",
+        "Type": "poem",
+        "Author Stories": 76,
+        "Author Poems": 2,
+        "Author Audios": 0,
+        "Author Illustrations": 0,
+        "Announced": "2026-07-12T05:55:03+00:00"
+      }
+    }
+  ],
+  "logs": [
+    {
+      "level": "info",
+      "message": "Using the stored literotica.com auth_token (valid for about one hour)"
+    },
+    {
+      "level": "debug",
+      "message": "Activity wall page 1: 4 activities"
+    },
+    {
+      "level": "info",
+      "message": "Activity wall scanned: 4 activities back to 2026-07-30 17:36 UTC, 3 story publication(s), 3 kept (0 duplicate(s) dropped)"
+    }
+  ]
+}
