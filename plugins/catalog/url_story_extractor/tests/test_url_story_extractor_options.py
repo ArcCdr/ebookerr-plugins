@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 from ebookerr_sdk.spi import SiteCredential
-from ebookerr_sdk.testing import make_request, run_wire
+from ebookerr_sdk.testing import FakeCore, make_request, run_wire
 from url_story_extractor.fff_support import packaged_base_ini
 from url_story_extractor.pages import FanFicFarePagesGateway
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
@@ -112,3 +112,31 @@ def test_the_extractor_never_reads_another_plugins_folder(
     assert terminal["ok"] is True, terminal.get("error")
     assert [path for path in opened if path.is_relative_to(sibling)] == []
     assert opened, "no read was recorded, so the check above would pass whatever was read"
+
+
+def test_a_scan_configures_fanficfare_from_the_calls_settings_and_sign_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The context a scan runs with feeds the gateway: its settings and the site's sign-in (D55)."""
+    configurations: list[Any] = []
+
+    def lister(url: str, configuration: Any, normalize: bool) -> dict[str, Any]:
+        configurations.append(configuration)
+        return {"urllist": []}
+
+    monkeypatch.setattr("url_story_extractor.pages.get_urls_from_page", lister)
+    core = FakeCore(credentials_by_host={"www.example.org": SiteCredential("basic", "me", "pw")})
+    settings = {
+        "extract_urls": ["https://www.example.org/list"],
+        "extra_options": "[defaults]\nslow_down_sleep_time: 2\n",
+    }
+
+    terminal, _frames = run_wire(
+        UrlStoryExtractorPlugin(), make_request("scan", settings=settings), core=core
+    )
+
+    assert terminal["ok"] is True, terminal.get("error")
+    (configuration,) = configurations
+    assert configuration.getConfig("slow_down_sleep_time") == "2"
+    assert configuration.getConfig("username") == "me"
+    assert configuration.getConfig("password") == "pw"
