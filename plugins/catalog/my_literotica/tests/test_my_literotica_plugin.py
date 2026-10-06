@@ -1549,16 +1549,9 @@ def test_map_activity_omits_category_when_unresolvable() -> None:
 
 def test_category_table_matches_the_sibling_plugin() -> None:
     """category_table_matches_the_sibling_plugin."""
-    import importlib.util
+    import importlib
 
-    sibling_path = Path(__file__).resolve().parents[2] / "literotica_stories" / "entrypoint.py"
-    sibling_spec = importlib.util.spec_from_file_location(
-        "literotica_stories_entrypoint_for_parity", sibling_path
-    )
-    assert sibling_spec is not None, f"Could not load sibling from {sibling_path}"
-    assert sibling_spec.loader is not None, f"Could not load sibling from {sibling_path}"
-    sibling_module = importlib.util.module_from_spec(sibling_spec)
-    sibling_spec.loader.exec_module(sibling_module)
+    sibling_module = importlib.import_module("literotica_stories.catalog")
 
     assert _MODULE._CATEGORY_NAMES == sibling_module._CATEGORY_NAMES
 
