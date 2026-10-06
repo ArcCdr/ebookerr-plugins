@@ -10,9 +10,21 @@ from contextlib import contextmanager
 from unittest import mock
 
 import pytest
-from ebookerr_sdk.testing import FakeCircuit
+from ebookerr_sdk.testing import FakeCircuit, FakeCore, make_request, run_wire
+from literotica_stories.plugin import LiteroticaStoriesPlugin
 
 _MODULE = importlib.import_module("literotica_stories.catalog")
+
+
+def _json_response(payload: object) -> mock.MagicMock:
+    """A stand-in for what ``urlopen`` returns: a context manager reading *payload* as JSON."""
+    body = json.dumps(payload).encode("utf-8")
+    return mock.MagicMock(
+        __enter__=mock.MagicMock(
+            return_value=mock.MagicMock(read=mock.MagicMock(return_value=body))
+        ),
+        __exit__=mock.MagicMock(return_value=None),
+    )
 
 
 class _OpeningCircuit(FakeCircuit):
@@ -234,3 +246,42 @@ def test_the_breaker_key_names_the_host() -> None:
 
     # Every guarded call names the host, never the plugin id
     assert circuit.guarded == ["host:literotica.com"]
+
+
+@pytest.mark.pins("EXP-269")
+@pytest.mark.real_impl("ebookerr_sdk.host.HostContext")
+@pytest.mark.parametrize(
+    ("urlopen_outcome", "recorded_ok"),
+    [
+        pytest.param({"return_value": _json_response({"data": []})}, [True], id="an answered call"),
+        pytest.param(
+            {
+                "side_effect": urllib.error.HTTPError(
+                    "https://literotica.com/api/3/search/stories", 401, "Unauthorized", {}, None
+                )
+            },
+            [True],
+            id="a 401",
+        ),
+        pytest.param(
+            {"side_effect": urllib.error.URLError("down")},
+            [False, False],
+            id="a transport failure, retried once",
+        ),
+    ],
+)
+def test_the_hosts_own_guard_reports_each_search_outcome_to_the_core(
+    urlopen_outcome: dict[str, object], recorded_ok: list[bool]
+) -> None:
+    """Served by the real SDK host, a search call's outcome crosses the wire by host key."""
+    request = make_request(
+        "scan", settings={"search_urls": ["https://search.literotica.com/?q=x"], "max_pages": 1}
+    )
+
+    with mock.patch("urllib.request.urlopen", **urlopen_outcome), mock.patch("time.sleep"):
+        _terminal, frames = run_wire(LiteroticaStoriesPlugin(), request, core=FakeCore())
+
+    records = [f for f in frames if f.get("op") == "circuit" and f.get("call") == "record"]
+    assert [(f["key"], f["label"], f["ok"]) for f in records] == [
+        ("host:literotica.com", "literotica.com", ok) for ok in recorded_ok
+    ]
