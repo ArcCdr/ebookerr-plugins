@@ -67,6 +67,32 @@ def _matches_candidate_pattern(stem: str, filename: str) -> bool:
     return remainder[0] in {".", "-", "_", " "}
 
 
+def _folder_epub_stems(book_dir: Path) -> list[str]:
+    """Return the stems of the EPUB files directly inside *book_dir*."""
+    return [p.stem for p in book_dir.iterdir() if p.is_file() and p.suffix.lower() == ".epub"]
+
+
+def _is_candidate_name(stem: str, filename: str, epub_stems: list[str]) -> bool:
+    """Return whether image *filename* is a cover candidate of the EPUB named *stem* (``GEN-TR-8``).
+
+    In a folder whose only EPUB is this one, every image is its candidate (a Calibre-style
+    ``cover.jpg`` included). Otherwise the image belongs to the EPUB with the longest stem whose
+    candidate pattern it matches, so ``Book 2 cover.png`` is ``Book 2``'s, never ``Book``'s.
+
+    Args:
+        stem: The EPUB file name's stem.
+        filename: An image file name in the same folder.
+        epub_stems: The stems of every EPUB in the folder.
+
+    Returns:
+        ``True`` when the image is this EPUB's candidate.
+    """
+    if epub_stems == [stem]:
+        return True
+    owners = [s for s in {*epub_stems, stem} if _matches_candidate_pattern(s, filename)]
+    return bool(owners) and max(owners, key=len) == stem
+
+
 def _own_candidates(assets: list[Any]) -> list[dict[str, Any]]:
     """Return this plugin's own cover_candidate rows (the core refuses writes to anyone else's)."""
     return [
@@ -91,6 +117,10 @@ def discover_candidates(book_dir: Path, stem: str, assets: list[Any]) -> list[An
     another plugin's namespace are never written to or deleted. The plugin's own
     ``<stem>.cover.png`` export is never treated as a candidate.
 
+    An image is this EPUB's candidate when :func:`_is_candidate_name` says so: every image of a
+    folder whose only EPUB is this one, else the images whose name extends this EPUB's stem more
+    than any other EPUB's.
+
     Args:
         book_dir: The book's directory in the library.
         stem: The EPUB filename stem, used to match candidate filenames.
@@ -104,6 +134,7 @@ def discover_candidates(book_dir: Path, stem: str, assets: list[Any]) -> list[An
     if not book_dir.exists():
         return writes
 
+    epub_stems = _folder_epub_stems(book_dir)
     own = _own_candidates(assets)
     stored_by_source = {
         (a.get("meta") or {}).get("source_file"): a for a in own if a.get("storage") == "store"
@@ -117,7 +148,7 @@ def discover_candidates(book_dir: Path, stem: str, assets: list[Any]) -> list[An
             continue
         if filename[filename.rfind(".") + 1 :].lower() not in _IMAGE_EXTENSIONS:
             continue
-        if not _matches_candidate_pattern(stem, filename):
+        if not _is_candidate_name(stem, filename, epub_stems):
             continue
 
         found.add(filename)
@@ -161,6 +192,7 @@ def _oversized_candidates(book_dir: Path, stem: str) -> int:
     """Count candidate-pattern sidecar images in book_dir that exceed the import size limit."""
     if not book_dir.exists():
         return 0
+    epub_stems = _folder_epub_stems(book_dir)
     export_name = f"{stem}.cover.png"
     count = 0
     for file_path in book_dir.iterdir():
@@ -169,7 +201,7 @@ def _oversized_candidates(book_dir: Path, stem: str) -> int:
             continue
         if filename[filename.rfind(".") + 1 :].lower() not in _IMAGE_EXTENSIONS:
             continue
-        if not _matches_candidate_pattern(stem, filename):
+        if not _is_candidate_name(stem, filename, epub_stems):
             continue
         if file_path.stat().st_size > _MAX_IMPORT_BYTES:
             count += 1
