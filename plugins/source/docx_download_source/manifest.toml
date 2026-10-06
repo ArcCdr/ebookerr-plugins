@@ -15,6 +15,7 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/docx_download_sou
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["python-docx>=1.1"]
 formats = ["docx"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.converter]
