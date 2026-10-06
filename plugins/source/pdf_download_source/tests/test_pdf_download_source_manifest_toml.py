@@ -15,9 +15,9 @@ def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
 
 
 def test_the_manifest_declares_the_converter_role() -> None:
-    """The Source converts uploaded pdf files: [roles.converter], formats unchanged, SPI 2.33."""
+    """The Source converts uploaded pdf files: [roles.converter], formats unchanged, SPI 3.0."""
     manifest = PdfDownloadSourcePlugin.manifest
     assert manifest.roles.converter is True
     assert manifest.formats == ("pdf",)
-    assert manifest.spi_version == "2.33"
+    assert manifest.spi_version == "3.0"
     assert isinstance(PdfDownloadSourcePlugin(), Converting)

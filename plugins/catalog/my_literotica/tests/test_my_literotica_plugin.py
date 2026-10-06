@@ -37,7 +37,7 @@ def test_manifest_declares_catalog_plugin_with_site_auth() -> None:
     assert manifest.name == "Literotica - My Home"
     assert manifest.plugin_type.value == "catalog"
     assert manifest.auth_sites == ("literotica.com",)
-    assert manifest.spi_version == "2.30"
+    assert manifest.spi_version == "3.0"
     assert manifest.settings_schema.fields == ()
 
 
@@ -59,7 +59,7 @@ def test_main_scan_roundtrip(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.2",
+            "spi_version": "3.0",
             "op": "scan",
             "request": {"auth": {}},
         }
@@ -87,7 +87,7 @@ def test_main_bad_op_reports_error(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.2",
+            "spi_version": "3.0",
             "op": "pull",
             "request": {},
         }
@@ -119,7 +119,7 @@ def test_main_passes_auth_through(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.2",
+            "spi_version": "3.0",
             "op": "scan",
             "request": {"auth": {"literotica.com": {"kind": "basic", "name": "u", "value": "p"}}},
         }
@@ -1337,7 +1337,7 @@ def test_main_reports_a_scan_failure_as_ok_false(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.2",
+            "spi_version": "3.0",
             "op": "scan",
             "request": {"auth": {}},
         }

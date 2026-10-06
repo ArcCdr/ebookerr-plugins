@@ -43,7 +43,7 @@ def test_the_manifest_declares_the_story_extractor_role() -> None:
         "urls_setting": "extract_urls",
     }
     assert "extract_url_patterns" not in data
-    assert data["spi_version"] == "2.32"
+    assert data["spi_version"] == "3.0"
 
 
 def test_the_extractor_requires_fanficfare_4_62() -> None:

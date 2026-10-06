@@ -528,7 +528,7 @@ def test_main_scan_roundtrip(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.0",
+            "spi_version": "3.0",
             "op": "scan",
             "request": {"settings": {"search_urls": ["https://search.literotica.com/?query=a"]}},
         }
@@ -559,7 +559,7 @@ def test_main_bad_op_reports_error(monkeypatch) -> None:
 
     stdin_data = json.dumps(
         {
-            "spi_version": "2.0",
+            "spi_version": "3.0",
             "op": "pull",
             "request": {"settings": {}},
         }
@@ -647,8 +647,8 @@ def test_manifest_threshold_options_strict() -> None:
     )
 
 
-def test_manifest_spi_2_1() -> None:
-    """Real manifest → spi_version == '2.30', version == '2.2.0'."""
+def test_manifest_spi_3_0() -> None:
+    """Real manifest → spi_version == '3.0', version == '2.2.0'."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest_data = tomllib.loads(manifest_path.read_text())
 
@@ -656,7 +656,7 @@ def test_manifest_spi_2_1() -> None:
 
     manifest = parse_manifest(manifest_data)
 
-    assert manifest.spi_version == "2.30"
+    assert manifest.spi_version == "3.0"
     assert manifest.version == "2.2.0"
 
 
