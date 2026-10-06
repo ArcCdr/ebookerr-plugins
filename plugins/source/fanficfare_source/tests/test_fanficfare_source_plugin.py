@@ -15,17 +15,17 @@ from fanficfare_source.plugin import FanFicFareSourcePlugin, SourcePullError
 from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.pull import FanFicFarePull
 
-URL = "https://www.literotica.com/s/the-12th-key"
-OUTPUT = "gabthewriter/The 12th Key.epub"
+URL = "https://www.literotica.com/s/sample-beta"
+OUTPUT = "writerbeta/Sample Beta.epub"
 _META_SAME = {"numChapters": "1", "dateUpdated": "2026-05-19", "status": "In-Progress"}
 
 
 def fff_json(**overrides: Any) -> dict[str, Any]:
     """Build a FanFicFare-shaped download JSON payload, one field at a time."""
     base: dict[str, Any] = {
-        "title": "The 12th Key",
-        "author": "gabthewriter",
-        "storyId": "the-12th-key",
+        "title": "Sample Beta",
+        "author": "writerbeta",
+        "storyId": "sample-beta",
         "storyUrl": URL,
         "sectionUrl": URL,
         "category": "Erotic Horror",

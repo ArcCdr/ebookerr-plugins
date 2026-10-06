@@ -26,9 +26,9 @@ from fanficfare_source.metadata import (
 from fanficfare_source.protocol import UNRECOGNISED_MESSAGE, DownloadResult, OnChapter
 from fanficfare_source.pull import FanFicFarePull
 
-URL = "https://www.literotica.com/s/the-12th-key"
-AUTHOR_URL = "https://www.literotica.com/authors/gabthewriter/works/stories"
-OUTPUT = "gabthewriter/The 12th Key.epub"
+URL = "https://www.literotica.com/s/sample-beta"
+AUTHOR_URL = "https://www.literotica.com/authors/writerbeta/works/stories"
+OUTPUT = "writerbeta/Sample Beta.epub"
 
 _META_SAME = {"numChapters": "1", "dateUpdated": "2026-05-19", "status": "In-Progress"}
 _META_MORE = {"numChapters": "5", "dateUpdated": "2026-07-01", "status": "In-Progress"}
@@ -37,9 +37,9 @@ _META_MORE = {"numChapters": "5", "dateUpdated": "2026-07-01", "status": "In-Pro
 def fff_json(**overrides: Any) -> dict[str, Any]:
     """Build a FanFicFare-shaped metadata/download JSON payload, one field at a time."""
     base: dict[str, Any] = {
-        "title": "The 12th Key",
-        "author": "gabthewriter",
-        "storyId": "the-12th-key",
+        "title": "Sample Beta",
+        "author": "writerbeta",
+        "storyId": "sample-beta",
         "storyUrl": URL,
         "sectionUrl": URL,
         "authorUrl": AUTHOR_URL,
@@ -264,7 +264,7 @@ def test_fanficfare_pull_returns_a_complete_patch(
     fanficfare_fixtures: Path, tmp_path: Path
 ) -> None:
     """A fresh pull returns one complete BookPatch built from a recorded fixture."""
-    payload = _embedded_json(fanficfare_fixtures / "the-12th-key.create.stdout")
+    payload = _embedded_json(fanficfare_fixtures / "sample-beta.create.stdout")
     gateway = FakeGateway(_created(json_data=payload, output_filename=OUTPUT))
     engine = make_engine(gateway)
 
@@ -469,7 +469,7 @@ def test_a_consistent_update_is_logged_at_info(
         if r.levelname == "INFO" and r.name == "fanficfare_source.pull"
     ]
     assert (
-        "FanFicFare updated https://www.literotica.com/s/the-12th-key in 2.5s: the site lists "
+        "FanFicFare updated https://www.literotica.com/s/sample-beta in 2.5s: the site lists "
         "4 chapter(s); the book had 3 and now holds 4 (1 added, 0 re-fetched)"
     ) in info_messages
 
@@ -487,7 +487,7 @@ def test_errored_chapters_are_warned(tmp_path: Path, caplog: pytest.LogCaptureFi
         if r.levelname == "WARNING" and r.name == "fanficfare_source.pull"
     ]
     assert (
-        "FanFicFare wrote 2 chapter(s) of https://www.literotica.com/s/the-12th-key as errors "
+        "FanFicFare wrote 2 chapter(s) of https://www.literotica.com/s/sample-beta as errors "
         "(continue_on_chapter_error is on)"
     ) in warning_messages
 
@@ -716,7 +716,7 @@ def test_a_created_result_missing_chapters_is_rejected(
     assert len(warning_records) == 1
     message = warning_records[0].getMessage()
     assert message.startswith(
-        "FanFicFare result rejected for https://www.literotica.com/s/the-12th-key: "
+        "FanFicFare result rejected for https://www.literotica.com/s/sample-beta: "
         "incomplete download (site=3,"
     )
 
