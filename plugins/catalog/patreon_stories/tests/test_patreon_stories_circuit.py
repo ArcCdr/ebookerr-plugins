@@ -263,6 +263,31 @@ def test_the_scan_returns_empty_and_warns_when_the_host_is_down() -> None:
     urlopen_mock.assert_not_called()
 
 
+@pytest.mark.pins("EXP-227")
+@pytest.mark.parametrize(
+    ("failure", "reason"),
+    [
+        pytest.param(urllib.error.URLError("down"), "<urlopen error down>", id="a URL error"),
+        pytest.param(TimeoutError("timed out"), "timed out", id="a timeout"),
+    ],
+)
+def test_a_host_that_cannot_be_reached_fails_the_scan_while_its_breaker_is_closed(
+    failure: Exception, reason: str
+) -> None:
+    """A transport failure its breaker has not yet turned into a held host answers ok=false.
+
+    An empty scan means the source really has nothing (``EXP-073``); only an open breaker, the
+    host already found unreachable, makes the quiet empty scan the test above pins.
+    """
+    core = FakeCore(credentials_by_host={"www.patreon.com": _CREDENTIAL})
+
+    with mock.patch("urllib.request.urlopen", side_effect=failure):
+        terminal, _frames = run_wire(PatreonStoriesPlugin(), make_request("scan"), core=core)
+
+    assert terminal["ok"] is False
+    assert terminal["error"] == f"patreon.com is not reachable: {reason}"
+
+
 @pytest.mark.pins("EXP-269")
 @pytest.mark.real_impl("ebookerr_sdk.host.HostContext")
 @pytest.mark.parametrize(
