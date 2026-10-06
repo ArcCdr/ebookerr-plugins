@@ -3,19 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
-import sys
 import tempfile
 from pathlib import Path
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("file_meta_sync_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["file_meta_sync_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+import file_meta_sync.plugin as _MODULE
 
 
 class TestFileSyncEncoding:

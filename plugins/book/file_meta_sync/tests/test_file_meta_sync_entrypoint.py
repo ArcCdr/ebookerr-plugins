@@ -1,25 +1,34 @@
-"""Tests for the FileMetaSync bundled plugin entrypoint."""
+"""Tests for File metadata sync's sidecar functions (file_meta_sync.plugin)."""
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("file_meta_sync_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["file_meta_sync_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+import file_meta_sync.plugin as _MODULE
+
+
+def _run_books(
+    request: dict[str, Any], library_root: Path, logs: list[Any], **kwargs: Any
+) -> list[Any]:
+    """Call ``_process_books`` with the fields of a request envelope, as the old script read them."""
+    req = request.get("request", {})
+    return _MODULE._process_books(
+        req.get("books", []),
+        library_root,
+        logs,
+        event=request.get("event"),
+        settings=req.get("settings", {}),
+        ui_context=req.get("ui_context", {}),
+        interactive=bool(req.get("interactive", False)),
+        **kwargs,
+    )
 
 
 class TestDiscoverCandidates:
@@ -1049,7 +1058,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1089,7 +1098,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1142,7 +1151,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1230,7 +1239,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             # handle_purge_action returns [] since registry rows are already deleted
             # So _process_books won't append anything to result
@@ -1268,7 +1277,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             # Should return empty result
             assert result == []
@@ -1354,7 +1363,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             assert result == []
             assert not sidecar.exists()
@@ -1452,7 +1461,7 @@ class TestPurgeDoesNotResurrectCandidates:
                     "books": [book],
                 },
             }
-            _MODULE._process_books(purge_request, lib_root, [])
+            _run_books(purge_request, lib_root, [])
             assert not sidecar.exists()
 
             # 4. Re-run process_book: the core has removed the stored row too.
@@ -1552,72 +1561,6 @@ class TestProcessBookAssets:
             assert result is None
 
 
-class TestAskYesNo:
-    """Tests for the _ask_yes_no helper."""
-
-    def test_ask_yes_no_parses_answer(self, monkeypatch) -> None:
-        """_ask_yes_no emits dialog op and reads answer from stdin."""
-        import io
-
-        # Mock stdin to return the dialog answer
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = '{"answer": true}\n'
-
-        # Mock stdout to capture the dialog op
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        result = _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
-
-        # Result should be True
-        assert result is True
-
-        # Captured stdout should contain the dialog op
-        output = mock_stdout.getvalue()
-        dialog_op = json.loads(output)
-        assert dialog_op["op"] == "dialog"
-        assert dialog_op["kind"] == "yes_no"
-        assert dialog_op["message"] == "Do you agree?"
-        assert dialog_op["yes"] == "Yes please"
-        assert dialog_op["no"] == "No thanks"
-
-    def test_ask_yes_no_raises_on_the_abandonment_frame(self, monkeypatch) -> None:
-        """_ask_yes_no raises PromptAbandoned when the core sends the abandonment frame."""
-        import io
-
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = '{"abandoned": true}\n'
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
-
-        # The dialog op was still emitted before the abandonment was raised
-        output = mock_stdout.getvalue()
-        dialog_op = json.loads(output)
-        assert dialog_op["op"] == "dialog"
-        assert dialog_op["kind"] == "yes_no"
-
-    def test_ask_yes_no_raises_on_a_closed_stdin(self, monkeypatch) -> None:
-        """_ask_yes_no raises PromptAbandoned when stdin returns an empty line (closed)."""
-        import io
-
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = ""
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
-
-
 class TestBatchAbortsOnAbandonment:
     """Tests for batch-abort semantics when a prompt is abandoned mid-run (EXP-233)."""
 
@@ -1641,70 +1584,10 @@ class TestBatchAbortsOnAbandonment:
         }
 
         with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._process_books(request, tmp_path, [])
+            _run_books(request, tmp_path, [])
 
         # Book 3's process_book call never happened
         assert spy.call_count == 2
-
-
-class TestEnvelopeRoundTrip:
-    """Tests for full envelope processing via main()."""
-
-    def test_envelope_round_trip(self, monkeypatch) -> None:
-        """Feed a full request envelope via stdin, verify JSON response."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            lib_root = Path(tmpdir)
-            dir_part = "books"
-            (lib_root / dir_part).mkdir()
-
-            request_data = {
-                "op": "enrich",
-                "event": "BookUpdated",
-                "request": {
-                    "library_root": str(lib_root),
-                    "books": [
-                        {
-                            "book_id": "test_book",
-                            "output_filename": "books/book.epub",
-                            "synopsis": "db synopsis",
-                            "cover_ref": None,
-                            "assets": [],
-                            "custom_values": {},
-                        }
-                    ],
-                },
-            }
-
-            import io
-
-            mock_stdin = MagicMock()
-            mock_stdin.readline.return_value = json.dumps(request_data)
-            mock_stdout = io.StringIO()
-
-            monkeypatch.setattr(sys, "stdin", mock_stdin)
-            monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-            _MODULE.main()
-
-            output = mock_stdout.getvalue()
-            # Find the final response (the line with "ok" key)
-            lines = output.strip().split("\n")
-            response_line = None
-            for line in lines:
-                try:
-                    frame = json.loads(line)
-                    if "ok" in frame:
-                        response_line = line
-                        break
-                except json.JSONDecodeError:
-                    pass
-
-            assert response_line is not None, f"No response found in output: {output}"
-            response = json.loads(response_line)
-
-            assert response["ok"] is True
-            assert isinstance(response["result"], list)
-            assert isinstance(response["logs"], list)
 
 
 class TestActionLogs:
@@ -1910,14 +1793,7 @@ class TestActionLogs:
 class TestProgressFrames:
     """Tests for progress frame emission."""
 
-    def test_report_progress_writes_a_progress_frame(self, capsys) -> None:
-        """_report_progress emits a fire-and-forget progress frame on stdout."""
-        _MODULE._report_progress(42.5)
-        captured = capsys.readouterr()
-        frame = json.loads(captured.out)
-        assert frame == {"op": "progress", "percent": 42.5}
-
-    def test_process_books_reports_once_per_book(self, capsys) -> None:
+    def test_process_books_reports_once_per_book(self) -> None:
         """_process_books reports progress after each book in normal branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -1946,22 +1822,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames from stdout
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 3 progress frames with 100/3, 200/3, 100.0
             assert len(progress_frames) == 3
             assert progress_frames == pytest.approx([100 / 3, 200 / 3, 100.0])
 
-    def test_process_books_reports_on_the_delete_branch(self, capsys) -> None:
+    def test_process_books_reports_on_the_delete_branch(self) -> None:
         """_process_books reports progress on BookDeleted branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -1991,22 +1860,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 2 progress frames with 50.0, 100.0
             assert len(progress_frames) == 2
             assert progress_frames == pytest.approx([50.0, 100.0])
 
-    def test_process_books_reports_on_the_purge_branch(self, capsys) -> None:
+    def test_process_books_reports_on_the_purge_branch(self) -> None:
         """_process_books reports progress on purge_cover_candidates branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2032,22 +1894,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 2 progress frames with 50.0, 100.0
             assert len(progress_frames) == 2
             assert progress_frames == pytest.approx([50.0, 100.0])
 
-    def test_process_books_with_no_books_emits_no_progress(self, capsys) -> None:
+    def test_process_books_with_no_books_emits_no_progress(self) -> None:
         """_process_books with empty books list emits no progress frames."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2061,24 +1916,16 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
 
             # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    try:
-                        frame = json.loads(line)
-                        if frame.get("op") == "progress":
-                            progress_frames.append(frame["percent"])
-                    except json.JSONDecodeError:
-                        pass
+            progress_frames = reports
 
             # Should have no progress frames
             assert len(progress_frames) == 0
 
-    def test_delete_disabled_emits_no_progress(self, capsys) -> None:
+    def test_delete_disabled_emits_no_progress(self) -> None:
         """_process_books on BookDeleted with delete_on_book_delete=False emits no progress."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2104,19 +1951,9 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    try:
-                        frame = json.loads(line)
-                        if frame.get("op") == "progress":
-                            progress_frames.append(frame["percent"])
-                    except json.JSONDecodeError:
-                        pass
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have no progress frames (branch loops over nothing)
             assert len(progress_frames) == 0
