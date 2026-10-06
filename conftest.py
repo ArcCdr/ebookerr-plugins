@@ -164,8 +164,8 @@ def _build_epub(
     """Write a FanFicFare-shaped EPUB (root content.opf/toc.ncx, OEBPS chapters).
 
     navMap/spine follow ``chapters`` order (so callers can build out-of-order
-    books); ``playOrder`` is 0-based with the title page first, mirroring the real
-    sample (``books/Moosetales/Tending Bar.epub``).
+    books); ``playOrder`` is 0-based with the title page first, mirroring a
+    FanFicFare download.
     """
     ids = [f"file{i:04d}" for i in range(1, len(chapters) + 1)]
     manifest = [

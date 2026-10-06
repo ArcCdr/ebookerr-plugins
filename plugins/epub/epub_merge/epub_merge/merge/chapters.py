@@ -37,7 +37,7 @@ def plan_chapters(
 
     Returns:
         A list of PlannedChapter, one per input chapter, in input order.
-        Filenames are collision-free and semantic (e.g. "chapter_174_three_square_meals.xhtml").
+        Filenames are collision-free and semantic (e.g. "chapter_174_sample_delta.xhtml").
 
     Raises:
         None (pure function; all validation belongs upstream).

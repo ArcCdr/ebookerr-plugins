@@ -1,7 +1,7 @@
 """F9 — reorder out-of-order EPUB chapters.
 
 FanFicFare sometimes lists a story's chapters out of chronological order (the real
-"Tending Bar" lists ``Part 5, Part 6, Pt. 01..04``). ``reorder_epub`` reads the
+"Sample Alpha" lists ``Part 5, Part 6, Pt. 01..04``). ``reorder_epub`` reads the
 EPUB's own table of contents — the book title and each chapter title — rather than
 the FanFicFare JSON or the chapter ``<meta name="chapterurl">`` headers, since the
 EPUB alone is self-sufficient.

@@ -174,7 +174,7 @@ class PlannedChapter:
 
     Attributes:
         label: Human-readable chapter label.
-        filename: Flat output filename (e.g. "chapter_174_three_square_meals.xhtml").
+        filename: Flat output filename (e.g. "chapter_174_sample_delta.xhtml").
         item_id: Unique identifier for this chapter (== filename stem).
         number: Optional chapter number.
         book_index: Index of the source book this chapter came from.

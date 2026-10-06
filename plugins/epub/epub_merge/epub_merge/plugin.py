@@ -81,7 +81,7 @@ _SETTINGS_SCHEMA = SettingsSchema(
             label="Rewrite the book title with the chapter range",
             default=False,
             help='Rename the merged book to "<series> <first>-<last>" using the chapter '
-            "numbers found in the merged chapters, e.g. Three Square Meals 174-180.",
+            "numbers found in the merged chapters, e.g. Sample Delta 174-180.",
         ),
     ),
     summary=(
