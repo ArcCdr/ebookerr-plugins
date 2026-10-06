@@ -3,7 +3,7 @@
 Every first-party plugin that imports FanFicFare carries this file byte for byte — a plugin may
 import only its own package — and the plugins repository's
 ``tests/test_fanficfare_support_twins.py`` fails when two copies differ (``LIB-D26``). It gives its
-plugin eight things:
+plugin five things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
   from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's settings, its
