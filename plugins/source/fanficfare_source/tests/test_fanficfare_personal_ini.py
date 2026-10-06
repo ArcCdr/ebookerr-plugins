@@ -70,3 +70,25 @@ def test_the_engine_removes_the_leftover(tmp_path: Path, caplog: pytest.LogCaptu
 
     # Should have logged the removal
     assert any("personal.ini is no longer used" in record.message for record in caplog.records)
+
+
+def test_a_leftover_that_cannot_be_removed_is_reported(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A personal.ini the plugin cannot delete stays in place with one WARNING and no INFO."""
+    caplog.set_level(logging.INFO)
+    personal_ini = tmp_path / "personal.ini"
+    personal_ini.write_text("[defaults]\nmax_request_retries: 0\n", encoding="utf-8")
+
+    with (
+        patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}),
+        patch.object(Path, "unlink", side_effect=PermissionError(13, "Permission denied")),
+    ):
+        remove_leftover_personal_ini()
+
+    assert personal_ini.exists()
+    assert [
+        (record.levelno, record.getMessage())
+        for record in caplog.records
+        if record.name == "fanficfare_source.plugin"
+    ] == [(logging.WARNING, f"Could not remove {personal_ini}: [Errno 13] Permission denied")]
