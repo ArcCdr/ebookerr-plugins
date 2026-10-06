@@ -1,26 +1,30 @@
 """Lists story URLs and polls story metadata from an arbitrary page, via FanFicFare.
 
 This module uses FanFicFare in-process (``EXT-D7``, ``EXT-TR-1``) through the plugin's
-FanFicFare support module (``LIB-D26``). Both callables are injected so tests never touch
-the network.
+FanFicFare support module (``LIB-D26``), configured from the plugin's own settings and the
+stored sign-in of the page's site. Both callables are injected so tests never touch the network.
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
-from pathlib import Path
+from collections.abc import Callable, Mapping
 from typing import Any
+from urllib.parse import urlsplit
 
+from ebookerr_sdk.spi import SiteCredential
 from fanficfare import adapters
 from fanficfare.geturls import get_urls_from_page
 
 from url_story_extractor.fff_support import (
+    apply_sign_in,
     build_configuration,
     captured_stdout,
     config_sections,
+    packaged_base_ini,
     quiet_fanficfare_logging,
+    settings_options,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,33 +53,40 @@ class ListingError(RuntimeError):
 
 
 class FanFicFarePagesGateway:
-    """Lists story URLs and polls story metadata from an arbitrary page, via FanFicFare."""
+    """Lists story URLs and polls story metadata from an arbitrary page, via FanFicFare.
+
+    FanFicFare is configured from the plugin's own settings (``is_adult`` and the "Advanced
+    FanFicFare options") and the stored sign-in of the page's site, nothing else.
+    """
 
     def __init__(
         self,
-        personal_ini: Path,
+        settings: Mapping[str, Any],
         *,
+        credentials: Callable[[str], SiteCredential | None] | None = None,
         lister: Lister | None = None,
         metadata_fetcher: MetadataFetcher | None = None,
     ) -> None:
-        """Store the config path and the injected callables.
+        """Store the plugin's settings, the sign-in lookup and the injected callables.
+
+        Configurations are cached per resolved section tuple and host, so a scan builds each
+        site's configuration once. Quiets FanFicFare's logging (``LIB-D26``).
 
         Args:
-            personal_ini: Path to the FanFicFare Source's shared file, or this plugin's
-                packaged default, layered over FanFicFare's own ``defaults.ini`` so the
-                user's site logins and per-site options apply.
+            settings: The plugin's resolved settings (``ctx.settings``); ``is_adult`` and
+                ``extra_options`` are layered over FanFicFare's own ``defaults.ini``.
+            credentials: Looks up the stored sign-in of a page's site (``ctx.credentials``);
+                ``None`` applies no sign-in.
             lister: Callable ``(url, configuration, normalize) -> dict``; defaults to
                 ``fanficfare.geturls.get_urls_from_page``. Injected in tests.
             metadata_fetcher: Callable ``(url, configuration) -> dict | None``; defaults to
                 the adapter-driven metadata poll. Injected in tests.
-
-            Configurations are cached per resolved section tuple, so a scan parses the
-            ini files once. Quiets FanFicFare's logging (``LIB-D26``).
         """
-        self._personal_ini = personal_ini
+        self._settings = settings
+        self._credentials = credentials
         self._lister = lister or get_urls_from_page
         self._metadata_fetcher = metadata_fetcher or self._default_metadata_fetcher
-        self._config_cache: dict[tuple[str, ...], Any] = {}
+        self._config_cache: dict[tuple[tuple[str, ...], str], Any] = {}
         quiet_fanficfare_logging()
 
     def list_story_urls(self, url: str) -> list[str]:
@@ -147,53 +158,54 @@ class FanFicFarePagesGateway:
             return None
 
     def _configuration(self, url: str) -> Any:
-        """Build (or reuse) a FanFicFare ``Configuration`` for *url*, layered over personal.ini.
+        """Build (or reuse) a FanFicFare ``Configuration`` for *url*, from settings and sign-in.
 
-        The file is read whole, as the base options, after FanFicFare's own ``defaults.ini``; this
-        plugin passes no settings or advanced options yet.
+        FanFicFare's own ``defaults.ini`` comes first, then this plugin's packaged base options,
+        its settings, its "Advanced FanFicFare options" and the retry cap; the site's stored
+        sign-in, when the user has one, goes on top (``C36``).
 
-        Configurations are cached on ``self`` keyed by the resolved section tuple: a scan that
-        enriches many stories from one site would otherwise re-parse ``defaults.ini`` and
-        ``personal.ini`` once per story. A failed parse is never cached, so a fixed
-        ``personal.ini`` takes effect without restarting the process. FanFicFare's own
-        ``max_request_retries`` option caps the retry budget at ``LISTING_RETRIES``
-        (``EXP-073``).
+        Configurations are cached on ``self`` keyed by the resolved section tuple and the host: a
+        scan that enriches many stories from one site would otherwise rebuild the configuration
+        once per story, and a sign-in is never applied to a page of another site. A failed parse
+        is never cached, so corrected options take effect without restarting the process.
+        FanFicFare's own ``max_request_retries`` option caps the retry budget at
+        ``LISTING_RETRIES`` (``EXP-073``).
 
         Args:
-            url: The story URL to configure for.
+            url: The story or listing URL to configure for.
 
         Returns:
-            A FanFicFare Configuration object, possibly shared with an earlier call.
+            A FanFicFare Configuration object, possibly shared with an earlier call for the same
+            site.
 
         Raises:
-            ConfigurationError: ``personal.ini`` could not be parsed (a ``RuntimeError``).
+            ConfigurationError: The advanced options could not be parsed (a ``RuntimeError``).
                 Carries only the failing exception's type name — a parsing error quotes the
-                offending line verbatim, which for ``personal.ini`` may be a site login
-                credential, so its message never reaches this exception or any log call.
+                offending line verbatim, which may be a site login credential, so its message
+                never reaches this exception or any log call.
         """
         sections = config_sections(url, unknown_site_ok=True)
-        key = tuple(sections)
+        host = (urlsplit(url).hostname or "").lower()
+        key = (tuple(sections), host)
         cached = self._config_cache.get(key)
         if cached is not None:
-            logger.debug("Reusing the FanFicFare configuration for sections=%s", ",".join(key))
+            logger.debug("Reusing the FanFicFare configuration for sections=%s", ",".join(key[0]))
             return cached
 
-        base_ini = (
-            self._personal_ini.read_text(encoding="utf-8-sig")
-            if self._personal_ini.is_file()
-            else ""
-        )
         config = build_configuration(
             sections,
             fileform="EPUB",
-            base_ini=base_ini,
-            options={},
-            extra_options="",
+            base_ini=packaged_base_ini(),
+            options=settings_options(self._settings),
+            extra_options=str(self._settings.get("extra_options") or ""),
             overrides={"max_request_retries": str(LISTING_RETRIES)},
             lightweight=True,
         )
+        apply_sign_in(
+            config, self._credentials(url) if self._credentials is not None else None, host
+        )
         self._config_cache[key] = config
-        logger.debug("Built a FanFicFare configuration for sections=%s", ",".join(key))
+        logger.debug("Built a FanFicFare configuration for sections=%s", ",".join(key[0]))
         return config
 
     def _default_metadata_fetcher(self, url: str, configuration: Any) -> dict[str, Any] | None:
