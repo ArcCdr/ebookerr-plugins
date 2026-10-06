@@ -1,0 +1,82 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "url": "https://www.literotica.com/s/sample-sigma",
+      "metadata_fetched": true,
+      "title": "Sample Sigma",
+      "description": "A quiet evening takes an unexpected turn.",
+      "rating": 4.52,
+      "num_words": 2999,
+      "story_id": "9000007",
+      "author": "reader_five",
+      "author_url": "https://www.literotica.com/authors/reader_five",
+      "category": "Mind Control",
+      "tags": "wlw, hypnosis",
+      "date_published": "2026-07-03",
+      "site": "literotica.com",
+      "custom": {
+        "Votes": 31,
+        "Views": 4204,
+        "Favorites": 9,
+        "Comments": 1,
+        "Reading Lists": 11,
+        "Language": "en",
+        "Type": "story",
+        "Is Hot": true,
+        "Is New": false,
+        "Writer's Pick": false,
+        "Contest Winner": false,
+        "Downloadable": false,
+        "Author Stories": 12
+      }
+    },
+    {
+      "url": "https://www.literotica.com/s/sample-tau-ch-02",
+      "metadata_fetched": true,
+      "title": "Sample Tau Ch. 02",
+      "description": "A complex relationship unfolds with unexpected twists.",
+      "rating": 4.52,
+      "num_words": 4450,
+      "story_id": "9100006",
+      "author": "reader_six",
+      "author_url": "https://www.literotica.com/authors/reader_six",
+      "category": "Mind Control",
+      "tags": "lesbian",
+      "date_published": "2026-06-28",
+      "series": "Sample Tau",
+      "series_url": "https://www.literotica.com/series/se/900000009",
+      "site": "literotica.com",
+      "custom": {
+        "Votes": 25,
+        "Views": 4011,
+        "Favorites": 0,
+        "Comments": 0,
+        "Reading Lists": 0,
+        "Language": "en",
+        "Type": "story",
+        "Is Hot": true,
+        "Is New": false,
+        "Writer's Pick": false,
+        "Contest Winner": false,
+        "Downloadable": false,
+        "Series Parts": 2,
+        "Author Stories": 10
+      }
+    }
+  ],
+  "logs": [
+    {
+      "level": "debug",
+      "message": "https://search.literotica.com/?query=a: page 1: 2 stories"
+    },
+    {
+      "level": "info",
+      "message": "https://search.literotica.com/?query=a: fetched 1 page(s), 2 stories, kept 2 after thresholds"
+    },
+    {
+      "level": "info",
+      "message": "Scan complete: 2 unique stories from 1 URL(s)"
+    }
+  ]
+}
