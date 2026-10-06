@@ -10,7 +10,9 @@ import pytest
 from fanficfare_source.plugin import FanFicFareSourcePlugin, remove_leftover_personal_ini
 
 
-def test_a_leftover_personal_ini_is_removed_once(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_leftover_personal_ini_is_removed_once(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     """A leftover personal.ini is deleted on the first call; a second adds no log."""
     caplog.set_level(logging.INFO)
 

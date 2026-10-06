@@ -22,6 +22,7 @@ directly when this Source is selected for a URL (``update_check=True`` in the ma
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,7 +41,28 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["FanFicFareSourcePlugin", "SourcePullError"]
+__all__ = ["FanFicFareSourcePlugin", "SourcePullError", "remove_leftover_personal_ini"]
+
+
+def remove_leftover_personal_ini() -> None:
+    """Delete the ``personal.ini`` earlier releases kept in this plugin's data folder (``D54``).
+
+    FanFicFare's options are now this plugin's settings and site sign-ins live in Settings →
+    Credentials, so nothing reads the file. It is removed and logged once; when it is absent
+    nothing happens.
+    """
+    data_dir = os.environ.get("EBOOKERR_PLUGIN_DATA_DIR")
+    if not data_dir:
+        return
+    path = Path(data_dir) / "personal.ini"
+    if not path.is_file():
+        return
+    try:
+        path.unlink()
+    except OSError as exc:
+        logger.warning("Could not remove %s: %s", path, exc)
+        return
+    logger.info("personal.ini is no longer used; removed %s", path)
 
 
 class FanFicFareSourcePlugin:
@@ -71,6 +93,7 @@ class FanFicFareSourcePlugin:
         Returns:
             The :class:`FanFicFarePull` engine.
         """
+        remove_leftover_personal_ini()
         if self._pull is not None:
             return self._pull
         from fanficfare_source.library import FanFicFareLibraryGateway
