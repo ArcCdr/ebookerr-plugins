@@ -10,9 +10,22 @@ from contextlib import contextmanager
 from unittest import mock
 
 import pytest
-from ebookerr_sdk.testing import FakeCircuit
+from ebookerr_sdk.spi import SiteCredential
+from ebookerr_sdk.testing import FakeCircuit, FakeCore, make_request, run_wire
+from my_literotica.plugin import MyLiteroticaPlugin
 
 _MODULE = importlib.import_module("my_literotica.catalog")
+
+
+def _json_response(payload: object) -> mock.MagicMock:
+    """A stand-in for what ``urlopen`` returns: a context manager reading *payload* as JSON."""
+    body = json.dumps(payload).encode("utf-8")
+    return mock.MagicMock(
+        __enter__=mock.MagicMock(
+            return_value=mock.MagicMock(read=mock.MagicMock(return_value=body))
+        ),
+        __exit__=mock.MagicMock(return_value=None),
+    )
 
 
 class _OpeningCircuit(FakeCircuit):
@@ -195,3 +208,40 @@ def test_every_urlopen_site_is_guarded(function_name: str, args: tuple[object, .
 
     # urlopen should never have been called because the breaker was open
     urlopen_mock.assert_not_called()
+
+
+@pytest.mark.pins("EXP-269")
+@pytest.mark.real_impl("ebookerr_sdk.host.HostContext")
+@pytest.mark.parametrize(
+    ("urlopen_outcome", "recorded_ok"),
+    [
+        pytest.param({"return_value": _json_response({"data": []})}, True, id="an answered call"),
+        pytest.param(
+            {
+                "side_effect": urllib.error.HTTPError(
+                    "https://literotica.com/api/3/activity/wall", 401, "Unauthorized", {}, None
+                )
+            },
+            True,
+            id="a 401",
+        ),
+        pytest.param(
+            {"side_effect": urllib.error.URLError("down")}, False, id="a transport failure"
+        ),
+    ],
+)
+def test_the_hosts_own_guard_reports_each_wall_outcome_to_the_core(
+    urlopen_outcome: dict[str, object], recorded_ok: bool
+) -> None:
+    """Served by the real SDK host, a wall call's outcome crosses the wire under the host's key."""
+    core = FakeCore(
+        credentials_by_host={"www.literotica.com": SiteCredential("cookie", "auth_token", "t")}
+    )
+
+    with mock.patch("urllib.request.urlopen", **urlopen_outcome):
+        _terminal, frames = run_wire(MyLiteroticaPlugin(), make_request("scan"), core=core)
+
+    records = [f for f in frames if f.get("op") == "circuit" and f.get("call") == "record"]
+    assert [(f["key"], f["label"], f["ok"]) for f in records] == [
+        ("host:literotica.com", "literotica.com", recorded_ok)
+    ]
