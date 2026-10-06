@@ -6,8 +6,6 @@ import hashlib
 import tempfile
 from pathlib import Path
 
-import file_meta_sync.plugin as _MODULE
-
 
 class TestFileSyncEncoding:
     """Tests for sidecar file encoding and BOM handling."""

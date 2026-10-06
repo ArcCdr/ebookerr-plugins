@@ -9,17 +9,19 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
+import file_meta_sync.plugin as _module
 import pytest
-
-import file_meta_sync.plugin as _MODULE
 
 
 def _run_books(
     request: dict[str, Any], library_root: Path, logs: list[Any], **kwargs: Any
 ) -> list[Any]:
-    """Call ``_process_books`` with the fields of a request envelope, as the old script read them."""
+    """Call ``_process_books`` with the fields of a request envelope.
+
+    As the old script read them.
+    """
     req = request.get("request", {})
-    return _MODULE._process_books(
+    return _module._process_books(
         req.get("books", []),
         library_root,
         logs,
@@ -50,7 +52,7 @@ class TestDiscoverCandidates:
             assets = []
 
             # Discover candidates for stem "book"
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Should find .cover1.png and -alt.jpg, but not other.png
             assert len(writes) == 2
@@ -86,7 +88,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Should emit delete for missing asset
             assert len(writes) == 1
@@ -103,7 +105,7 @@ class TestDiscoverCandidates:
             (book_dir / "book.cover1.png").write_bytes(b"png")
 
             assets = []
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Only PNG should be found
             assert len(writes) == 1
@@ -118,7 +120,7 @@ class TestDiscoverCandidates:
             book_dir = Path(tmpdir)
             (book_dir / "book.cover1.png").write_bytes(b"img1")
 
-            writes = _MODULE.discover_candidates(book_dir, "book", [])
+            writes = _module.discover_candidates(book_dir, "book", [])
 
             assert len(writes) == 1
             w = writes[0]
@@ -152,7 +154,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == []
 
@@ -178,7 +180,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert len(writes) == 1
             assert writes[0]["meta"]["sha256"] == hashlib.sha256(b"img2").hexdigest()
@@ -204,7 +206,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == [
                 {"kind": "cover_candidate", "name": "book.cover1.png", "delete": True}
@@ -226,7 +228,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == []
 
@@ -246,7 +248,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert len(writes) == 1
             assert "data" in writes[0]
@@ -259,20 +261,20 @@ class TestDiscoverCandidates:
             book_dir = Path(tmpdir)
             (book_dir / "book.cover.png").write_bytes(b"cover_export")
 
-            writes = _MODULE.discover_candidates(book_dir, "book", [])
+            writes = _module.discover_candidates(book_dir, "book", [])
 
             assert writes == []
 
     def test_discover_skips_oversized_files(self, monkeypatch) -> None:
         """A sidecar over the size limit produces no write; process_book logs the skip."""
-        monkeypatch.setattr(_MODULE, "_MAX_IMPORT_BYTES", 3)
+        monkeypatch.setattr(_module, "_MAX_IMPORT_BYTES", 3)
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
             books_dir = lib_root / "books"
             books_dir.mkdir()
             (books_dir / "book.c.png").write_bytes(b"toolong")
 
-            writes = _MODULE.discover_candidates(books_dir, "book", [])
+            writes = _module.discover_candidates(books_dir, "book", [])
             assert writes == []
 
             book = {
@@ -283,7 +285,7 @@ class TestDiscoverCandidates:
                 "assets": [],
                 "custom_values": {},
             }
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             assert result is not None
             warnings = [log for log in result["logs"] if log["level"] == "warning"]
@@ -305,7 +307,7 @@ class TestMergeText:
             synced_hash = "old_hash"  # Neither matches current
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -333,7 +335,7 @@ class TestMergeText:
 
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -360,7 +362,7 @@ class TestMergeText:
 
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -383,7 +385,7 @@ class TestMergeBytes:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", db_path, file_path, synced_hash, logs
             )
 
@@ -407,7 +409,7 @@ class TestMergeBytes:
             synced_hash = file_hash  # File unchanged
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", str(db_file), file_path, synced_hash, logs
             )
 
@@ -443,7 +445,7 @@ class TestLegacySynopsisAdoption:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert new file exists with legacy content
             back_cover_file = library_path / "book.back_cover.txt"
@@ -483,7 +485,7 @@ class TestLegacySynopsisAdoption:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert both files still exist
             assert back_cover_file.exists()
@@ -511,7 +513,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -552,7 +554,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -585,7 +587,7 @@ class TestConflictMostRecentWins:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -609,7 +611,7 @@ class TestConflictMostRecentWins:
                 ask_calls.append((message, yes, no))
                 return True
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -649,7 +651,7 @@ class TestConflictMostRecentWins:
             def ask_false(m: str, y: str, n: str) -> bool:
                 return False
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -678,7 +680,7 @@ class TestConflictMostRecentWins:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id",
                 str(db_file),
                 file_path,
@@ -711,7 +713,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id",
                 str(db_file),
                 file_path,
@@ -748,7 +750,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return True
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -773,7 +775,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return False
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -800,7 +802,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return True
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", str(db_file), file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -817,7 +819,7 @@ class TestNoT2ISync:
 
     def test_module_has_no_t2i_processor(self) -> None:
         """The _process_t2i function has been removed from the module."""
-        assert not hasattr(_MODULE, "_process_t2i")
+        assert not hasattr(_module, "_process_t2i")
 
     def test_process_book_ignores_a_t2i_sidecar(self) -> None:
         """process_book ignores T2I.txt file and doesn't return T2I keys."""
@@ -839,7 +841,7 @@ class TestNoT2ISync:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Returned patch (if any) should have no T2I keys
             if result is not None:
@@ -870,7 +872,7 @@ class TestNoT2ISync:
                 "assets": [],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # File should be deleted
             assert not t2i_file.exists()
@@ -893,7 +895,7 @@ class TestNoT2ISync:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_delete(book, lib_root, logs)
+            _module.handle_delete(book, lib_root, logs)
 
             # Should have logged deletion with "deleted" and "sidecar file(s) on BookDeleted"
             delete_logs = [log for log in logs if "deleted" in log["message"]]
@@ -937,7 +939,7 @@ class TestBookDeleted:
                 ],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # All files should be deleted
             assert not synopsis_file.exists()
@@ -971,7 +973,7 @@ class TestBookDeleted:
                 "assets": [],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # Both synopsis files should be deleted
             assert not back_cover_file.exists()
@@ -992,7 +994,7 @@ class TestBookDeleted:
                 "assets": [],
             }
 
-            result = _MODULE.handle_delete(book, lib_root)
+            result = _module.handle_delete(book, lib_root)
 
             # Should succeed even with no files (returns None)
             assert result is None
@@ -1023,7 +1025,7 @@ class TestBookDeleted:
             ],
         }
 
-        _MODULE.handle_delete(book, tmp_path)
+        _module.handle_delete(book, tmp_path)
 
         assert store_file.exists()
         assert not sidecar.exists()
@@ -1198,7 +1200,7 @@ class TestPurgeAction:
                 "custom_values": {},
             }
 
-            deletes = _MODULE.handle_purge_action(book, lib_root)
+            deletes = _module.handle_purge_action(book, lib_root)
 
             # Files should be deleted
             assert not candidate_file.exists()
@@ -1305,7 +1307,7 @@ class TestPurgeAction:
                 "assets": [],
             }
 
-            _MODULE.handle_purge_action(
+            _module.handle_purge_action(
                 book,
                 lib_root,
                 paths=[],
@@ -1385,7 +1387,7 @@ class TestPurgeAction:
                 "assets": [],
             }
 
-            _MODULE.handle_purge_action(
+            _module.handle_purge_action(
                 book,
                 lib_root,
                 paths=[],
@@ -1424,7 +1426,7 @@ class TestPurgeDoesNotResurrectCandidates:
             }
 
             # 1. Discover and import the sidecar.
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
             assert result is not None
             written = next(a for a in result["assets"] if "data" in a)
 
@@ -1466,7 +1468,7 @@ class TestPurgeDoesNotResurrectCandidates:
 
             # 4. Re-run process_book: the core has removed the stored row too.
             book["assets"] = []
-            final = _MODULE.process_book(book, lib_root)
+            final = _module.process_book(book, lib_root)
             assert final is None or "assets" not in final
 
 
@@ -1492,7 +1494,7 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is not None
             assert result is not None
@@ -1527,7 +1529,7 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is not None (candidates alone warrant a patch)
             assert result is not None
@@ -1555,7 +1557,7 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is None
             assert result is None
@@ -1566,8 +1568,8 @@ class TestBatchAbortsOnAbandonment:
 
     def test_the_batch_stops_at_the_abandoned_book(self, monkeypatch, tmp_path: Path) -> None:
         """A PromptAbandoned raised on book 2 propagates and book 3 is never processed."""
-        spy = MagicMock(side_effect=[None, _MODULE.PromptAbandoned(), None])
-        monkeypatch.setattr(_MODULE, "process_book", spy)
+        spy = MagicMock(side_effect=[None, _module.PromptAbandoned(), None])
+        monkeypatch.setattr(_module, "process_book", spy)
 
         books = [
             {"book_id": "b1", "output_filename": "books/b1.epub"},
@@ -1583,7 +1585,7 @@ class TestBatchAbortsOnAbandonment:
             },
         }
 
-        with pytest.raises(_MODULE.PromptAbandoned):
+        with pytest.raises(_module.PromptAbandoned):
             _run_books(request, tmp_path, [])
 
         # Book 3's process_book call never happened
@@ -1620,7 +1622,7 @@ class TestActionLogs:
 
             logs: list[dict] = []
 
-            syn_fields, syn_cv = _MODULE._process_synopsis(
+            syn_fields, syn_cv = _module._process_synopsis(
                 "test_book",
                 db_synopsis,
                 library_path,
@@ -1653,7 +1655,7 @@ class TestActionLogs:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             assert result is not None
             assert {
@@ -1682,7 +1684,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_delete(book, lib_root, logs)
+            _module.handle_delete(book, lib_root, logs)
 
             # Should have logged deletion with count
             delete_logs = [log for log in logs if "deleted" in log["message"]]
@@ -1711,7 +1713,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_purge_action(book, lib_root, logs, paths=["books/book.cover1.png"])
+            _module.handle_purge_action(book, lib_root, logs, paths=["books/book.cover1.png"])
 
             # Should have logged purge with count
             purge_logs = [log for log in logs if "purged" in log["message"]]
@@ -1741,7 +1743,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            result = _MODULE.handle_purge_action(
+            result = _module.handle_purge_action(
                 book, lib_root, logs, paths=["books/book.cover1.png"]
             )
 
@@ -1780,7 +1782,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            result = _MODULE.handle_purge_action(book, lib_root, logs)
+            result = _module.handle_purge_action(book, lib_root, logs)
 
             # Files should be deleted
             assert not candidate_file.exists()

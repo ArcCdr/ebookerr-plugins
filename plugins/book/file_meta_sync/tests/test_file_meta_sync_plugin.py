@@ -10,7 +10,6 @@ import pytest
 from ebookerr_sdk.spi import AssetView, AssetWrite, CustomValueView, InvocationMode, PluginEventType
 from ebookerr_sdk.testing import FakeContext, FakeCore, make_book_view, make_request, run_wire
 from ebookerr_sdk.wire import encode_book_view
-
 from file_meta_sync.plugin import FileMetaSyncPlugin, _book_dict, _book_patch
 
 _CONFLICT_HASH = hashlib.sha256(b"Old").hexdigest()
@@ -67,7 +66,9 @@ def test_a_cover_candidate_is_sent_as_stored_bytes(tmp_path: Path) -> None:
     )
 
 
-def test_book_deleted_unlinks_the_sidecars(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_book_deleted_unlinks_the_sidecars(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     """On BookDeleted, the plugin unlinks sidecar files when the setting is on."""
     root = _library(tmp_path)
     sidecar = root / "books" / "book.back_cover.txt"
@@ -119,7 +120,9 @@ def test_an_abandoned_prompt_stops_without_writing(
         book_id="b1",
         output_filename="books/book.epub",
         synopsis="APP SIDE",
-        custom_values={"synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")},
+        custom_values={
+            "synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")
+        },
     )
     ctx = FakeContext(
         library_root=root,
@@ -143,7 +146,9 @@ def test_a_headless_conflict_keeps_the_app_value_with_a_durable_notice(tmp_path:
         book_id="b1",
         output_filename="books/book.epub",
         synopsis="APP SIDE",
-        custom_values={"synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")},
+        custom_values={
+            "synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")
+        },
     )
     ctx = FakeContext(library_root=root)
     patches = FileMetaSyncPlugin().enrich((view,), ctx)
@@ -191,7 +196,11 @@ def test_an_abandoned_prompt_over_the_wire_returns_nothing(tmp_path: Path) -> No
         book_id="b1",
         output_filename="books/book.epub",
         synopsis="APP SIDE",
-        custom_values={"synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")},
+        custom_values={
+            "file_meta_sync.synopsis.synced_hash": CustomValueView(
+                value=_CONFLICT_HASH, value_type="string"
+            )
+        },
     )
     request = make_request(
         "enrich",
@@ -200,9 +209,7 @@ def test_an_abandoned_prompt_over_the_wire_returns_nothing(tmp_path: Path) -> No
         books=[encode_book_view(view, plugin_id="file_meta_sync")],
         library_root=str(root),
     )
-    terminal, frames = run_wire(
-        FileMetaSyncPlugin(), request, core=FakeCore(dialog_answers=[None])
-    )
+    terminal, frames = run_wire(FileMetaSyncPlugin(), request, core=FakeCore(dialog_answers=[None]))
     assert terminal["ok"] is True
     assert terminal["result"] == []
     dialog_frames = [f for f in frames if f.get("op") == "dialog"]
