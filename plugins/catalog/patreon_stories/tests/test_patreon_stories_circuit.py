@@ -234,7 +234,7 @@ def test_every_urlopen_site_is_guarded(call_location: str) -> None:
 
 @pytest.mark.pins("EXP-269")
 def test_the_scan_returns_empty_and_warns_when_the_host_is_down() -> None:
-    """When the host is unreachable, scan() returns ok=true with empty stories and a warning."""
+    """When the host's breaker is open, scan() returns ok=true with empty stories and a warning."""
     urlopen_mock = mock.Mock(side_effect=urllib.error.URLError("Host unreachable"))
     core = FakeCore(
         open_circuit_keys={"host:patreon.com"},

@@ -4,9 +4,10 @@
 patreon.com sign-in with ``ctx.credentials``, runs ``catalog.scan`` over every membership the
 account holds and answers the story dicts that returns as ``StoryPatch`` objects. The plugin's
 context carries the progress reports and the circuit guard the SDK host turns into wire frames; a
-scan failure is answered by its message alone (``CatalogScanError``); a host whose breaker is open
-or that cannot be reached answers an empty scan with a warning; and the catalog's own log entries
-reach the host's log through the plugin's logger, texts and levels unchanged.
+scan failure is answered by its message alone (``CatalogScanError``), a host that cannot be reached
+included; a host whose breaker is already open answers an empty scan with a warning instead; and
+the catalog's own log entries reach the host's log through the plugin's logger, texts and levels
+unchanged.
 """
 
 from __future__ import annotations
@@ -113,24 +114,30 @@ class PatreonStoriesPlugin:
 
         Returns:
             One ``StoryPatch`` per unique story file the memberships' recent posts carry, or an
-            empty list when the host's circuit breaker is open or the host could not be reached
-            (a warning says so).
+            empty list when the host's circuit breaker is open (a warning says so).
 
         Raises:
-            CatalogScanError: The scan failed; its message is the one the script reported.
+            CatalogScanError: The scan failed, the failure's own message; this includes a host
+                that could not be reached while its breaker is still closed, since an empty
+                result means the source really has nothing.
         """
         try:
             stories, logs = catalog.scan(
                 ctx.credentials(catalog.SIGN_IN_URL), dict(ctx.settings), ctx
             )
-        except catalog.CatalogHostUnreachable:
+        except catalog.CatalogHostUnreachable as exc:
+            # Only a host the breaker already holds is a quiet empty scan; any other failure to
+            # reach it fails the scan, since an empty result means the source has nothing.
+            if not ctx.circuit.is_open(catalog.CIRCUIT_KEY):
+                detail = f": {exc.__cause__}" if exc.__cause__ is not None else ""
+                raise CatalogScanError(f"{catalog.CIRCUIT_LABEL} is not reachable{detail}") from exc
             ctx.logger.warning(
                 "%s is not reachable, so this scan made no request."
                 " It will be retried automatically.",
                 catalog.CIRCUIT_LABEL,
             )
             return []
-        except Exception as exc:  # noqa: BLE001 — the script reported every failure by its message
+        except Exception as exc:  # noqa: BLE001 — any other failure is answered by its message
             raise CatalogScanError(str(exc)) from exc
         _emit_logs(ctx.logger, logs)
         return [_story_patch(story) for story in stories]
