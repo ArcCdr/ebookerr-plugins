@@ -6,8 +6,9 @@ import only its own package — and the plugins repository's
 plugin eight things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
-  from FanFicFare's own ``defaults.ini``, the install's ``personal.ini`` and per-call overrides; a
-  parse error never quotes a line of ``personal.ini``, which may hold a site password;
+  from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's settings, its
+  "Advanced FanFicFare options" and per-call overrides; a parse error never quotes a line of the
+  options, which may hold a site password;
 * :func:`quiet_fanficfare_logging` — importing ``fanficfare`` attaches a DEBUG handler that writes
   to stderr, which the core reports as a WARNING after the plugin's run; once quieted, only
   FanFicFare's WARNING and ERROR records reach the log, re-logged through this plugin's logger;
@@ -71,7 +72,10 @@ _OPTION_LINE = re.compile(r"^([^\s:=#;\[][^:=]*?)\s*[:=]")
 
 
 class ConfigurationError(RuntimeError):
-    """``personal.ini`` could not be parsed; the message names only the exception type."""
+    """The plugin's FanFicFare options could not be parsed.
+
+    The message names only the exception type.
+    """
 
 
 class _ForwardHandler(logging.Handler):
@@ -223,37 +227,60 @@ def config_sections(url: str, *, unknown_site_ok: bool) -> list[str]:
 
 def build_configuration(
     sections: list[str],
-    personal_ini: Path,
     *,
     fileform: str,
+    base_ini: str,
+    options: Mapping[str, Mapping[str, str]],
+    extra_options: str,
     overrides: Mapping[str, str] = _NO_OVERRIDES,
     lightweight: bool = False,
 ) -> Configuration:
-    """Build a FanFicFare configuration: ``defaults.ini``, then *personal_ini*, then *overrides*.
+    """Build a FanFicFare configuration, each layer overriding the ones before it (``C36``).
+
+    The order: FanFicFare's own ``defaults.ini``, then *base_ini*, then *options*, then
+    *extra_options* without the file-naming keys (:func:`strip_naming_keys`), then *overrides*. A
+    stored sign-in goes on top of the result with :func:`apply_sign_in`.
 
     Args:
         sections: What :func:`config_sections` returned for the address.
-        personal_ini: The install's FanFicFare ``personal.ini``.
         fileform: The output format FanFicFare's per-format sections are keyed by.
+        base_ini: The plugin's base options in FanFicFare's ini format (:func:`packaged_base_ini`).
+        options: The plugin's settings as FanFicFare options, by section name
+            (:func:`settings_options`).
+        extra_options: The user's "Advanced FanFicFare options", in FanFicFare's ini format.
         overrides: Option name to value, set in FanFicFare's ``overrides`` section, which wins over
-            every file.
+            every other layer.
         lightweight: FanFicFare's lightweight mode (no output-format machinery).
 
     Returns:
         The configuration.
 
     Raises:
-        ConfigurationError: *personal_ini* could not be parsed. The message carries only the
-            exception's type name and the original is not chained — a parse error quotes the
-            offending line, which may be a site login.
+        ConfigurationError: *base_ini* or *extra_options* could not be parsed. The message carries
+            only the exception's type name and the original is not chained — a parse error quotes
+            the offending line, which may be a site login.
     """
     config = Configuration(sections, fileform, lightweight=lightweight)
     defaults_ini = Path(fanficfare.__file__).parent / "defaults.ini"
     try:
-        config.read([str(defaults_ini), str(personal_ini)])
+        config.read([str(defaults_ini)])
+        config.read_string(base_ini)
     except Exception as exc:  # noqa: BLE001 — none may leak its text
         raise ConfigurationError(
             f"Could not parse FanFicFare configuration: {type(exc).__name__}"
+        ) from None
+    # the plugin's settings: plain values, set after the base options
+    for section, values in options.items():
+        if not config.has_section(section):
+            config.add_section(section)
+        for key, value in values.items():
+            config.set(section, key, value)
+    # the user's advanced options, naming keys dropped, win over the settings
+    try:
+        config.read_string(strip_naming_keys(extra_options))
+    except Exception as exc:  # noqa: BLE001 — none may leak its text
+        raise ConfigurationError(
+            f"Could not read the Advanced FanFicFare options: {type(exc).__name__}"
         ) from None
     if not config.has_section("overrides"):
         config.add_section("overrides")

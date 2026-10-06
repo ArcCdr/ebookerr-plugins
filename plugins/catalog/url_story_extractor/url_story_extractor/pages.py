@@ -149,6 +149,9 @@ class FanFicFarePagesGateway:
     def _configuration(self, url: str) -> Any:
         """Build (or reuse) a FanFicFare ``Configuration`` for *url*, layered over personal.ini.
 
+        The file is read whole, as the base options, after FanFicFare's own ``defaults.ini``; this
+        plugin passes no settings or advanced options yet.
+
         Configurations are cached on ``self`` keyed by the resolved section tuple: a scan that
         enriches many stories from one site would otherwise re-parse ``defaults.ini`` and
         ``personal.ini`` once per story. A failed parse is never cached, so a fixed
@@ -175,10 +178,17 @@ class FanFicFarePagesGateway:
             logger.debug("Reusing the FanFicFare configuration for sections=%s", ",".join(key))
             return cached
 
+        base_ini = (
+            self._personal_ini.read_text(encoding="utf-8-sig")
+            if self._personal_ini.is_file()
+            else ""
+        )
         config = build_configuration(
             sections,
-            self._personal_ini,
             fileform="EPUB",
+            base_ini=base_ini,
+            options={},
+            extra_options="",
             overrides={"max_request_retries": str(LISTING_RETRIES)},
             lightweight=True,
         )

@@ -22,8 +22,6 @@ directly when this Source is selected for a URL (``update_check=True`` in the ma
 from __future__ import annotations
 
 import logging
-import os
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,30 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["FanFicFareSourcePlugin", "SourcePullError", "personal_ini_path"]
-
-
-def personal_ini_path() -> Path:
-    """Return this install's FanFicFare configuration file, seeding it on first use (D37).
-
-    The file lives in the plugin's data folder (``EBOOKERR_PLUGIN_DATA_DIR``) and holds the
-    user's site logins; it is copied from the packaged default when absent. A leading UTF-8
-    byte-order mark is removed, because FanFicFare's ini reader fails on one (TXE-D1).
-
-    Returns:
-        The path of the configuration file to pass to FanFicFare.
-    """
-    data_dir = Path(os.environ["EBOOKERR_PLUGIN_DATA_DIR"])
-    data_dir.mkdir(parents=True, exist_ok=True)
-    target = data_dir / "personal.ini"
-    if not target.exists():
-        shutil.copyfile(Path(__file__).with_name("personal.ini"), target)
-        logger.info("Seeded the FanFicFare configuration at %s", target)
-    raw = target.read_bytes()
-    if raw.startswith(b"\xef\xbb\xbf"):
-        target.write_bytes(raw[3:])
-        logger.info("Removed a UTF-8 byte-order mark from %s", target.name)
-    return target
+__all__ = ["FanFicFareSourcePlugin", "SourcePullError"]
 
 
 class FanFicFareSourcePlugin:
@@ -87,8 +62,11 @@ class FanFicFareSourcePlugin:
     def _engine(self, ctx: PluginContext | None) -> FanFicFarePull:
         """Return the pull engine: injected at construction, or built on first use.
 
+        A built engine runs FanFicFare on the call's own settings, stored sign-ins and circuit
+        breakers; with no context it runs on FanFicFare's defaults, with no sign-in and no breaker.
+
         Args:
-            ctx: Runtime context (out of process) with circuit breaker access.
+            ctx: Runtime context (out of process): its settings, sign-ins and circuit breakers.
 
         Returns:
             The :class:`FanFicFarePull` engine.
@@ -98,8 +76,11 @@ class FanFicFareSourcePlugin:
         from fanficfare_source.library import FanFicFareLibraryGateway
         from fanficfare_source.pull import FanFicFarePull
 
-        circuit = getattr(ctx, "circuit", None) if ctx else None
-        return FanFicFarePull(FanFicFareLibraryGateway(personal_ini_path(), circuit=circuit))
+        if ctx is None:
+            return FanFicFarePull(FanFicFareLibraryGateway({}))
+        return FanFicFarePull(
+            FanFicFareLibraryGateway(ctx.settings, credentials=ctx.credentials, circuit=ctx.circuit)
+        )
 
     def settings_schema(self) -> SettingsSchema:
         """Return the (empty) settings schema — this plugin has no user-configurable options."""
