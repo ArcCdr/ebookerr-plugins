@@ -108,13 +108,19 @@ def test_a_password_with_a_percent_is_escaped() -> None:
 
 
 def test_another_sign_in_kind_is_not_used_with_a_warning(caplog: Any) -> None:
-    """Non-basic credentials are not used and generate a warning."""
+    """Non-basic credentials are not used and generate exactly the C37 warning."""
     config = Configuration(["test1.com"], "epub")
     apply_sign_in(config, SiteCredential("cookie", "sid", "v"), "test1.com")
     assert config.getConfig("username") == ""
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("FanFicFare uses only a username and password" in w for w in warnings)
-    assert any("cookie sign-in for test1.com is not used" in w for w in warnings)
+    warnings = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.WARNING and r.name == "fanficfare_source.fff_support"
+    ]
+    assert warnings == [
+        "FanFicFare uses only a username and password; "
+        "the cookie sign-in stored for test1.com is not used"
+    ]
 
 
 def test_no_sign_in_sets_nothing(caplog: Any) -> None:
