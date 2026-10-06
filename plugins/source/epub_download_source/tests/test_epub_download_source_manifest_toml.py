@@ -32,3 +32,9 @@ def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
     manifest = EpubDownloadSourcePlugin.manifest
     assert manifest.update_check is True
     assert manifest.formats == ("epub",)
+
+
+def test_the_source_receives_the_sign_in_of_any_site() -> None:
+    """The Source receives the sign-in of the site it downloads from (auth_sites = [\"*\"])."""
+    manifest = EpubDownloadSourcePlugin.manifest
+    assert manifest.auth_sites == ("*",)
