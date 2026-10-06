@@ -23,10 +23,7 @@ from fanficfare_source.protocol import UNREADABLE_MESSAGE, UNRECOGNISED_MESSAGE
 PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 STORY = "http://test1.com?sid=1001"
 STORED = "Ann Author/Test Story 1001.epub"
-LOGIN_SENTENCE = (
-    "the site refused the login — check this site's username and password in "
-    "FanFicFare's personal.ini"
-)
+LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
 _VALID_ENTRIES = (
     "valid_entries:title,author_list,authorId_list,authorUrl_list,category_list,genre_list,"
     "status,datePublished,dateUpdated,numWords,description"

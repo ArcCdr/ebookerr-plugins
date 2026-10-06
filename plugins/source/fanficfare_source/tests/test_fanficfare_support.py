@@ -22,13 +22,8 @@ from fanficfare_source.fff_support import (
 PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 URL = "http://test1.com?sid=1"
 STORY = "http://test1.com?sid=1001"
-LOGIN_SENTENCE = (
-    "the site refused the login — check this site's username and password in "
-    "FanFicFare's personal.ini"
-)
-ADULT_SENTENCE = (
-    "the site asks you to confirm you are an adult — set is_adult:true in FanFicFare's personal.ini"
-)
+LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
+ADULT_SENTENCE = 'the site asks you to confirm you are an adult — turn on "Confirm adult content" in this plugin\'s settings'
 TOTP_SENTENCE = "the site asks for a one-time password, which a background download cannot give"
 
 
