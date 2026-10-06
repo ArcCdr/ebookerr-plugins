@@ -70,7 +70,7 @@ class TestRenderTitlePage:
 
     def test_render_shows_title(self) -> None:
         """Title appears in both <title> and <h1>."""
-        title_text = "Three Square Meals 174-180"
+        title_text = "Sample Delta 174-180"
         result = render_title_page(
             title=title_text,
             creators=[],
@@ -84,7 +84,7 @@ class TestRenderTitlePage:
 
     def test_render_shows_every_author_in_order(self) -> None:
         """Creators are rendered as <p class="author"> in order."""
-        creators = [("Tefler", None), ("Ann", "A, A")]
+        creators = [("WriterDelta", None), ("Ann", "A, A")]
         result = render_title_page(
             title="Test",
             creators=creators,
@@ -94,12 +94,12 @@ class TestRenderTitlePage:
         )
         result_str = result.decode("utf-8")
         # Check both authors appear
-        assert '<p class="author">Tefler</p>' in result_str
+        assert '<p class="author">WriterDelta</p>' in result_str
         assert '<p class="author">Ann</p>' in result_str
-        # Check order (Tefler comes before Ann)
-        tefler_pos = result_str.find('<p class="author">Tefler</p>')
+        # Check order (WriterDelta comes before Ann)
+        writerdelta_pos = result_str.find('<p class="author">WriterDelta</p>')
         ann_pos = result_str.find('<p class="author">Ann</p>')
-        assert tefler_pos < ann_pos
+        assert writerdelta_pos < ann_pos
 
     def test_render_shows_subjects_joined(self) -> None:
         """Subjects are rendered as comma-separated in <p class="subjects">."""

@@ -23,7 +23,7 @@ class TestReorder:
     def test_reorder_output_has_no_errors(self, tmp_path: Path, epub_fixtures: Path) -> None:
         """Reordered EPUBs validate with zero errors."""
         p = tmp_path / "r.epub"
-        shutil.copy(epub_fixtures / "tending_bar.epub", p)
-        # tending_bar.epub chapters are out of order; reorder_epub returns True
+        shutil.copy(epub_fixtures / "sample_alpha.epub", p)
+        # sample_alpha.epub chapters are out of order; reorder_epub returns True
         assert reorder_epub(p) is True
         assert _errors(p) == []

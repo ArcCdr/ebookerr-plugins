@@ -21,14 +21,14 @@ _ANCHORING_LOGGER = "ebookerr_sdk.providers.anchoring"
 _KOMGA_LOGGER = "komga_sync.service"
 
 _TABLE = _chapters(
-    ("file0001.xhtml", "The 12th Key - Ch 1"), ("file0002.xhtml", "The 12th Key - Ch 2")
+    ("file0001.xhtml", "Sample Beta - Ch 1"), ("file0002.xhtml", "Sample Beta - Ch 2")
 )
 
 _TARGET = ReadPosition(
     captured_at="2026-10-03T12:00:00+00:00",
     chapter_index=2,
     chapter_progress=0.5,
-    chapter_title="The 12th Key - Ch 2",
+    chapter_title="Sample Beta - Ch 2",
     chapter_href="file0002.xhtml",
     total_chapters=2,
     chapter_key="file0002.xhtml",
@@ -41,7 +41,7 @@ def _view(**overrides: Any) -> BookView:
     """A book linked to Komga item KB1 whose chapter table matches POSITIONS_FIXTURE."""
     fields: dict[str, Any] = {
         "book_id": "b1",
-        "title": "The 12th Key",
+        "title": "Sample Beta",
         "external": ExternalLink(provider="komga", item_id="KB1"),
         "chapter_table": _TABLE,
     }
@@ -109,7 +109,7 @@ def test_the_outcome_is_logged_at_debug(caplog: pytest.LogCaptureFixture) -> Non
         record.levelno
         for record in caplog.records
         if record.name == _KOMGA_LOGGER
-        and record.getMessage() == 'Komga write-through for "The 12th Key": written'
+        and record.getMessage() == 'Komga write-through for "Sample Beta": written'
     ]
     assert lines == [logging.DEBUG]
 
@@ -136,9 +136,9 @@ def test_a_chapter_table_komga_does_not_describe_is_stale() -> None:
     client = FakeKomga()
     client.book = komga_book(pages=14, read=_READ)
     table = _chapters(
-        ("file0001.xhtml", "The 12th Key - Ch 1"),
-        ("file0002.xhtml", "The 12th Key - Ch 2"),
-        ("file0003.xhtml", "The 12th Key - Ch 3"),
+        ("file0001.xhtml", "Sample Beta - Ch 1"),
+        ("file0002.xhtml", "Sample Beta - Ch 2"),
+        ("file0003.xhtml", "Sample Beta - Ch 3"),
     )
     svc = service(client)
     svc._document_hrefs = lambda book: (  # type: ignore[method-assign]

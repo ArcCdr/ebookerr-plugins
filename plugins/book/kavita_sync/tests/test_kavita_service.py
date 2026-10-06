@@ -420,7 +420,7 @@ def test_restore_writes_computed_page(caplog: Any) -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -455,7 +455,7 @@ def test_restore_completed_marks_last_page(caplog: Any) -> None:
         chapter_index=2,
         chapter_progress=1.0,
         chapter_number=2,
-        chapter_title="The 12th Key - Ch 2",
+        chapter_title="Sample Beta - Ch 2",
         chapter_href=None,
         total_chapters=2,
     )
@@ -528,7 +528,7 @@ def test_restore_save_rejection_logs_error(caplog: Any) -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -701,9 +701,9 @@ def test_sync_logs_written_field_names(caplog: Any) -> None:
 # ---------------------------------------------------------------------------
 
 TOC_FIXTURE = [
-    {"title": "The 12th Key", "part": "", "page": 0, "children": []},
-    {"title": "The 12th Key - Ch 1", "part": "", "page": 2, "children": []},
-    {"title": "The 12th Key - Ch 2", "part": "", "page": 6, "children": []},
+    {"title": "Sample Beta", "part": "", "page": 0, "children": []},
+    {"title": "Sample Beta - Ch 1", "part": "", "page": 2, "children": []},
+    {"title": "Sample Beta - Ch 2", "part": "", "page": 6, "children": []},
 ]
 
 
@@ -720,9 +720,9 @@ def _chapters(*titles: str) -> tuple[ChapterView, ...]:
     )
 
 
-# TOC_FIXTURE's two content chapters (its "The 12th Key" front-matter entry excluded,
+# TOC_FIXTURE's two content chapters (its "Sample Beta" front-matter entry excluded,
 # CHC-D12) — the default chapter_table a TOC_FIXTURE-driven sync joins consistently against.
-TOC_FIXTURE_CHAPTERS = _chapters("The 12th Key - Ch 1", "The 12th Key - Ch 2")
+TOC_FIXTURE_CHAPTERS = _chapters("Sample Beta - Ch 1", "Sample Beta - Ch 2")
 
 
 def test_sync_passes_the_packaged_chapter_count_to_the_capture() -> None:
@@ -940,21 +940,21 @@ def test_completion_date_does_not_disturb_the_other_fields() -> None:
 # ---------------------------------------------------------------------------
 
 BACKWARD_TOC = [
-    {"title": "The 12th Key", "page": 0},
-    {"title": "The 12th Key - Ch 1", "page": 10},
-    {"title": "The 12th Key - Ch 2", "page": 20},
-    {"title": "The 12th Key - Ch 3", "page": 30},
-    {"title": "The 12th Key - Ch 4", "page": 40},
-    {"title": "The 12th Key - Ch 5", "page": 50},
+    {"title": "Sample Beta", "page": 0},
+    {"title": "Sample Beta - Ch 1", "page": 10},
+    {"title": "Sample Beta - Ch 2", "page": 20},
+    {"title": "Sample Beta - Ch 3", "page": 30},
+    {"title": "Sample Beta - Ch 4", "page": 40},
+    {"title": "Sample Beta - Ch 5", "page": 50},
 ]
 
-# BACKWARD_TOC's five content chapters (its "The 12th Key" front-matter entry excluded).
+# BACKWARD_TOC's five content chapters (its "Sample Beta" front-matter entry excluded).
 BACKWARD_TOC_CHAPTERS = _chapters(
-    "The 12th Key - Ch 1",
-    "The 12th Key - Ch 2",
-    "The 12th Key - Ch 3",
-    "The 12th Key - Ch 4",
-    "The 12th Key - Ch 5",
+    "Sample Beta - Ch 1",
+    "Sample Beta - Ch 2",
+    "Sample Beta - Ch 3",
+    "Sample Beta - Ch 4",
+    "Sample Beta - Ch 5",
 )
 
 
@@ -1019,7 +1019,7 @@ def test_a_position_at_the_last_page_captures_the_last_chapter_position(
     # No EPUB fixture; expectations remain derived from the TOC alone.
     assert result.read_position is not None
     assert result.read_position.chapter_index == 5  # Last chapter in BACKWARD_TOC
-    assert result.read_position.chapter_title == "The 12th Key - Ch 5"
+    assert result.read_position.chapter_title == "Sample Beta - Ch 5"
 
 
 def test_kavita_has_no_raw_locator_layer() -> None:
@@ -1039,7 +1039,7 @@ def test_kavita_has_no_raw_locator_layer() -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -1242,7 +1242,7 @@ def test_sync_reports_restore_attempted_when_it_restores() -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -1281,7 +1281,7 @@ def test_sync_reports_no_restore_attempt_when_the_chapter_is_missing() -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -1304,7 +1304,7 @@ def test_sync_reports_no_restore_attempt_when_kavita_is_disabled() -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -2520,12 +2520,12 @@ def test_a_book_already_linked_to_the_owned_chapter_keeps_the_plain_refusal_mess
 
 
 BACKWARD_TOC = [
-    {"title": "The 12th Key", "page": 0},
-    {"title": "The 12th Key - Ch 1", "page": 10},
-    {"title": "The 12th Key - Ch 2", "page": 20},
-    {"title": "The 12th Key - Ch 3", "page": 30},
-    {"title": "The 12th Key - Ch 4", "page": 40},
-    {"title": "The 12th Key - Ch 5", "page": 50},
+    {"title": "Sample Beta", "page": 0},
+    {"title": "Sample Beta - Ch 1", "page": 10},
+    {"title": "Sample Beta - Ch 2", "page": 20},
+    {"title": "Sample Beta - Ch 3", "page": 30},
+    {"title": "Sample Beta - Ch 4", "page": 40},
+    {"title": "Sample Beta - Ch 5", "page": 50},
 ]
 
 
@@ -2547,12 +2547,12 @@ def test_list_anchors_mirrors_the_book_toc() -> None:
     anchors = svc.list_anchors("11")
 
     expected = [
-        ("0", "The 12th Key", 0),
-        ("10", "The 12th Key - Ch 1", 1),
-        ("20", "The 12th Key - Ch 2", 2),
-        ("30", "The 12th Key - Ch 3", 3),
-        ("40", "The 12th Key - Ch 4", 4),
-        ("50", "The 12th Key - Ch 5", 5),
+        ("0", "Sample Beta", 0),
+        ("10", "Sample Beta - Ch 1", 1),
+        ("20", "Sample Beta - Ch 2", 2),
+        ("30", "Sample Beta - Ch 3", 3),
+        ("40", "Sample Beta - Ch 4", 4),
+        ("50", "Sample Beta - Ch 5", 5),
     ]
     assert [(a.ref, a.title, a.ordinal) for a in anchors] == expected
 
@@ -2586,7 +2586,7 @@ def test_read_bookmark_maps_the_page_onto_the_containing_anchor() -> None:
 
     assert bookmark is not None
     assert bookmark.ref == "40"
-    assert bookmark.title == "The 12th Key - Ch 4"
+    assert bookmark.title == "Sample Beta - Ch 4"
     assert bookmark.progression == pytest.approx(0.5)
 
 
@@ -2624,8 +2624,8 @@ def test_place_bookmark_computes_the_page_from_the_span() -> None:
     ref = _ref(chapter_id=11, total_pages=60)
     svc = _anchoring_service(client, ref)
 
-    anchor = ProviderAnchor("10", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {})
+    anchor = ProviderAnchor("10", "Sample Beta - Ch 1", 1)
+    bookmark = ProviderBookmark("10", "Sample Beta - Ch 1", 0.5, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
 
@@ -2648,7 +2648,7 @@ def test_place_bookmark_writes_the_last_page_when_the_position_is_completed() ->
     ref = _ref(chapter_id=11, total_pages=60)
     svc = _anchoring_service(client, ref)
 
-    anchor = ProviderAnchor("50", "The 12th Key - Ch 5", 5)
+    anchor = ProviderAnchor("50", "Sample Beta - Ch 5", 5)
     bookmark = ProviderBookmark("50", None, 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
@@ -2666,7 +2666,7 @@ def test_place_bookmark_uses_the_book_end_for_the_last_anchor() -> None:
     ref = _ref(chapter_id=11, total_pages=60)
     svc = _anchoring_service(client, ref)
 
-    anchor = ProviderAnchor("50", "The 12th Key - Ch 5", 5)
+    anchor = ProviderAnchor("50", "Sample Beta - Ch 5", 5)
     bookmark = ProviderBookmark("50", None, 1.0, {})
 
     result = svc.place_bookmark("11", anchor, bookmark)
@@ -2765,8 +2765,8 @@ def test_the_kavita_page_arithmetic_is_logged_at_debug(caplog: Any) -> None:
     ref = _ref(chapter_id=11, total_pages=60)
     svc = _anchoring_service(client, ref)
 
-    anchor = ProviderAnchor("10", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("10", "The 12th Key - Ch 1", 0.5, {})
+    anchor = ProviderAnchor("10", "Sample Beta - Ch 1", 1)
+    bookmark = ProviderBookmark("10", "Sample Beta - Ch 1", 0.5, {})
 
     with caplog.at_level(logging.DEBUG, logger="kavita_sync.service"):
         svc.place_bookmark("11", anchor, bookmark)
@@ -2995,7 +2995,7 @@ def test_a_lost_kavita_position_is_re_anchored_from_the_stored_history() -> None
             chapter_index=3,
             chapter_progress=0.0,
             chapter_number=3,
-            chapter_title="The 12th Key - Ch 3",
+            chapter_title="Sample Beta - Ch 3",
             chapter_href=None,
             total_chapters=5,
         ),
@@ -3006,7 +3006,7 @@ def test_a_lost_kavita_position_is_re_anchored_from_the_stored_history() -> None
     assert result.ok is True
     assert client.save_progress_calls == [(ref, 30)]
     assert result.read_position is not None
-    assert result.read_position.chapter_title == "The 12th Key - Ch 3"
+    assert result.read_position.chapter_title == "Sample Beta - Ch 3"
     assert result.restore_attempted is False
 
 
@@ -3025,7 +3025,7 @@ def test_a_resolving_kavita_page_is_never_re_anchored() -> None:
             chapter_index=1,
             chapter_progress=0.0,
             chapter_number=1,
-            chapter_title="The 12th Key - Ch 1",
+            chapter_title="Sample Beta - Ch 1",
             chapter_href=None,
             total_chapters=5,
         ),
@@ -3051,7 +3051,7 @@ def test_a_sync_with_a_restore_target_does_not_also_re_anchor() -> None:
             chapter_index=2,
             chapter_progress=0.0,
             chapter_number=2,
-            chapter_title="The 12th Key - Ch 2",
+            chapter_title="Sample Beta - Ch 2",
             chapter_href=None,
             total_chapters=2,
         ),
@@ -3061,7 +3061,7 @@ def test_a_sync_with_a_restore_target_does_not_also_re_anchor() -> None:
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href=None,
         total_chapters=2,
     )
@@ -3087,7 +3087,7 @@ def test_a_re_anchor_re_reads_the_page_before_capture(caplog: Any) -> None:
             chapter_index=3,
             chapter_progress=0.0,
             chapter_number=3,
-            chapter_title="The 12th Key - Ch 3",
+            chapter_title="Sample Beta - Ch 3",
             chapter_href=None,
             total_chapters=5,
         ),

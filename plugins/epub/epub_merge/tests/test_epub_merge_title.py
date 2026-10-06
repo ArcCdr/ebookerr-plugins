@@ -34,8 +34,8 @@ class TestRewriteBookTitle:
     """Tests for rewrite_book_title function."""
 
     def test_worked_example(self) -> None:
-        """Survivor title with chapters [None, 174-180] rewrites to "Three Square Meals 174-180"."""
-        survivor_title = "Three Square Meals - Chapter 180"
+        """Survivor title with chapters [None, 174-180] rewrites to "Sample Delta 174-180"."""
+        survivor_title = "Sample Delta - Chapter 180"
         chapters = [
             _chapter("Title Page", None),
             _chapter("Chapter 174", 174),
@@ -45,7 +45,7 @@ class TestRewriteBookTitle:
             _chapter("Chapter 180", 180),
         ]
         result = rewrite_book_title(survivor_title, chapters)
-        assert result == "Three Square Meals 174-180"
+        assert result == "Sample Delta 174-180"
 
     def test_separator_is_hyphen_minus(self) -> None:
         """The returned string contains U+002D HYPHEN-MINUS, not en-dash or em-dash."""
@@ -100,18 +100,18 @@ class TestRewriteBookTitle:
         assert result is None
 
     def test_stem_strips_chapter_suffix(self) -> None:
-        """Survivor "AIF 36" with chapters [35, 37] produces "AIF 35-37"."""
-        survivor_title = "AIF 36"
+        """Survivor "Gamma 36" with chapters [35, 37] produces "Gamma 35-37"."""
+        survivor_title = "Gamma 36"
         chapters = [_chapter("Chapter 35", 35), _chapter("Chapter 37", 37)]
         result = rewrite_book_title(survivor_title, chapters)
-        assert result == "AIF 35-37"
+        assert result == "Gamma 35-37"
 
     def test_stem_falls_back_to_full_title(self) -> None:
         """When no chapter part detected, use full title with chapters [1, 3]."""
-        survivor_title = "Accidental Family"
+        survivor_title = "Sample Grove"
         chapters = [_chapter("Chapter 1", 1), _chapter("Chapter 3", 3)]
         result = rewrite_book_title(survivor_title, chapters)
-        assert result == "Accidental Family 1-3"
+        assert result == "Sample Grove 1-3"
 
     def test_logs_info_on_rewrite(self, caplog: pytest.LogCaptureFixture) -> None:
         """When title is rewritten, log at INFO level with both titles."""

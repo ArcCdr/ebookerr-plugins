@@ -15,14 +15,14 @@ from ebookerr_sdk.testing import FakeContext, make_epub_item
 from epub_chapter_reorder.plugin import EpubChapterReorderPlugin
 
 _L = "https://www.literotica.com/s/"
-# The real out-of-order Tending Bar order: Part 5, Part 6, Pt.01..04 -> file0001..0006.
-_TENDING_BAR = [
-    ("Tending Bar Part 5", _L + "tending-bar-part-5"),
-    ("Tending Bar Part 6", _L + "tending-bar-part-6"),
-    ("Tending Bar Pt. 01", _L + "tending-bar-pt-01"),
-    ("Tending Bar Pt. 02", _L + "tending-bar-pt-02"),
-    ("Tending Bar Pt. 03", _L + "tending-bar-pt-03"),
-    ("Tending Bar Pt. 04", _L + "tending-bar-pt-04"),
+# The real out-of-order Sample Alpha order: Part 5, Part 6, Pt.01..04 -> file0001..0006.
+_SAMPLE_ALPHA = [
+    ("Sample Alpha Part 5", _L + "sample-alpha-part-5"),
+    ("Sample Alpha Part 6", _L + "sample-alpha-part-6"),
+    ("Sample Alpha Pt. 01", _L + "sample-alpha-pt-01"),
+    ("Sample Alpha Pt. 02", _L + "sample-alpha-pt-02"),
+    ("Sample Alpha Pt. 03", _L + "sample-alpha-pt-03"),
+    ("Sample Alpha Pt. 04", _L + "sample-alpha-pt-04"),
 ]
 # Chronological: Pt.01..04 then Part 5, Part 6.
 _SORTED = ["title_page", "file0003", "file0004", "file0005", "file0006", "file0001", "file0002"]
@@ -100,8 +100,8 @@ class TestManifest:
 
 class TestProcess:
     def test_out_of_order_epub_is_reordered(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
-        item = make_epub_item(epub, book_id="b1", title="Tending Bar", story_url=None)
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
+        item = make_epub_item(epub, book_id="b1", title="Sample Alpha", story_url=None)
         EpubChapterReorderPlugin().process(
             (item,), FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
         )
@@ -112,8 +112,8 @@ class TestProcess:
     def test_out_of_order_returns_book_patch_with_num_chapters(
         self, build_epub: Callable[..., Path]
     ) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
-        item = make_epub_item(epub, book_id="book-42", title="Tending Bar", story_url=None)
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
+        item = make_epub_item(epub, book_id="book-42", title="Sample Alpha", story_url=None)
         patches = EpubChapterReorderPlugin().process(
             (item,), FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
         )
@@ -124,10 +124,10 @@ class TestProcess:
         assert patches[0].fields["num_chapters"] == 6
 
     def test_already_ordered_returns_empty(self, build_epub: Callable[..., Path]) -> None:
-        ordered = [_TENDING_BAR[i] for i in (2, 3, 4, 5, 0, 1)]  # Pt.01..04, Part 5, Part 6
-        epub = build_epub(ordered, doc_title="Tending Bar")
+        ordered = [_SAMPLE_ALPHA[i] for i in (2, 3, 4, 5, 0, 1)]  # Pt.01..04, Part 5, Part 6
+        epub = build_epub(ordered, doc_title="Sample Alpha")
         before = epub.read_bytes()
-        item = make_epub_item(epub, book_id="b1", title="Tending Bar", story_url=None)
+        item = make_epub_item(epub, book_id="b1", title="Sample Alpha", story_url=None)
         patches = EpubChapterReorderPlugin().process(
             (item,), FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
         )
@@ -140,7 +140,7 @@ class TestProcess:
         bad = tmp_path / "bad.epub"
         with zipfile.ZipFile(bad, "w") as archive:
             archive.writestr("mimetype", "application/epub+zip")  # no container.xml
-        item = make_epub_item(bad, book_id="b1", title="Tending Bar", story_url=None)
+        item = make_epub_item(bad, book_id="b1", title="Sample Alpha", story_url=None)
         with caplog.at_level(logging.WARNING):
             patches = EpubChapterReorderPlugin().process(
                 (item,), FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
@@ -152,22 +152,22 @@ class TestProcess:
         bad = tmp_path / "bad.epub"
         with zipfile.ZipFile(bad, "w") as archive:
             archive.writestr("mimetype", "application/epub+zip")
-        item = make_epub_item(bad, book_id="b1", title="Tending Bar", story_url=None)
+        item = make_epub_item(bad, book_id="b1", title="Sample Alpha", story_url=None)
         # Must not raise
         EpubChapterReorderPlugin().process(
             (item,), FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
         )
 
     def test_multiple_items_patches_only_changed(self, build_epub: Callable[..., Path]) -> None:
-        out_of_order = build_epub(_TENDING_BAR, doc_title="Tending Bar", filename="ooo.epub")
+        out_of_order = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha", filename="ooo.epub")
         already_sorted = build_epub(
-            [_TENDING_BAR[i] for i in (2, 3, 4, 5, 0, 1)],
-            doc_title="Tending Bar",
+            [_SAMPLE_ALPHA[i] for i in (2, 3, 4, 5, 0, 1)],
+            doc_title="Sample Alpha",
             filename="sorted.epub",
         )
         items = (
-            make_epub_item(out_of_order, book_id="book-a", title="Tending Bar", story_url=None),
-            make_epub_item(already_sorted, book_id="book-b", title="Tending Bar", story_url=None),
+            make_epub_item(out_of_order, book_id="book-a", title="Sample Alpha", story_url=None),
+            make_epub_item(already_sorted, book_id="book-b", title="Sample Alpha", story_url=None),
         )
         patches = EpubChapterReorderPlugin().process(
             items, FakeContext(logger=logging.getLogger("plugin.epub_chapter_reorder"))
@@ -179,7 +179,7 @@ class TestProcess:
         self, build_epub: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The plugin should pass item.book.title as display_title to reorder_epub."""
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
 
         # Track calls to reorder_epub
         captured_kwargs = []

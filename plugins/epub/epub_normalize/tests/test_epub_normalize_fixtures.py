@@ -1,9 +1,9 @@
-"""Tests for EPUB normalization against captured real EPUB fixtures.
+"""Tests for EPUB normalization against packaged synthetic EPUB fixtures.
 
 Safety net against the riskiest property of the normalization feature:
 "works on any valid EPUB 2 or 3 file and never makes it worse". Tests
-every captured fixture (discovered at collection time) against invariants:
-- Normalizer doesn't raise on any real EPUB
+every packaged fixture (discovered at collection time) against invariants:
+- Normalizer doesn't raise on any packaged EPUB
 - Book remains openable after normalization
 - Chapter count is unchanged
 - Spine/manifest structure is preserved (fonts may be removed)
@@ -37,7 +37,7 @@ _FIXTURES = sorted((Path(__file__).resolve().parent / "fixtures").glob("*.epub")
 
 @pytest.fixture
 def book(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
-    """Copy one captured fixture EPUB into tmp_path so the test can mutate it.
+    """Copy one packaged fixture EPUB into tmp_path so the test can mutate it.
 
     Args:
         request: pytest FixtureRequest with param being the fixture path.
@@ -53,7 +53,7 @@ def book(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
 
 
 class TestNormalizeFixtures:
-    """Tests for EPUB normalization against captured real EPUB fixtures."""
+    """Tests for EPUB normalization against packaged synthetic EPUB fixtures."""
 
     @pytest.mark.parametrize("book", _FIXTURES, ids=lambda p: p.stem, indirect=True)
     def test_normalize_does_not_raise(self, book: Path) -> None:

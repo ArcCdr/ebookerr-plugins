@@ -174,14 +174,14 @@ def test_no_merged_artefacts(build_epub: Callable[..., Path]) -> None:
 def test_chapters_are_renamed_semantically(build_epub: Callable[..., Path]) -> None:
     """Chapters are renamed with semantic naming (AT-RENAME-1/SH-3)."""
     target = build_epub(
-        [("Three Square Meals - Chapter 174", _L + "a1")],
+        [("Sample Delta - Chapter 174", _L + "a1")],
         doc_title="Book A",
         filename="a.epub",
     )
     source = build_epub(
         [
-            ("Three Square Meals - Chapter 175", _L + "b1"),
-            ("Three Square Meals - Chapter 176", _L + "b2"),
+            ("Sample Delta - Chapter 175", _L + "b1"),
+            ("Sample Delta - Chapter 176", _L + "b2"),
         ],
         doc_title="Book B",
         filename="b.epub",
@@ -1171,16 +1171,16 @@ def test_rewrite_book_title_option(build_epub: Callable[..., Path]) -> None:
     """With rewrite_book_title=True, the merged title is reconstructed as <stem> <min>-<max>."""
     target = build_epub(
         [
-            ("Three Square Meals - Chapter 174", _L + "174"),
-            ("Three Square Meals - Chapter 175", _L + "175"),
-            ("Three Square Meals - Chapter 176", _L + "176"),
+            ("Sample Delta - Chapter 174", _L + "174"),
+            ("Sample Delta - Chapter 175", _L + "175"),
+            ("Sample Delta - Chapter 176", _L + "176"),
         ],
-        doc_title="Three Square Meals - Chapter 176",
+        doc_title="Sample Delta - Chapter 176",
         filename="a.epub",
     )
     source = build_epub(
         [],
-        doc_title="Three Square Meals - Chapter 176",
+        doc_title="Sample Delta - Chapter 176",
         filename="b.epub",
     )
 
@@ -1188,28 +1188,28 @@ def test_rewrite_book_title_option(build_epub: Callable[..., Path]) -> None:
 
     # Reopen and check the merged title in metadata
     doc = EpubDocument.open(target)
-    assert doc.opf.get_title() == "Three Square Meals 174-176"
+    assert doc.opf.get_title() == "Sample Delta 174-176"
 
     # Check that the NCX docTitle matches
     ncx_content = doc.ncx.to_xml()
     assert "<docTitle>" in ncx_content
-    assert "<text>Three Square Meals 174-176</text>" in ncx_content
+    assert "<text>Sample Delta 174-176</text>" in ncx_content
 
 
 def test_rewrite_book_title_off_by_default(build_epub: Callable[..., Path]) -> None:
     """Without rewrite_book_title option, the merged title keeps the survivor's original."""
     target = build_epub(
         [
-            ("Three Square Meals - Chapter 174", _L + "174"),
-            ("Three Square Meals - Chapter 175", _L + "175"),
-            ("Three Square Meals - Chapter 176", _L + "176"),
+            ("Sample Delta - Chapter 174", _L + "174"),
+            ("Sample Delta - Chapter 175", _L + "175"),
+            ("Sample Delta - Chapter 176", _L + "176"),
         ],
-        doc_title="Three Square Meals - Chapter 176",
+        doc_title="Sample Delta - Chapter 176",
         filename="a.epub",
     )
     source = build_epub(
         [],
-        doc_title="Three Square Meals - Chapter 176",
+        doc_title="Sample Delta - Chapter 176",
         filename="b.epub",
     )
 
@@ -1218,18 +1218,18 @@ def test_rewrite_book_title_off_by_default(build_epub: Callable[..., Path]) -> N
 
     # Reopen and check the merged title
     doc = EpubDocument.open(target)
-    assert doc.opf.get_title() == "Three Square Meals - Chapter 176"
+    assert doc.opf.get_title() == "Sample Delta - Chapter 176"
 
 
 def test_both_params_combine(build_epub: Callable[..., Path]) -> None:
     """Both rewrite options set: title page uses rewritten title."""
     target = build_epub(
         [
-            ("Three Square Meals - Chapter 174", _L + "174"),
-            ("Three Square Meals - Chapter 175", _L + "175"),
-            ("Three Square Meals - Chapter 176", _L + "176"),
+            ("Sample Delta - Chapter 174", _L + "174"),
+            ("Sample Delta - Chapter 175", _L + "175"),
+            ("Sample Delta - Chapter 176", _L + "176"),
         ],
-        doc_title="Three Square Meals - Chapter 176",
+        doc_title="Sample Delta - Chapter 176",
         filename="a.epub",
     )
 
@@ -1244,7 +1244,7 @@ def test_both_params_combine(build_epub: Callable[..., Path]) -> None:
     title_page_bytes = archive.read_bytes("OEBPS/title_page.xhtml")
     title_page_xml = title_page_bytes.decode("utf-8")
 
-    assert "Three Square Meals 174-176" in title_page_xml
+    assert "Sample Delta 174-176" in title_page_xml
 
 
 def test_structural_failure_leaves_target_untouched(
@@ -1383,23 +1383,23 @@ class TestMergeOutcome:
         """When rewrite_book_title=True and a rename happens, outcome.title reports it."""
         target = build_epub(
             [
-                ("Three Square Meals - Chapter 174", _L + "174"),
-                ("Three Square Meals - Chapter 175", _L + "175"),
-                ("Three Square Meals - Chapter 176", _L + "176"),
+                ("Sample Delta - Chapter 174", _L + "174"),
+                ("Sample Delta - Chapter 175", _L + "175"),
+                ("Sample Delta - Chapter 176", _L + "176"),
             ],
-            doc_title="Three Square Meals - Chapter 176",
+            doc_title="Sample Delta - Chapter 176",
             filename="a.epub",
         )
         source = build_epub(
             [],
-            doc_title="Three Square Meals - Chapter 176",
+            doc_title="Sample Delta - Chapter 176",
             filename="b.epub",
         )
 
         outcome = merge_epubs(target, [source], options=MergeOptions(rewrite_book_title=True))
 
         # The outcome should report the rewritten title
-        assert outcome.title == "Three Square Meals 174-176"
+        assert outcome.title == "Sample Delta 174-176"
         # And the file should match
         doc = EpubDocument.open(target)
         assert doc.opf.get_title() == outcome.title
@@ -1410,7 +1410,7 @@ class TestMergeOutcome:
         """When rewrite_book_title=False (default), outcome.title is None even if title changed."""
         target = build_epub(
             [("Book A Ch. 1", _L + "a1")],
-            doc_title="Love Outside the Margins",
+            doc_title="Sample Isle",
             filename="a.epub",
         )
         source = build_epub(
@@ -1464,7 +1464,7 @@ class TestSurvivorTitle:
 
         survivor = build_epub(
             [("Chapter 38", _L + "38"), ("Chapter 39", _L + "39")],
-            doc_title="Love Outside the Margins",
+            doc_title="Sample Isle",
             filename="a.epub",
         )
         other = build_epub(
@@ -1476,7 +1476,7 @@ class TestSurvivorTitle:
         # Create BookViews for the merge
         survivor_view = api.BookView(
             book_id="book_a",
-            title="All is Fair, Chapter 38 - The Weight of Stone",
+            title="Sample Gamma, Chapter 38 - The Long Road",
             author="Author A",
             story_url=None,
             output_filename="a.epub",
@@ -1533,7 +1533,7 @@ class TestSurvivorTitle:
 
         survivor = build_epub(
             [("Chapter 38", _L + "38"), ("Chapter 39", _L + "39")],
-            doc_title="Love Outside the Margins",
+            doc_title="Sample Isle",
             filename="a.epub",
         )
         other = build_epub(
@@ -1545,7 +1545,7 @@ class TestSurvivorTitle:
         # Create BookViews for the merge
         survivor_view = api.BookView(
             book_id="book_a",
-            title="All is Fair, Chapter 38 - The Weight of Stone",
+            title="Sample Gamma, Chapter 38 - The Long Road",
             author="Author A",
             story_url=None,
             output_filename="a.epub",

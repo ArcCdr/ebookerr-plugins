@@ -311,7 +311,7 @@ class TestTitleAndAuthorMetadataPrecedence:
         )
 
         body = (
-            Path(__file__).resolve().parent / "fixtures" / "Three Square Meals - Chapter 179.docx"
+            Path(__file__).resolve().parent / "fixtures" / "Sample Delta - Chapter 179.docx"
         ).read_bytes()
         url = "https://ex.com/honest/chapter179.docx"
         responses.add(
@@ -344,7 +344,7 @@ class TestTitleAndAuthorMetadataPrecedence:
                 log_label="DOCX",
             )
 
-        assert patch.fields["title"] == "Three Square Meals Ch. 179"
+        assert patch.fields["title"] == "Sample Delta Ch. 179"
         assert patch.fields["author"] == "Unknown"
         assert patch.fields["output_filename"].startswith("Unknown/")
         debug_logs = [r.message for r in caplog.records if r.levelno == logging.DEBUG]

@@ -8,7 +8,7 @@ from pathlib import Path
 from ebookerr_sdk.validate import validate_epub
 from epub_normalize.normalize import NormalizeOptions, normalize_epub
 
-_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "tending_bar.epub"
+_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample_alpha.epub"
 
 
 def _errors(path: Path) -> list[str]:

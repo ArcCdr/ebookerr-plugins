@@ -63,16 +63,16 @@ def test_preserves_book_and_chapter_order() -> None:
 def test_renames_to_semantic_filenames() -> None:
     """Chapter labels are transformed into semantic, numbered filenames."""
     books = [
-        _book(0, "Title Page", "Three Square Meals - Chapter 174"),
-        _book(1, "Three Square Meals - Chapter 180"),
+        _book(0, "Title Page", "Sample Delta - Chapter 174"),
+        _book(1, "Sample Delta - Chapter 180"),
     ]
     planned = plan_chapters(books)
 
     filenames = [p.filename for p in planned]
     assert filenames == [
         "title_page.xhtml",
-        "chapter_174_three_square_meals.xhtml",
-        "chapter_180_three_square_meals.xhtml",
+        "chapter_174_sample_delta.xhtml",
+        "chapter_180_sample_delta.xhtml",
     ]
 
 

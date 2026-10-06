@@ -20,14 +20,14 @@ from epub_chapter_reorder.reorder_step import (
 )
 
 _L = "https://www.literotica.com/s/"
-# The real out-of-order Tending Bar order: Part 5, Part 6, Pt.01..04 -> file0001..0006.
-_TENDING_BAR = [
-    ("Tending Bar Part 5", _L + "tending-bar-part-5"),
-    ("Tending Bar Part 6", _L + "tending-bar-part-6"),
-    ("Tending Bar Pt. 01", _L + "tending-bar-pt-01"),
-    ("Tending Bar Pt. 02", _L + "tending-bar-pt-02"),
-    ("Tending Bar Pt. 03", _L + "tending-bar-pt-03"),
-    ("Tending Bar Pt. 04", _L + "tending-bar-pt-04"),
+# The real out-of-order Sample Alpha order: Part 5, Part 6, Pt.01..04 -> file0001..0006.
+_SAMPLE_ALPHA = [
+    ("Sample Alpha Part 5", _L + "sample-alpha-part-5"),
+    ("Sample Alpha Part 6", _L + "sample-alpha-part-6"),
+    ("Sample Alpha Pt. 01", _L + "sample-alpha-pt-01"),
+    ("Sample Alpha Pt. 02", _L + "sample-alpha-pt-02"),
+    ("Sample Alpha Pt. 03", _L + "sample-alpha-pt-03"),
+    ("Sample Alpha Pt. 04", _L + "sample-alpha-pt-04"),
 ]
 # Chronological: Pt.01..04 then Part 5, Part 6.
 _SORTED = ["title_page", "file0003", "file0004", "file0005", "file0006", "file0001", "file0002"]
@@ -44,28 +44,28 @@ def _run(epub: Path | None) -> None:
 
 class TestReorder:
     def test_reorders_ncx_and_spine_together(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         _run(epub)
         doc = EpubDocument.open(epub)
         assert [p.id for p in doc.ncx.nav_points()] == _SORTED
         assert [s.idref for s in doc.opf.spine()] == _SORTED
 
     def test_renumbers_play_order_one_based(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         _run(epub)
         assert [p.play_order for p in EpubDocument.open(epub).ncx.nav_points()] == list(range(1, 8))
 
     def test_labels_and_src_travel_with_their_navpoint(
         self, build_epub: Callable[..., Path]
     ) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         before = {p.id: (p.label, p.src) for p in EpubDocument.open(epub).ncx.nav_points()}
         _run(epub)
         after = {p.id: (p.label, p.src) for p in EpubDocument.open(epub).ncx.nav_points()}
         assert after == before
 
     def test_title_page_stays_pinned_first(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         _run(epub)
         assert EpubDocument.open(epub).ncx.nav_points()[0].id == "title_page"
 
@@ -96,21 +96,21 @@ class TestStructuredSortKey:
 
 class TestNoOp:
     def test_already_ordered_is_not_rewritten(self, build_epub: Callable[..., Path]) -> None:
-        ordered = [_TENDING_BAR[i] for i in (2, 3, 4, 5, 0, 1)]  # Pt.01..04, Part 5, Part 6
-        epub = build_epub(ordered, doc_title="Tending Bar")
+        ordered = [_SAMPLE_ALPHA[i] for i in (2, 3, 4, 5, 0, 1)]  # Pt.01..04, Part 5, Part 6
+        epub = build_epub(ordered, doc_title="Sample Alpha")
         before = epub.read_bytes()
         _run(epub)
         assert epub.read_bytes() == before
 
     def test_idempotent_second_run_is_noop(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         _run(epub)
         after_first = epub.read_bytes()
         _run(epub)
         assert epub.read_bytes() == after_first
 
     def test_single_chapter_is_noop(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub([("A Taste of Jamaica", _L + "a-taste-of-jamaica")], doc_title="A Taste")
+        epub = build_epub([("Sample Heath", _L + "sample-heath")], doc_title="A Taste")
         before = epub.read_bytes()
         _run(epub)
         assert epub.read_bytes() == before
@@ -139,15 +139,15 @@ class TestZoneOrdering:
     ) -> None:
         """Unnumbered content chapters keep their original slot among numbered chapters."""
         chapters = [
-            ("AIF 30", _L + "a30"),
-            ("AIF-Bonus Material Two", _L + "b"),
-            ("AIF 32", _L + "a32"),
+            ("Gamma 30", _L + "a30"),
+            ("Gamma-Bonus Material Two", _L + "b"),
+            ("Gamma 32", _L + "a32"),
         ]
-        epub = build_epub(chapters, doc_title="AIF")
+        epub = build_epub(chapters, doc_title="Gamma")
         _run(epub)
         doc = EpubDocument.open(epub)
         labels = [p.label for p in doc.ncx.nav_points()]
-        assert labels == ["Title Page", "AIF 30", "AIF-Bonus Material Two", "AIF 32"]
+        assert labels == ["Title Page", "Gamma 30", "Gamma-Bonus Material Two", "Gamma 32"]
 
     def test_numbered_chapters_still_sort_around_a_fixed_unnumbered_slot(
         self, build_epub: Callable[..., Path]
@@ -333,7 +333,7 @@ class TestInternals:
     def test_spine_order_skips_navpoint_without_manifest_item(
         self, build_epub: Callable[..., Path]
     ) -> None:
-        doc = EpubDocument.open(build_epub(_TENDING_BAR, doc_title="Tending Bar"))
+        doc = EpubDocument.open(build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha"))
         points = doc.ncx.nav_points()
         ghost = NavPoint("ghost", 99, "Ghost", "OEBPS/ghost.xhtml")  # no manifest item
         order = _spine_order(doc, [*points, ghost], [*[p.id for p in points], "ghost"])
@@ -348,14 +348,14 @@ class TestTelemetry:
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
     ) -> None:
         """Rewrite logs moved count and total at INFO level."""
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         with caplog.at_level(logging.INFO):
             _run(epub)
         info_records = [r for r in caplog.records if r.levelname == "INFO"]
         assert any(
             "Chapter-reorder fixed" in r.getMessage()
             and "of 7 navPoint(s)" in r.getMessage()
-            and '"Tending Bar"' in r.getMessage()
+            and '"Sample Alpha"' in r.getMessage()
             for r in info_records
         )
 
@@ -363,13 +363,13 @@ class TestTelemetry:
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
     ) -> None:
         """Already-ordered book logs unchanged at INFO level."""
-        ordered = [_TENDING_BAR[i] for i in (2, 3, 4, 5, 0, 1)]
-        epub = build_epub(ordered, doc_title="Tending Bar")
+        ordered = [_SAMPLE_ALPHA[i] for i in (2, 3, 4, 5, 0, 1)]
+        epub = build_epub(ordered, doc_title="Sample Alpha")
         with caplog.at_level(logging.INFO):
             _run(epub)
         info_records = [r for r in caplog.records if r.levelname == "INFO"]
         assert any(
-            'Chapter-reorder left "Tending Bar" unchanged' in r.getMessage()
+            'Chapter-reorder left "Sample Alpha" unchanged' in r.getMessage()
             and "7 navPoint(s) already in order" in r.getMessage()
             for r in info_records
         )
@@ -378,7 +378,7 @@ class TestTelemetry:
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
     ) -> None:
         """Computed order logged at DEBUG level."""
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         with caplog.at_level(logging.DEBUG):
             _run(epub)
         debug_records = [r for r in caplog.records if r.levelname == "DEBUG"]
@@ -652,12 +652,12 @@ class TestNavOnlyEpub3:
 
 class TestResolveBookTitle:
     def test_resolve_book_title_prefers_doctitle(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Real Title")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Real Title")
         doc = EpubDocument.open(epub)
         assert resolve_book_title(doc) == "Real Title"
 
     def test_resolve_book_title_falls_back_to_opf(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="")
         doc = EpubDocument.open(epub)
         # The build_epub factory always sets OPF dc:title to the doc_title param,
         # so we need to verify it returns the OPF title when docTitle is empty
@@ -667,12 +667,12 @@ class TestResolveBookTitle:
 
 class TestResolveNavTitle:
     def test_resolve_nav_title_prefers_label(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Book")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Book")
         doc = EpubDocument.open(epub)
         points = doc.ncx.nav_points()
         # Skip title page (index 0), test a chapter
-        point = points[1]  # file0001 with label "Tending Bar Part 5"
-        assert resolve_nav_title(doc, point) == "Tending Bar Part 5"
+        point = points[1]  # file0001 with label "Sample Alpha Part 5"
+        assert resolve_nav_title(doc, point) == "Sample Alpha Part 5"
 
     def test_resolve_nav_title_falls_back_to_xhtml(
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
@@ -692,7 +692,7 @@ class TestResolveNavTitle:
         assert any("Chapter-reorder title fallback" in record.message for record in caplog.records)
 
     def test_resolve_nav_title_empty_when_no_source(self, build_epub: Callable[..., Path]) -> None:
-        epub = build_epub(_TENDING_BAR, doc_title="Book")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Book")
         doc = EpubDocument.open(epub)
 
         # NavPoint with empty label and missing src
@@ -990,7 +990,7 @@ class TestAutomaticKeyOrder:
         """For a book out of order, returned keys are in the order reorder_epub would produce."""
         from epub_chapter_reorder.reorder_step import automatic_key_order
 
-        epub = build_epub(_TENDING_BAR, doc_title="Tending Bar")
+        epub = build_epub(_SAMPLE_ALPHA, doc_title="Sample Alpha")
         doc = EpubDocument.open(epub)
         keys = automatic_key_order(doc)
 

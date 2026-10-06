@@ -8,8 +8,8 @@ from pathlib import Path
 from ebookerr_sdk.validate import validate_epub
 from epub_merge.merge.merge import merge_epubs
 
-_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "tending_bar.epub"
-_FIXTURE2 = Path(__file__).resolve().parent / "fixtures" / "AIF35.epub"
+_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample_alpha.epub"
+_FIXTURE2 = Path(__file__).resolve().parent / "fixtures" / "Gamma35.epub"
 
 
 def _errors(path: Path) -> list[str]:

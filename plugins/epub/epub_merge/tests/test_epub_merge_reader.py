@@ -77,7 +77,7 @@ class TestReadInputBook:
     def test_reads_nav_only_epub3_book(self, build_nav_epub: object, tmp_path: Path) -> None:
         """Read an EPUB3 nav-only book (no toc.ncx) into InputBook model."""
         factory = build_nav_epub  # type: ignore[assignment]
-        path = factory([("Chapter 1", "u1")], doc_title="AIF 36")
+        path = factory([("Chapter 1", "u1")], doc_title="Gamma 36")
 
         book = read_input_book(path, 0)
 
@@ -87,18 +87,18 @@ class TestReadInputBook:
         assert book.content_root == ""
         assert not any("nav" in r.href for r in book.resources)
 
-    def test_reads_real_fixture_metadata(self) -> None:
-        """Read real fixture (tending_bar.epub) and verify metadata extraction."""
-        path = Path(__file__).resolve().parent / "fixtures" / "tending_bar.epub"
+    def test_reads_packaged_fixture_metadata(self) -> None:
+        """Read the synthetic fixture (sample_alpha.epub) and verify metadata extraction."""
+        path = Path(__file__).resolve().parent / "fixtures" / "sample_alpha.epub"
 
         book = read_input_book(path, 0)
 
-        assert book.creators == (("Moosetales", None),)
-        assert book.source == "https://www.literotica.com/series/se/495173223"
+        assert book.creators == (("WriterAlpha", None),)
+        assert book.source == "https://www.literotica.com/series/se/900000001"
         assert book.publisher == "literotica.com"
         assert len(book.subjects) == 5
         assert len(book.chapters) == 6
-        assert book.identifier == "fanficfare-uid:literotica.com-ustories-s495173223"
+        assert book.identifier == "fanficfare-uid:literotica.com-ustories-s900000001"
 
     def test_cover_fields_none_without_cover(self, build_epub: object, tmp_path: Path) -> None:
         """Cover fields are None when EPUB has no cover image."""

@@ -149,7 +149,7 @@ def test_find_book_id_unique_match() -> None:
         json=_fixture("books_list_search.json"),
         status=200,
     )
-    assert _client().find_book_id("The Lottery Winner - Pt. 01", "JQueen9") == "0QJH5QMC8ES03"
+    assert _client().find_book_id("Sample Epsilon - Pt. 01", "WriterEpsilon9") == "0QJH5QMC8ES03"
 
 
 @responses.activate
@@ -169,7 +169,7 @@ def test_find_book_id_matches_a_decomposed_author() -> None:
         },
         status=200,
     )
-    assert _client().find_book_id("The Lottery Winner - Pt. 01", "Zoë") == "0QJH5QMC8ES03"
+    assert _client().find_book_id("Sample Epsilon - Pt. 01", "Zoë") == "0QJH5QMC8ES03"
 
 
 @responses.activate
@@ -180,7 +180,7 @@ def test_find_book_id_author_mismatch() -> None:
         json=_fixture("books_list_search.json"),
         status=200,
     )
-    assert _client().find_book_id("The Lottery Winner - Pt. 01", "Someone Else") is None
+    assert _client().find_book_id("Sample Epsilon - Pt. 01", "Someone Else") is None
 
 
 @responses.activate
@@ -191,7 +191,7 @@ def test_find_book_id_sends_library_id_condition() -> None:
         json=_fixture("books_list_search.json"),
         status=200,
     )
-    _client().find_book_id("The Lottery Winner - Pt. 01", "JQueen9")
+    _client().find_book_id("Sample Epsilon - Pt. 01", "WriterEpsilon9")
     body = json.loads(responses.calls[0].request.body)
     assert {"libraryId": {"operator": "is", "value": LIBRARY}} in body["condition"]["allOf"]
 
@@ -205,7 +205,7 @@ def test_find_book_id_ignores_other_libraries() -> None:
         json={"content": [], "totalElements": 0},
         status=200,
     )
-    result = _client("OTHER").find_book_id("The Lottery Winner - Pt. 01", "JQueen9")
+    result = _client("OTHER").find_book_id("Sample Epsilon - Pt. 01", "WriterEpsilon9")
     assert result is None
     body = json.loads(responses.calls[0].request.body)
     assert {"libraryId": {"operator": "is", "value": "OTHER"}} in body["condition"]["allOf"]
@@ -219,7 +219,7 @@ def test_find_book_id_no_library_id_omits_library_condition() -> None:
         json=_fixture("books_list_search.json"),
         status=200,
     )
-    _client("").find_book_id("The Lottery Winner - Pt. 01", "JQueen9")
+    _client("").find_book_id("Sample Epsilon - Pt. 01", "WriterEpsilon9")
     body = json.loads(responses.calls[0].request.body)
     assert not any("libraryId" in c for c in body["condition"]["allOf"])
 

@@ -48,15 +48,15 @@ from komga_sync.service import (
     _upsert_links,
 )
 
-STORY_URL = "https://www.literotica.com/s/the-12th-key"
-AUTHOR_URL = "https://www.literotica.com/authors/gabthewriter/works/stories"
+STORY_URL = "https://www.literotica.com/s/sample-beta"
+AUTHOR_URL = "https://www.literotica.com/authors/writerbeta/works/stories"
 FIXED_NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=UTC)
 EXPECTED_TAGS = ["Erotic Horror", "Horror", "Oral"]
 MATCHING_BOOK_METADATA = {
-    "title": "The 12th Key",
+    "title": "Sample Beta",
     "summary": "Nightmares.",
     "releaseDate": "2026-05-19",
-    "authors": [{"name": "gabthewriter", "role": "writer"}],
+    "authors": [{"name": "writerbeta", "role": "writer"}],
     "tags": EXPECTED_TAGS,
     "links": [{"label": "Book", "url": STORY_URL}, {"label": "Author", "url": AUTHOR_URL}],
 }
@@ -70,31 +70,31 @@ MATCHING_SERIES_METADATA = {
 POSITIONS_FIXTURE = [
     {
         "href": "OEBPS/titlepage.xhtml",
-        "title": "The 12th Key",
+        "title": "Sample Beta",
         "type": "application/xhtml+xml",
         "locations": {"position": 1, "progression": 0.0, "totalProgression": 0.0},
     },
     {
         "href": "OEBPS/file0001.xhtml",
-        "title": "The 12th Key - Ch 1",
+        "title": "Sample Beta - Ch 1",
         "type": "application/xhtml+xml",
         "locations": {"position": 2, "progression": 0.0, "totalProgression": 0.2},
     },
     {
         "href": "OEBPS/file0001.xhtml",
-        "title": "The 12th Key - Ch 1",
+        "title": "Sample Beta - Ch 1",
         "type": "application/xhtml+xml",
         "locations": {"position": 3, "progression": 0.5, "totalProgression": 0.4},
     },
     {
         "href": "OEBPS/file0002.xhtml",
-        "title": "The 12th Key - Ch 2",
+        "title": "Sample Beta - Ch 2",
         "type": "application/xhtml+xml",
         "locations": {"position": 4, "progression": 0.0, "totalProgression": 0.6},
     },
     {
         "href": "OEBPS/file0002.xhtml",
-        "title": "The 12th Key - Ch 2",
+        "title": "Sample Beta - Ch 2",
         "type": "application/xhtml+xml",
         "locations": {"position": 5, "progression": 0.5, "totalProgression": 0.8},
     },
@@ -421,8 +421,8 @@ def repo() -> _FakeBookRepository:
 def make_book(repo: _FakeBookRepository, **overrides: Any) -> _Book:
     """Build a book via an FFF-shaped payload, an in-memory upsert stand-in for a real pull."""
     payload: dict[str, Any] = {
-        "title": "The 12th Key",
-        "author": "gabthewriter",
+        "title": "Sample Beta",
+        "author": "writerbeta",
         "description": "<p>Nightmares.</p>",
         "category": "Erotic Horror",
         "eroticatags": "Horror, Oral",
@@ -430,7 +430,7 @@ def make_book(repo: _FakeBookRepository, **overrides: Any) -> _Book:
         "storyUrl": STORY_URL,
         "sectionUrl": STORY_URL,
         "authorUrl": AUTHOR_URL,
-        "storyId": "the-12th-key",
+        "storyId": "sample-beta",
     }
     payload.update(overrides)
     book_id = _fff_book_id(payload)
@@ -479,7 +479,7 @@ def _chapters(*entries: tuple[str, str]) -> tuple[ChapterView, ...]:
 # book_to_view()'s default chapter_table, so a plain book_to_view(book) still joins cleanly
 # against the file's existing default positions fixture.
 _DEFAULT_CHAPTER_TABLE = _chapters(
-    ("file0001.xhtml", "The 12th Key - Ch 1"), ("file0002.xhtml", "The 12th Key - Ch 2")
+    ("file0001.xhtml", "Sample Beta - Ch 1"), ("file0002.xhtml", "Sample Beta - Ch 2")
 )
 
 
@@ -797,10 +797,10 @@ def test_pushes_changed_book_metadata_with_combined_tags(repo: _FakeBookReposito
 
     assert len(client.book_patches) == 1
     _, patch = client.book_patches[0]
-    assert patch["title"] == "The 12th Key"
+    assert patch["title"] == "Sample Beta"
     assert patch["summary"] == "Nightmares."
     assert patch["releaseDate"] == "2026-05-19"
-    assert patch["authors"] == [{"name": "gabthewriter", "role": "writer"}]
+    assert patch["authors"] == [{"name": "writerbeta", "role": "writer"}]
     assert patch["tags"] == EXPECTED_TAGS
     assert {link["label"] for link in patch["links"]} == {"Book", "Author"}
 
@@ -1372,10 +1372,10 @@ def test_enrich_returns_false_when_book_cannot_be_loaded(repo: _FakeBookReposito
 def test_enrich_finds_by_path_when_output_filename_matches(repo: _FakeBookRepository) -> None:
     """T7: path-first locate — URL suffix match wins over title+author lookup."""
     client = FakeKomga()
-    client.library_books = [("KB1", "/books/gabthewriter/The 12th Key.epub")]
+    client.library_books = [("KB1", "/books/writerbeta/Sample Beta.epub")]
     client.book = komga_book(series_id="S1", metadata={}, pages=5, read={})
     client.series = {"metadata": {}}
-    book = make_book(repo, output_filename="gabthewriter/The 12th Key.epub")
+    book = make_book(repo, output_filename="writerbeta/Sample Beta.epub")
 
     result = service(client).enrich(book_to_view(book))
 
@@ -1408,7 +1408,7 @@ def test_enrich_falls_back_to_title_author_on_path_miss(repo: _FakeBookRepositor
     client.find_results = ["KB1"]
     client.book = komga_book(metadata={}, pages=5)
     client.series = {"metadata": {}}
-    book = make_book(repo, output_filename="gabthewriter/The 12th Key.epub")
+    book = make_book(repo, output_filename="writerbeta/Sample Beta.epub")
 
     result = service(client).enrich(book_to_view(book))
 
@@ -1420,10 +1420,10 @@ def test_enrich_falls_back_to_title_author_on_path_miss(repo: _FakeBookRepositor
 def test_enrich_url_index_built_once_across_multiple_calls(repo: _FakeBookRepository) -> None:
     """T7: list_library_books() is called at most once per KomgaService instance."""
     client = FakeKomga()
-    client.library_books = [("KB1", "/books/gabthewriter/The 12th Key.epub")]
+    client.library_books = [("KB1", "/books/writerbeta/Sample Beta.epub")]
     client.book = komga_book(metadata={}, pages=5)
     client.series = {"metadata": {}}
-    book = make_book(repo, output_filename="gabthewriter/The 12th Key.epub")
+    book = make_book(repo, output_filename="writerbeta/Sample Beta.epub")
 
     svc = service(client)
     svc.enrich(book_to_view(book))
@@ -2972,7 +2972,7 @@ def test_chapter_table_orders_and_titles() -> None:
     """_chapter_table extracts hrefs in position order with first title per href."""
     hrefs, titles = _chapter_table(POSITIONS_FIXTURE)
     assert hrefs == ["OEBPS/titlepage.xhtml", "OEBPS/file0001.xhtml", "OEBPS/file0002.xhtml"]
-    assert titles == ["The 12th Key", "The 12th Key - Ch 1", "The 12th Key - Ch 2"]
+    assert titles == ["Sample Beta", "Sample Beta - Ch 1", "Sample Beta - Ch 2"]
 
 
 def test_sync_returns_read_position(repo: _FakeBookRepository) -> None:
@@ -2980,7 +2980,7 @@ def test_sync_returns_read_position(repo: _FakeBookRepository) -> None:
     progression = {
         "locator": {
             "href": "OEBPS/file0001.xhtml",
-            "title": "The 12th Key - Ch 1",
+            "title": "Sample Beta - Ch 1",
             "locations": {"progression": 0.5, "position": 3, "totalProgression": 0.4},
         }
     }
@@ -3010,7 +3010,7 @@ def test_restore_semantic_puts_nearest_valid_position(repo: _FakeBookRepository)
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -3039,7 +3039,7 @@ def test_restore_semantic_completed_targets_last_position(repo: _FakeBookReposit
         chapter_index=2,
         chapter_progress=1.0,
         chapter_number=2,
-        chapter_title="The 12th Key - Ch 2",
+        chapter_title="Sample Beta - Ch 2",
         chapter_href="file0002.xhtml",
     )
     client = FakeKomga()
@@ -3100,7 +3100,7 @@ def test_restore_put_rejection_logs_error(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -3130,7 +3130,7 @@ def test_a_rejected_restore_write_is_attempted_but_not_landed(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -3162,7 +3162,7 @@ def test_a_matched_and_accepted_restore_is_landed(repo: _FakeBookRepository) -> 
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -3186,7 +3186,7 @@ def test_sync_with_restore_target_skips_raw_restore(repo: _FakeBookRepository) -
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -4191,10 +4191,10 @@ def test_a_second_sync_sends_no_summary_patch(
     client.find_results = ["KB1"]
     client.book = komga_book(
         metadata={
-            "title": "The 12th Key",
+            "title": "Sample Beta",
             "summary": "Nightmares.",  # Matches what _book_patch will compute
             "releaseDate": "2026-05-19",
-            "authors": [{"name": "gabthewriter", "role": "writer"}],
+            "authors": [{"name": "writerbeta", "role": "writer"}],
             "tags": EXPECTED_TAGS,
             "links": [{"label": "Book", "url": STORY_URL}, {"label": "Author", "url": AUTHOR_URL}],
         }
@@ -4240,10 +4240,10 @@ def test_push_book_metadata_returns_true_when_it_patches(
     # Book with different title will trigger a patch
     client.book = komga_book(
         metadata={
-            "title": "Different Title",  # Will differ from "The 12th Key"
+            "title": "Different Title",  # Will differ from "Sample Beta"
             "summary": "Nightmares.",
             "releaseDate": "2026-05-19",
-            "authors": [{"name": "gabthewriter", "role": "writer"}],
+            "authors": [{"name": "writerbeta", "role": "writer"}],
             "tags": EXPECTED_TAGS,
             "links": [{"label": "Book", "url": STORY_URL}, {"label": "Author", "url": AUTHOR_URL}],
         }
@@ -4300,7 +4300,7 @@ def test_sync_logs_a_run_summary_at_info(
                 "title": "Different Title",  # Will differ
                 "summary": "Nightmares.",
                 "releaseDate": "2026-05-19",
-                "authors": [{"name": "gabthewriter", "role": "writer"}],
+                "authors": [{"name": "writerbeta", "role": "writer"}],
                 "tags": EXPECTED_TAGS,
                 "links": [
                     {"label": "Book", "url": STORY_URL},
@@ -4313,7 +4313,7 @@ def test_sync_logs_a_run_summary_at_info(
                 "title": "Different Title",
                 "summary": "Nightmares.",
                 "releaseDate": "2026-05-19",
-                "authors": [{"name": "gabthewriter", "role": "writer"}],
+                "authors": [{"name": "writerbeta", "role": "writer"}],
                 "tags": EXPECTED_TAGS,
                 "links": [
                     {"label": "Book", "url": STORY_URL},
@@ -4333,7 +4333,7 @@ def test_sync_logs_a_run_summary_at_info(
     # Book 1: will differ (has Different Title in Komga)
     book1 = make_book(repo)
     # Book 2: will match (MATCHING_BOOK_METADATA matches default make_book title)
-    book2 = make_book(repo, storyId="the-12th-key-2")
+    book2 = make_book(repo, storyId="sample-beta-2")
 
     with caplog.at_level(logging.INFO, logger="komga_sync.service"):
         svc.sync_batch(
@@ -4368,7 +4368,7 @@ def test_sync_summary_fires_even_when_nothing_changed(
     svc = service(client)
     # Both books will match (default MATCHING_BOOK_METADATA)
     book1 = make_book(repo)
-    book2 = make_book(repo, storyId="the-12th-key-2")
+    book2 = make_book(repo, storyId="sample-beta-2")
 
     with caplog.at_level(logging.INFO, logger="komga_sync.service"):
         svc.sync_batch(
@@ -4414,7 +4414,7 @@ def test_sync_summary_counts_a_failure(
                 "title": "Different Title",
                 "summary": "Nightmares.",
                 "releaseDate": "2026-05-19",
-                "authors": [{"name": "gabthewriter", "role": "writer"}],
+                "authors": [{"name": "writerbeta", "role": "writer"}],
                 "tags": EXPECTED_TAGS,
                 "links": [
                     {"label": "Book", "url": STORY_URL},
@@ -4427,7 +4427,7 @@ def test_sync_summary_counts_a_failure(
                 "title": "Different Title",
                 "summary": "Nightmares.",
                 "releaseDate": "2026-05-19",
-                "authors": [{"name": "gabthewriter", "role": "writer"}],
+                "authors": [{"name": "writerbeta", "role": "writer"}],
                 "tags": EXPECTED_TAGS,
                 "links": [
                     {"label": "Book", "url": STORY_URL},
@@ -4590,7 +4590,7 @@ def test_a_restored_position_survives_the_provider_losing_its_progression(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = _EchoingKomga()
@@ -4659,7 +4659,7 @@ def test_a_restored_position_survives_the_provider_losing_its_progression(
 
     # Verify log messages
     assert any(
-        'Re-anchored the read position for "The 12th Key"' in r.message
+        'Re-anchored the read position for "Sample Beta"' in r.message
         for r in caplog.records
         if r.levelno == logging.INFO
     )
@@ -4677,7 +4677,7 @@ def test_a_restore_persists_the_envelope_not_the_bare_locator(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -4929,7 +4929,7 @@ def test_a_failed_restore_does_not_persist_a_locator(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -5007,7 +5007,7 @@ def test_the_persisted_locator_is_logged_at_debug(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
     )
     client = FakeKomga()
@@ -5163,7 +5163,7 @@ def test_a_live_locator_still_takes_the_raw_fast_path(caplog: pytest.LogCaptureF
         chapter_index=2,
         chapter_progress=0.5,
         chapter_number=2,
-        chapter_title="The 12th Key - Ch 2",
+        chapter_title="Sample Beta - Ch 2",
         chapter_href="file0002.xhtml",
         total_chapters=2,
     )
@@ -5238,7 +5238,7 @@ def test_a_provider_with_no_anchors_still_takes_the_raw_fast_path(
         chapter_index=2,
         chapter_progress=0.5,
         chapter_number=2,
-        chapter_title="The 12th Key - Ch 2",
+        chapter_title="Sample Beta - Ch 2",
         chapter_href="file0002.xhtml",
         total_chapters=2,
     )
@@ -5271,7 +5271,7 @@ def test_a_lost_bookmark_is_re_anchored_instead_of_replayed(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="file0001.xhtml",
         total_chapters=2,
     )
@@ -6028,7 +6028,7 @@ def test_sync_reports_restore_attempted_when_it_restores(
         chapter_index=1,
         chapter_progress=0.5,
         chapter_number=1,
-        chapter_title="The 12th Key - Ch 1",
+        chapter_title="Sample Beta - Ch 1",
         chapter_href="OEBPS/file0001.xhtml",
         total_chapters=2,
     )
@@ -6068,7 +6068,7 @@ def test_sync_reports_no_restore_attempt_when_the_book_is_unresolvable(
         chapter_index=0,
         chapter_progress=0.0,
         chapter_number=1,
-        chapter_title="The 12th Key",
+        chapter_title="Sample Beta",
         chapter_href="OEBPS/titlepage.xhtml",
         total_chapters=2,
     )
@@ -6092,7 +6092,7 @@ def test_sync_reports_no_restore_attempt_when_komga_is_disabled(
         chapter_index=0,
         chapter_progress=0.0,
         chapter_number=1,
-        chapter_title="The 12th Key",
+        chapter_title="Sample Beta",
         chapter_href="OEBPS/titlepage.xhtml",
         total_chapters=2,
     )
@@ -7045,9 +7045,9 @@ def test_list_anchors_mirrors_the_positions_table() -> None:
     anchors = svc.list_anchors("KB1")
 
     assert [(a.ref, a.title, a.ordinal) for a in anchors] == [
-        ("OEBPS/titlepage.xhtml", "The 12th Key", 0),
-        ("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 1),
-        ("OEBPS/file0002.xhtml", "The 12th Key - Ch 2", 2),
+        ("OEBPS/titlepage.xhtml", "Sample Beta", 0),
+        ("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 1),
+        ("OEBPS/file0002.xhtml", "Sample Beta - Ch 2", 2),
     ]
 
 
@@ -7110,8 +7110,8 @@ def test_place_bookmark_writes_the_nearest_valid_position(
     client = FakeKomga()
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
-    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 0.5, {})
+    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 1)
+    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 0.5, {})
 
     svc = service(client, now=lambda: FIXED_NOW)
     result = svc.place_bookmark("KB1", anchor, bookmark)
@@ -7125,7 +7125,7 @@ def test_place_bookmark_writes_the_nearest_valid_position(
         "device": {"id": "ebookerr", "name": "ebookerr"},
         "locator": {
             "href": "OEBPS/file0001.xhtml",
-            "title": "The 12th Key - Ch 1",
+            "title": "Sample Beta - Ch 1",
             "type": "application/xhtml+xml",
             "locations": {"position": 3, "progression": 0.5, "totalProgression": 0.4},
         },
@@ -7141,8 +7141,8 @@ def test_place_bookmark_records_the_envelope_it_wrote(
     client = FakeKomga()
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
-    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 0.5, {})
+    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 1)
+    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 0.5, {})
 
     svc = service(client, now=lambda: FIXED_NOW)
     svc.place_bookmark("KB1", anchor, bookmark)
@@ -7171,8 +7171,8 @@ def test_place_bookmark_reports_false_when_komga_rejects_the_write() -> None:
 
     client = FakeKomga()
     client.put_progression_ok = False
-    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 1)
-    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "The 12th Key - Ch 1", 0.5, {})
+    anchor = ProviderAnchor("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 1)
+    bookmark = ProviderBookmark("OEBPS/file0001.xhtml", "Sample Beta - Ch 1", 0.5, {})
 
     svc = service(client)
     result = svc.place_bookmark("KB1", anchor, bookmark)
@@ -7206,7 +7206,7 @@ def test_a_dead_locator_on_a_finished_book_is_forgotten(
     client.positions = [
         {
             "href": "OEBPS/chapter_03_new.xhtml",
-            "title": "Sitting for Sir - Ch 3",
+            "title": "Sample Ember - Ch 3",
             "type": "application/xhtml+xml",
             "locations": {"position": 1, "progression": 0.0, "totalProgression": 1.0},
         }
@@ -7224,8 +7224,8 @@ def test_a_dead_locator_on_a_finished_book_is_forgotten(
         chapter_index=3,
         chapter_progress=1.0,
         chapter_number=3,
-        chapter_title="Sitting for Sir - Ch 3",
-        chapter_href="chapter_03_sitting_for_sir.xhtml",
+        chapter_title="Sample Ember - Ch 3",
+        chapter_href="chapter_03_sample_ember.xhtml",
         total_chapters=3,
     )
     locator_json = json.dumps(
@@ -7280,7 +7280,7 @@ def test_a_live_locator_on_a_finished_book_is_kept(
         chapter_index=2,
         chapter_progress=1.0,
         chapter_number=2,
-        chapter_title="The 12th Key - Ch 2",
+        chapter_title="Sample Beta - Ch 2",
         chapter_href="file0002.xhtml",
         total_chapters=2,
     )
@@ -7317,7 +7317,7 @@ def test_a_finished_book_without_a_stored_locator_logs_nothing(
     client.positions = [
         {
             "href": "OEBPS/chapter_03_new.xhtml",
-            "title": "Sitting for Sir - Ch 3",
+            "title": "Sample Ember - Ch 3",
             "type": "application/xhtml+xml",
             "locations": {"position": 1, "progression": 0.0, "totalProgression": 1.0},
         }
@@ -7328,8 +7328,8 @@ def test_a_finished_book_without_a_stored_locator_logs_nothing(
         chapter_index=3,
         chapter_progress=1.0,
         chapter_number=3,
-        chapter_title="Sitting for Sir - Ch 3",
-        chapter_href="chapter_03_sitting_for_sir.xhtml",
+        chapter_title="Sample Ember - Ch 3",
+        chapter_href="chapter_03_sample_ember.xhtml",
         total_chapters=3,
     )
     view = make_book_view(
@@ -7584,7 +7584,7 @@ def test_external_chapter_count_excludes_the_title_page(repo: _FakeBookRepositor
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
     client.positions = [
-        {"href": "OEBPS/titlepage.xhtml", "title": "The 12th Key", "locations": {"position": 1}},
+        {"href": "OEBPS/titlepage.xhtml", "title": "Sample Beta", "locations": {"position": 1}},
         {"href": "OEBPS/file0001.xhtml", "title": "Ch 1", "locations": {"position": 2}},
         {"href": "OEBPS/file0002.xhtml", "title": "Ch 2", "locations": {"position": 3}},
     ]
@@ -8215,7 +8215,7 @@ def test_a_changed_count_is_logged_at_info(
         result = service(client).sync(view)
 
     assert result.ok is True
-    assert regex.search(r'Komga reports 3 chapter\(s\) for "The 12th Key"', caplog.text)
+    assert regex.search(r'Komga reports 3 chapter\(s\) for "Sample Beta"', caplog.text)
 
 
 def test_an_unchanged_count_is_not_logged_at_info(

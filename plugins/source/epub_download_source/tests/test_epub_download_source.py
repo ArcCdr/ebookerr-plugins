@@ -301,7 +301,7 @@ class TestPullNavOnlyEpub3:
     @responses.activate
     def test_pull_accepts_epub3_nav_only_file(self, tmp_path: Path, build_nav_epub: Any) -> None:
         """pull() succeeds for a spec-valid EPUB3 with only nav.xhtml (no toc.ncx)."""
-        epub_path = build_nav_epub([("Chapter 1", "u1")], doc_title="AIF 36", author="Creator")
+        epub_path = build_nav_epub([("Chapter 1", "u1")], doc_title="Gamma 36", author="Creator")
         epub_bytes = epub_path.read_bytes()
 
         url = "https://example.com/download.epub"
@@ -322,7 +322,7 @@ class TestPullNavOnlyEpub3:
         patch = plugin.pull(url, work_dir, None, ctx)
 
         assert patch.upsert is True
-        assert patch.fields["title"] == "AIF 36"
+        assert patch.fields["title"] == "Gamma 36"
         assert patch.fields["author"] == "Creator"
         assert patch.fields["num_chapters"] == 1
 
@@ -676,7 +676,7 @@ class TestExtractFilename:
 class TestSafeComponent:
     def test_safe_component_preserves_spaces(self) -> None:
         """_safe_component preserves spaces in names."""
-        assert _safe_component("The Novalist") == "The Novalist"
+        assert _safe_component("Writer Gamma") == "Writer Gamma"
 
     def test_safe_component_strips_slash(self) -> None:
         """_safe_component replaces slashes with underscores."""

@@ -14,29 +14,29 @@ class TestBuildView:
     """Tests for _build_view helper function."""
 
     def test_one_item_per_spine_entry(self, epub_fixtures: Path) -> None:
-        """For tending_bar.epub, the 'chapters' section has exactly len(classify_spine(doc)) items.
+        """For sample_alpha.epub, the 'chapters' section has exactly len(classify_spine(doc)) items.
 
         Verify item count matches spine entry count.
         """
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         assert len(chapters_section.items) == len(entries)
 
     def test_item_ids_are_idrefs(self, epub_fixtures: Path) -> None:
         """Every ViewItem.id equals the corresponding ChapterEntry.idref."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         for item, entry in zip(chapters_section.items, entries, strict=True):
             assert item.id == entry.idref
@@ -60,13 +60,13 @@ class TestBuildView:
 
     def test_sublabel_is_the_href(self, epub_fixtures: Path) -> None:
         """Every item's sublabel equals its entry's href."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         for item, entry in zip(chapters_section.items, entries, strict=True):
             assert item.sublabel == entry.href
@@ -93,12 +93,12 @@ class TestBuildView:
         """A title_page manifest id yields a ViewItem whose badges contain 'Other'."""
         from epub_chapter_reorder.plugin import _build_view
 
-        # Use tending_bar which has a title page (structurally OTHER)
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        # Use sample_alpha which has a title page (structurally OTHER)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         # Find an OTHER entry and verify it has a badge
         for item, entry in zip(chapters_section.items, entries, strict=True):
@@ -161,13 +161,13 @@ class TestBuildView:
 
     def test_every_item_is_selected_and_unlocked(self, epub_fixtures: Path) -> None:
         """Every ViewItem has selected is True and locked is False."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         for item in chapters_section.items:
             assert item.selected is True
@@ -277,13 +277,13 @@ class TestBuildView:
 
     def test_section_options(self, epub_fixtures: Path) -> None:
         """The 'chapters' section has correct options."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         chapters_section = next(s for s in view.sections if s.name == "chapters")
         assert chapters_section.selectable is True
         assert chapters_section.reorderable is True
@@ -293,32 +293,32 @@ class TestBuildView:
 
     def test_the_chapter_editor_confirm_names_its_changes(self, epub_fixtures: Path) -> None:
         """The view has danger=True, submit_label names what changes, cancel_label='Cancel'."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         assert view.danger is True
         assert view.submit_label == "Apply chapter changes"
         assert view.cancel_label == "Cancel"
 
     def test_title_includes_the_book_title(self, epub_fixtures: Path) -> None:
-        """view.title == 'Chapters — Tending Bar' for the fixture."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        """view.title == 'Chapters — Sample Alpha' for the fixture."""
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
-        assert view.title == "Chapters — Tending Bar"
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
+        assert view.title == "Chapters — Sample Alpha"
 
     def test_blank_book_title_falls_back(self, epub_fixtures: Path) -> None:
         """With book_title='', view.title == 'Chapters'."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
@@ -328,32 +328,32 @@ class TestBuildView:
 
     def test_description_warns_there_is_no_undo(self, epub_fixtures: Path) -> None:
         """'no undo' is in view.description."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
-        view = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         assert "no undo" in view.description
 
     def test_note_section_present_only_with_a_manual_order(self, epub_fixtures: Path) -> None:
         """With manual order, first section is NOTE; without it, exactly one ITEM_LIST section."""
-        tending_bar = epub_fixtures / "tending_bar.epub"
-        doc = EpubDocument.open(tending_bar)
+        sample_alpha = epub_fixtures / "sample_alpha.epub"
+        doc = EpubDocument.open(sample_alpha)
         entries = classify_spine(doc)
 
         from epub_chapter_reorder.plugin import _build_view
 
         # With manual order
-        view_with_manual = _build_view(doc, "Tending Bar", entries, has_manual_order=True)
+        view_with_manual = _build_view(doc, "Sample Alpha", entries, has_manual_order=True)
         assert len(view_with_manual.sections) == 2
         assert view_with_manual.sections[0].kind == ViewSectionKind.NOTE
         assert view_with_manual.sections[0].name == "manual_order_note"
         assert "Applying the automatic order will discard it" in view_with_manual.sections[0].text
 
         # Without manual order
-        view_no_manual = _build_view(doc, "Tending Bar", entries, has_manual_order=False)
+        view_no_manual = _build_view(doc, "Sample Alpha", entries, has_manual_order=False)
         assert len(view_no_manual.sections) == 1
         assert view_no_manual.sections[0].kind == ViewSectionKind.ITEM_LIST
 

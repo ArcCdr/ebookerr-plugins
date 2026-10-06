@@ -71,29 +71,29 @@ class TestMergeCreators:
     def test_merge_creators_dedups_by_name(self) -> None:
         """Creators are de-duplicated by name; later occurrences are skipped."""
         books = [
-            _book(0, creators=(("Tefler", None),)),
-            _book(1, creators=(("Tefler", None), ("Ann", None))),
+            _book(0, creators=(("WriterDelta", None),)),
+            _book(1, creators=(("WriterDelta", None), ("Ann", None))),
         ]
         result = merge_creators(books)
-        assert result == (("Tefler", None), ("Ann", None))
+        assert result == (("WriterDelta", None), ("Ann", None))
 
     def test_merge_creators_upgrades_file_as(self) -> None:
         """A later None file_as is upgraded by a non-None occurrence."""
         books = [
-            _book(0, creators=(("Tefler", None),)),
-            _book(1, creators=(("Tefler", "Tefler, T."),)),
+            _book(0, creators=(("WriterDelta", None),)),
+            _book(1, creators=(("WriterDelta", "WriterDelta, T."),)),
         ]
         result = merge_creators(books)
-        assert result == (("Tefler", "Tefler, T."),)
+        assert result == (("WriterDelta", "WriterDelta, T."),)
 
     def test_merge_creators_keeps_first_file_as(self) -> None:
         """When the first occurrence has a non-None file_as, later ones are ignored."""
         books = [
-            _book(0, creators=(("Tefler", "A"),)),
-            _book(1, creators=(("Tefler", "B"),)),
+            _book(0, creators=(("WriterDelta", "A"),)),
+            _book(1, creators=(("WriterDelta", "B"),)),
         ]
         result = merge_creators(books)
-        assert result == (("Tefler", "A"),)
+        assert result == (("WriterDelta", "A"),)
 
     def test_merge_creators_skips_blank(self) -> None:
         """Creators with blank names are not included in the result."""
@@ -275,13 +275,13 @@ class TestRewriteBookTitle:
             ),
         )
 
-        # First merge: "The Senator's Daughter 1-2"
-        result = rewrite_book_title("The Senator's Daughter 1-2", chapters_1_2)
-        assert result == "The Senator's Daughter 1-2"
+        # First merge: "Sample Fern 1-2"
+        result = rewrite_book_title("Sample Fern 1-2", chapters_1_2)
+        assert result == "Sample Fern 1-2"
 
         # Second merge: feed back the result with expanded chapters
         result = rewrite_book_title(result, chapters_1_4)
-        assert result == "The Senator's Daughter 1-4"
+        assert result == "Sample Fern 1-4"
 
     def test_rewrite_book_title_does_not_accumulate_stems(self) -> None:
         """Multiple merges should not accumulate stems in the title."""
@@ -375,19 +375,19 @@ class TestRewriteBookTitle:
         )
 
         # Start from a single chapter title
-        title = "The Senator's Daughter 1"
+        title = "Sample Fern 1"
 
         # First merge to 1-2
         title = rewrite_book_title(title, chapters_1_2)
-        assert title == "The Senator's Daughter 1-2"
+        assert title == "Sample Fern 1-2"
 
         # Second merge to 1-3
         title = rewrite_book_title(title, chapters_1_3)
-        assert title == "The Senator's Daughter 1-3"
+        assert title == "Sample Fern 1-3"
 
         # Third merge to 1-4
         title = rewrite_book_title(title, chapters_1_4)
-        assert title == "The Senator's Daughter 1-4"
+        assert title == "Sample Fern 1-4"
 
         # Verify no " 1 1" substring exists (no accumulated stems)
         assert " 1 1" not in title

@@ -80,10 +80,10 @@ class TestBuildDescription:
     def test_description_omits_by_when_no_creator(self) -> None:
         """A book with no creators contributes only the title."""
         books = [
-            _book(0, title="AIF 36", creators=()),
+            _book(0, title="Gamma 36", creators=()),
         ]
         result = build_description(books, override=None)
-        assert result == "AIF 36\n"
+        assert result == "Gamma 36\n"
 
     def test_description_override_is_verbatim(self) -> None:
         """Override value is returned exactly, regardless of books."""
