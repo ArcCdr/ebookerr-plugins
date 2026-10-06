@@ -9,10 +9,15 @@ from ebookerr_sdk.spi import SiteCredential
 from fanficfare.configurable import Configuration
 from fanficfare_source.fff_support import (
     apply_sign_in,
+    build_configuration,
+    config_sections,
     packaged_base_ini,
     settings_options,
     strip_naming_keys,
 )
+from fanficfare_source.library import FanFicFareLibraryGateway
+
+STORY = "http://test1.com?sid=1001"
 
 
 def test_the_packaged_base_ini_is_the_c35_text() -> None:
@@ -125,3 +130,61 @@ def test_no_sign_in_sets_nothing(caplog: Any) -> None:
         and r.name == "fanficfare_source.fff_support"
     ]
     assert len(log_records) == 0
+
+
+def test_settings_reach_the_configuration() -> None:
+    """The plugin's settings arrive in the story's FanFicFare configuration (C36)."""
+    gateway = FanFicFareLibraryGateway({"is_adult": False, "include_images": False})
+    config = gateway._configuration(STORY)
+    assert config.getConfig("is_adult") is False
+    assert config.getConfig("include_images") is False
+
+
+def test_advanced_options_are_applied_after_the_settings() -> None:
+    """The advanced options win over the settings, which win over the base options (C36)."""
+    sections = config_sections(STORY, unknown_site_ok=False)
+    base_ini = "[defaults]\ninclude_subject_tags: base\n"
+    options = {"defaults": {"include_subject_tags": "settings"}}
+    advanced = build_configuration(
+        sections,
+        fileform="epub",
+        base_ini=base_ini,
+        options=options,
+        extra_options="[defaults]\ninclude_subject_tags: advanced\n",
+    )
+    assert advanced.getConfig("include_subject_tags") == "advanced"
+    settings_only = build_configuration(
+        sections, fileform="epub", base_ini=base_ini, options=options, extra_options=""
+    )
+    assert settings_only.getConfig("include_subject_tags") == "settings"
+    base_only = build_configuration(
+        sections, fileform="epub", base_ini=base_ini, options={}, extra_options=""
+    )
+    assert base_only.getConfig("include_subject_tags") == "base"
+
+
+def test_a_naming_key_in_the_advanced_options_is_ignored_with_a_warning(caplog: Any) -> None:
+    """A file-naming option in the advanced options is dropped; one WARNING names it (D56, C37)."""
+    gateway = FanFicFareLibraryGateway(
+        {"extra_options": "[defaults]\noutput_filename: x/${title}\n"}
+    )
+    config = gateway._configuration(STORY)
+    assert config.getConfig("output_filename") == "${title}${formatext}"
+    assert config.getConfig("make_directories") is False
+    warnings = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.WARNING and r.name == "fanficfare_source.fff_support"
+    ]
+    assert len(warnings) == 1
+    assert "'output_filename' is ignored" in warnings[0]
+
+
+def test_a_basic_sign_in_reaches_fanficfare() -> None:
+    """The site's stored basic sign-in becomes FanFicFare's username and password (C36)."""
+    gateway = FanFicFareLibraryGateway(
+        {}, credentials=lambda url: SiteCredential("basic", "me", "pw")
+    )
+    config = gateway._configuration(STORY)
+    assert config.getConfig("username") == "me"
+    assert config.getConfig("password") == "pw"

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pytest
 import requests
@@ -16,10 +15,10 @@ from fanficfare_source.fff_support import (
     config_sections,
     failure_message,
     is_outage,
+    packaged_base_ini,
     quiet_fanficfare_logging,
 )
 
-PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 URL = "http://test1.com?sid=1"
 STORY = "http://test1.com?sid=1001"
 LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
@@ -98,32 +97,43 @@ def test_config_sections_of_a_known_site() -> None:
     assert "test1.com" in config_sections(STORY, unknown_site_ok=False)
 
 
-def test_build_configuration_applies_overrides_last(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    """Verify that overrides win over file-based configuration."""
-    ini = tmp_path / "personal.ini"
-    ini.write_text(PACKAGED_INI.read_text(encoding="utf-8"), encoding="utf-8")
-    plain = build_configuration(config_sections(STORY, unknown_site_ok=False), ini, fileform="epub")
-    assert plain.getConfig("is_adult") == "true"
-    overridden = build_configuration(
-        config_sections(STORY, unknown_site_ok=False),
-        ini,
-        fileform="epub",
-        overrides={"is_adult": "false"},
+def test_build_configuration_applies_overrides_last() -> None:
+    """Verify that overrides win over every layer beneath them."""
+    sections = config_sections(STORY, unknown_site_ok=False)
+    plain = build_configuration(
+        sections, fileform="epub", base_ini=packaged_base_ini(), options={}, extra_options=""
     )
-    assert overridden.getConfig("is_adult") is False
+    assert plain.getConfig("is_adult") is False
+    overridden = build_configuration(
+        sections,
+        fileform="epub",
+        base_ini=packaged_base_ini(),
+        options={},
+        extra_options="",
+        overrides={"is_adult": "true"},
+    )
+    assert overridden.getConfig("is_adult") == "true"
 
 
-def test_a_broken_personal_ini_never_leaks_its_text(tmp_path, caplog) -> None:  # type: ignore[no-untyped-def]
-    """Verify that ConfigurationError doesn't leak passwords from personal.ini."""
-    ini = tmp_path / "personal.ini"
-    ini.write_text("[defaults]\npassword sekrit\n", encoding="utf-8")
-    with caplog.at_level(logging.DEBUG), pytest.raises(ConfigurationError) as info:
-        build_configuration(config_sections(STORY, unknown_site_ok=False), ini, fileform="epub")
-    assert str(info.value) == "Could not parse FanFicFare configuration: ParsingError"
+def test_broken_advanced_options_never_leak_their_text(caplog) -> None:  # type: ignore[no-untyped-def]
+    """Verify that ConfigurationError doesn't leak a password from the advanced options."""
+    with (
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(
+            ConfigurationError, match=r"^Could not read the Advanced FanFicFare options: \w+$"
+        ) as info,
+    ):
+        build_configuration(
+            config_sections(STORY, unknown_site_ok=False),
+            fileform="epub",
+            base_ini=packaged_base_ini(),
+            options={},
+            extra_options="[defaults]\npassword sekrit\n",
+        )
     assert "sekrit" not in str(info.value)
+    assert "sekrit" not in caplog.text
     assert info.value.__cause__ is None
     assert info.value.__suppress_context__ is True
-    assert not any("sekrit" in r.getMessage() for r in caplog.records)
 
 
 @pytest.mark.parametrize(

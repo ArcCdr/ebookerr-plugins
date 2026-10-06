@@ -13,13 +13,11 @@ from fanficfare_source.library import FanFicFareLibraryGateway
 
 pytestmark = pytest.mark.e2e
 
-PERSONAL_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
-
 
 def test_real_fanficfare_download(tmp_path: Path) -> None:
     """A real story downloads into a fresh EPUB with its metadata."""
     url = "https://literotica.com/s/the-12th-key"
-    gateway = FanFicFareLibraryGateway(PERSONAL_INI)
+    gateway = FanFicFareLibraryGateway({"is_adult": True})
     result = gateway.download(url, work_dir=tmp_path, staged_filename=None)
     assert result.outcome == "created", result.error
     assert result.output_filename
@@ -32,7 +30,7 @@ def test_fetch_metadata_writes_no_epub(tmp_path: Path, monkeypatch: pytest.Monke
     """fetch_metadata returns the story's metadata and writes no EPUB."""
     url = "https://literotica.com/s/the-12th-key"
     monkeypatch.chdir(tmp_path)
-    meta = FanFicFareLibraryGateway(PERSONAL_INI).fetch_metadata(url)
+    meta = FanFicFareLibraryGateway({"is_adult": True}).fetch_metadata(url)
     assert meta is not None
     assert meta["numChapters"]
     assert list(tmp_path.glob("**/*.epub")) == []
@@ -41,7 +39,7 @@ def test_fetch_metadata_writes_no_epub(tmp_path: Path, monkeypatch: pytest.Monke
 def test_a_real_update_fetches_nothing_new(tmp_path: Path) -> None:
     """Updating a story just downloaded adds no chapter and keeps every one (LIB-D27)."""
     url = "https://literotica.com/s/the-12th-key"
-    gateway = FanFicFareLibraryGateway(PERSONAL_INI)
+    gateway = FanFicFareLibraryGateway({"is_adult": True})
     first = gateway.download(url, work_dir=tmp_path, staged_filename=None)
     assert first.outcome == "created", first.error
     again = gateway.download(url, work_dir=tmp_path, staged_filename=first.output_filename)

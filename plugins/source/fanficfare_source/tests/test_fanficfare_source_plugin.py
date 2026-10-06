@@ -181,15 +181,23 @@ class TestInit:
         sig = inspect.signature(FanFicFareSourcePlugin.__init__)
         assert "book_repo" not in sig.parameters
 
-    def test_pull_can_construct_engine_when_not_injected(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_pull_can_construct_engine_when_not_injected(self) -> None:
         """Plugin can construct an engine on demand when none is injected."""
-        monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "plugin_data"))
         plugin = FanFicFareSourcePlugin()
         # Engine construction doesn't require an injected engine
         assert plugin._engine(None) is not None
         assert type(plugin._engine(None)._fanficfare).__name__ == "FanFicFareLibraryGateway"
+
+    def test_the_built_engine_uses_the_contexts_settings_and_sign_ins(self) -> None:
+        """A built engine configures FanFicFare from ctx.settings and ctx.credentials (C36)."""
+        ctx = FakeContext(
+            settings={"include_images": False},
+            credentials_by_host={"test1.com": api.SiteCredential("basic", "me", "pw")},
+        )
+        gateway = FanFicFareSourcePlugin()._engine(ctx)._fanficfare
+        config = gateway._configuration("http://test1.com?sid=1001")
+        assert config.getConfig("include_images") is False
+        assert config.getConfig("username") == "me"
 
 
 # ---------------------------------------------------------------------------

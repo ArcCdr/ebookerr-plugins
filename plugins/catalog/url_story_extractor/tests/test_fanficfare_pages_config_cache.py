@@ -29,6 +29,9 @@ class _CountingConfig:
         """Increment read counter and do nothing else."""
         type(self).reads += 1
 
+    def read_string(self, text):  # noqa: ANN001, ANN201, D102
+        """Accept the base options without counting a parse."""
+
     def has_section(self, section):  # noqa: ANN001, ANN201, D102
         """Report every section present, so no section is added."""
         return True
@@ -114,6 +117,9 @@ def test_a_failed_parse_is_not_cached(tmp_path: Path, monkeypatch: Any) -> None:
             call_count[0] += 1
             if call_count[0] == 1:
                 raise ValueError("boom")
+
+        def read_string(self, text):  # noqa: ANN001, ANN201, D102
+            """Accept the base options."""
 
         def has_section(self, section):  # noqa: ANN001, ANN201, D102
             """Report every section present, so no section is added."""
