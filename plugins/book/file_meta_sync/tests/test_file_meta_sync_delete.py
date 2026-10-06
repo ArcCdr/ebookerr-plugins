@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from file_meta_sync.plugin import handle_delete
 
 

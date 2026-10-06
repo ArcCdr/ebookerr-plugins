@@ -23,6 +23,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from ebookerr_sdk.download.paths import prune_empty_parents
 from ebookerr_sdk.spi import (
     AssetWrite,
     BookPatch,
@@ -459,9 +460,11 @@ def merge_bytes(  # noqa: C901
 
 
 def handle_delete(book: dict[str, Any], library_root: Path, logs: list[Any] | None = None) -> None:
-    """Handle BookDeleted event. Unlink sidecar files.
+    """Handle BookDeleted: unlink sidecars, then prune the empty folders (``LIB-D44``).
 
-    A stored row's file belongs to the core; only its source sidecar is unlinked.
+    After deleting the book's sidecar files, remove the parent folders that become empty,
+    up to but never including the library root. A stored row's file belongs to the core;
+    only its source sidecar is unlinked.
     """
     if logs is None:
         logs = []
@@ -507,6 +510,8 @@ def handle_delete(book: dict[str, Any], library_root: Path, logs: list[Any] | No
                 "message": f"{stem}: deleted {deleted_count} sidecar file(s) on BookDeleted",
             }
         )
+        # LIB-D44 — the core removed the EPUB first; the folder empties only now.
+        prune_empty_parents(library_root / output_filename, root=library_root)
 
 
 def handle_purge_action(
