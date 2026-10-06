@@ -317,7 +317,7 @@ class TestAuthorPropagationEndToEnd:
         """Assert all rows end up with the same author when it's unanimous."""
         pages = FakePages(
             urls_by_listing={
-                "https://www.literotica.com/authors/Morgan_Ellis/works/stories": [
+                "https://www.literotica.com/authors/Writer_Zeta/works/stories": [
                     "https://www.literotica.com/s/a",
                     "https://www.literotica.com/s/b",
                     "https://www.literotica.com/s/c",
@@ -326,8 +326,8 @@ class TestAuthorPropagationEndToEnd:
             metadata_by_url={
                 "https://www.literotica.com/s/a": {
                     "title": "T",
-                    "author": "Morgan_Ellis",
-                    "authorUrl": "https://www.literotica.com/authors/Morgan_Ellis/works/stories",
+                    "author": "Writer_Zeta",
+                    "authorUrl": "https://www.literotica.com/authors/Writer_Zeta/works/stories",
                 }
             },
         )
@@ -338,21 +338,21 @@ class TestAuthorPropagationEndToEnd:
         )
 
         patches = plugin.extract_stories(
-            "https://www.literotica.com/authors/Morgan_Ellis/works/stories", ctx
+            "https://www.literotica.com/authors/Writer_Zeta/works/stories", ctx
         )
 
         assert len(patches) == 3
         for patch in patches:
-            assert patch.author == "Morgan_Ellis"
+            assert patch.author == "Writer_Zeta"
             assert (
-                patch.author_url == "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
+                patch.author_url == "https://www.literotica.com/authors/Writer_Zeta/works/stories"
             )
 
     def test_author_propagation_is_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         """Assert propagation is logged at INFO level."""
         pages = FakePages(
             urls_by_listing={
-                "https://www.literotica.com/authors/Morgan_Ellis/works/stories": [
+                "https://www.literotica.com/authors/Writer_Zeta/works/stories": [
                     "https://www.literotica.com/s/a",
                     "https://www.literotica.com/s/b",
                     "https://www.literotica.com/s/c",
@@ -361,8 +361,8 @@ class TestAuthorPropagationEndToEnd:
             metadata_by_url={
                 "https://www.literotica.com/s/a": {
                     "title": "T",
-                    "author": "Morgan_Ellis",
-                    "authorUrl": "https://www.literotica.com/authors/Morgan_Ellis/works/stories",
+                    "author": "Writer_Zeta",
+                    "authorUrl": "https://www.literotica.com/authors/Writer_Zeta/works/stories",
                 }
             },
         )
@@ -374,7 +374,7 @@ class TestAuthorPropagationEndToEnd:
 
         with caplog.at_level(logging.INFO):
             _ = plugin.extract_stories(
-                "https://www.literotica.com/authors/Morgan_Ellis/works/stories", ctx
+                "https://www.literotica.com/authors/Writer_Zeta/works/stories", ctx
             )
 
         assert any(
@@ -388,7 +388,7 @@ class TestAuthorPropagationEndToEnd:
         """Assert mixed authors prevent relabelling."""
         pages = FakePages(
             urls_by_listing={
-                "https://www.literotica.com/authors/Morgan_Ellis/favorites": [
+                "https://www.literotica.com/authors/Writer_Zeta/favorites": [
                     "https://www.literotica.com/s/a",
                     "https://www.literotica.com/s/b",
                     "https://www.literotica.com/s/c",
@@ -413,11 +413,11 @@ class TestAuthorPropagationEndToEnd:
 
         with caplog.at_level(logging.DEBUG):
             patches = plugin.extract_stories(
-                "https://www.literotica.com/authors/Morgan_Ellis/favorites", ctx
+                "https://www.literotica.com/authors/Writer_Zeta/favorites", ctx
             )
 
         # The third patch should keep its listing-derived author
-        assert patches[2].author == "Morgan Ellis"
+        assert patches[2].author == "Writer Zeta"
         # The propagation skip should be logged
         assert any(
             "Author propagation skipped" in record.message
