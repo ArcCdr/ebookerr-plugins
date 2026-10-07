@@ -81,22 +81,22 @@ class TestFixtureIntegrity:
 
     def test_literotica_fixture_has_77_urls(self) -> None:
         """Assert literotica fixture contains exactly 77 URLs."""
-        assert len(load("literotica_morgan_ellis_urls.json")) == 77
+        assert len(load("literotica_writer_zeta_urls.json")) == 77
 
     def test_storiesonline_fixture_has_96_urls(self) -> None:
         """Assert storiesonline fixture contains exactly 96 URLs."""
-        assert len(load("storiesonline_caleb_urls.json")) == 96
+        assert len(load("storiesonline_sample_nu_urls.json")) == 96
 
     def test_royalroad_fixture_has_one_url(self) -> None:
         """Assert royalroad fixture contains exactly one URL."""
-        assert load("royalroad_journey_urls.json") == ["https://www.royalroad.com/fiction/26675"]
+        assert load("royalroad_sample_xi_urls.json") == ["https://www.royalroad.com/fiction/900006"]
 
     def test_no_fixture_url_carries_a_fragment(self) -> None:
         """Assert no URL in any fixture contains a fragment (#)."""
         for name in [
-            "literotica_morgan_ellis_urls.json",
-            "storiesonline_caleb_urls.json",
-            "royalroad_journey_urls.json",
+            "literotica_writer_zeta_urls.json",
+            "storiesonline_sample_nu_urls.json",
+            "royalroad_sample_xi_urls.json",
         ]:
             urls = load(name)
             for url in urls:
@@ -106,8 +106,8 @@ class TestFixtureIntegrity:
 class TestLiteroticaListing:
     """Test extraction from Literotica author page fixture."""
 
-    _LISTING = "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
-    _FIXTURE_NAME = "literotica_morgan_ellis_urls.json"
+    _LISTING = "https://www.literotica.com/authors/Writer_Zeta/works/stories"
+    _FIXTURE_NAME = "literotica_writer_zeta_urls.json"
 
     def test_literotica_yields_a_row_per_listed_url(self) -> None:
         """Assert one patch per URL in the listing."""
@@ -121,7 +121,7 @@ class TestLiteroticaListing:
         assert len(patches) == len(urls)
 
     def test_literotica_captures_every_angela_chapter(self) -> None:
-        """Assert Angela's Stepfather chapters are all present."""
+        """Assert Sample Iota chapters are all present."""
         urls = load(self._FIXTURE_NAME)
         pages = FakePages(urls_by_listing={self._LISTING: urls})
         plugin = UrlStoryExtractorPlugin(pages=pages)
@@ -131,16 +131,16 @@ class TestLiteroticaListing:
         titles = {p.title for p in patches}
 
         expected = {
-            "Angelas Stepfather Ch. 05",
-            "Angelas Stepfather Ch. 04",
-            "Angelas Stepfather Ch. 03",
-            "Angelas Stepfather Ch. 02",
-            "Angelas Stepfather Ch. 01",
+            "Sample Iota Ch. 05",
+            "Sample Iota Ch. 04",
+            "Sample Iota Ch. 03",
+            "Sample Iota Ch. 02",
+            "Sample Iota Ch. 01",
         }
         assert expected.issubset(titles)
 
     def test_literotica_captures_every_joan_chapter(self) -> None:
-        """Assert Joan of Snark chapters 1-17 are all present."""
+        """Assert Sample Theta chapters 1-17 are all present."""
         urls = load(self._FIXTURE_NAME)
         pages = FakePages(urls_by_listing={self._LISTING: urls})
         plugin = UrlStoryExtractorPlugin(pages=pages)
@@ -149,11 +149,11 @@ class TestLiteroticaListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
         titles = {p.title for p in patches}
 
-        expected = {f"Joan Of Snark Ch. {n:02d}" for n in range(1, 18)}
+        expected = {f"Sample Theta Ch. {n:02d}" for n in range(1, 18)}
         assert expected.issubset(titles)
 
     def test_literotica_captures_every_olivia_chapter(self) -> None:
-        """Assert Olivia in Vulmonia chapters 1-47 are all present."""
+        """Assert Sample Eta chapters 1-47 are all present."""
         urls = load(self._FIXTURE_NAME)
         pages = FakePages(urls_by_listing={self._LISTING: urls})
         plugin = UrlStoryExtractorPlugin(pages=pages)
@@ -162,7 +162,7 @@ class TestLiteroticaListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
         titles = {p.title for p in patches}
 
-        expected = {f"Olivia In Vulmonia Ch. {n:02d}" for n in range(1, 48)}
+        expected = {f"Sample Eta Ch. {n:02d}" for n in range(1, 48)}
         assert expected.issubset(titles)
 
     def test_literotica_chapter_titles_parse_back_to_a_number(self) -> None:
@@ -175,10 +175,10 @@ class TestLiteroticaListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         # Find the Joan ch-02 patch
-        joan_ch2 = next(p for p in patches if p.url.endswith("joan-of-snark-ch-02"))
+        joan_ch2 = next(p for p in patches if p.url.endswith("sample-theta-ch-02"))
         info = extract_chapter_info(joan_ch2.title)
 
-        assert info.book_name == "Joan Of Snark"
+        assert info.book_name == "Sample Theta"
         assert info.chapter_number == "02"
 
     def test_literotica_sets_the_author_on_every_row(self) -> None:
@@ -191,7 +191,7 @@ class TestLiteroticaListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         for patch in patches:
-            assert patch.author == "Morgan Ellis"
+            assert patch.author == "Writer Zeta"
 
     def test_literotica_links_the_author_on_every_row(self) -> None:
         """Assert every patch has the listing author URL."""
@@ -203,7 +203,7 @@ class TestLiteroticaListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         for patch in patches:
-            assert patch.author_url == "https://www.literotica.com/authors/Morgan_Ellis"
+            assert patch.author_url == "https://www.literotica.com/authors/Writer_Zeta"
 
     def test_literotica_sets_the_site_on_every_row(self) -> None:
         """Assert every patch has site=literotica.com."""
@@ -240,27 +240,27 @@ class TestLiteroticaListing:
         titles = {p.title for p in patches}
 
         # Series IDs should be in titles
-        assert "81737137" in titles
-        assert "133778587" in titles
-        assert "493786767" in titles
+        assert "900000004" in titles
+        assert "900000003" in titles
+        assert "900000002" in titles
 
 
 class TestLiteroticaWithMetadata:
     """Test Literotica enrichment with metadata."""
 
-    _LISTING = "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
-    _FIXTURE_NAME = "literotica_morgan_ellis_urls.json"
+    _LISTING = "https://www.literotica.com/authors/Writer_Zeta/works/stories"
+    _FIXTURE_NAME = "literotica_writer_zeta_urls.json"
 
     def test_a_literotica_series_chapter_keeps_its_chapter_number(self) -> None:
         """Assert chapter title is preserved when parent is a series."""
         urls = load(self._FIXTURE_NAME)
         metadata = {
-            "https://www.literotica.com/s/joan-of-snark-ch-02": {
-                "storyUrl": "https://www.literotica.com/series/se/133778587",
-                "title": "Joan of Snark",
+            "https://www.literotica.com/s/sample-theta-ch-02": {
+                "storyUrl": "https://www.literotica.com/series/se/900000003",
+                "title": "Sample Theta",
                 "numChapters": "17",
                 "datePublished": "2019-10-15",
-                "author": "Morgan_Ellis",
+                "author": "Writer_Zeta",
             }
         }
         pages = FakePages(urls_by_listing={self._LISTING: urls}, metadata_by_url=metadata)
@@ -268,11 +268,11 @@ class TestLiteroticaWithMetadata:
         ctx = FakeCtx(settings={"max_new_metadata_per_scan": 100, "request_delay_ms": 0})
 
         patches = plugin.extract_stories(self._LISTING, ctx)
-        patch = next(p for p in patches if p.url.endswith("joan-of-snark-ch-02"))
+        patch = next(p for p in patches if p.url.endswith("sample-theta-ch-02"))
 
-        assert patch.title == "Joan Of Snark Ch. 02"
-        assert patch.series == "Joan of Snark"
-        assert patch.series_url == "https://www.literotica.com/series/se/133778587"
+        assert patch.title == "Sample Theta Ch. 02"
+        assert patch.series == "Sample Theta"
+        assert patch.series_url == "https://www.literotica.com/series/se/900000003"
         assert patch.num_chapters is None
         assert patch.date_published is None
 
@@ -280,9 +280,9 @@ class TestLiteroticaWithMetadata:
         """Assert series row takes metadata title and chapter count."""
         urls = load(self._FIXTURE_NAME)
         metadata = {
-            "https://www.literotica.com/series/se/81737137": {
-                "storyUrl": "https://www.literotica.com/series/se/81737137",
-                "title": "Olivia in Vulmonia",
+            "https://www.literotica.com/series/se/900000004": {
+                "storyUrl": "https://www.literotica.com/series/se/900000004",
+                "title": "Sample Eta",
                 "numChapters": "47",
             }
         }
@@ -291,18 +291,18 @@ class TestLiteroticaWithMetadata:
         ctx = FakeCtx(settings={"max_new_metadata_per_scan": 100, "request_delay_ms": 0})
 
         patches = plugin.extract_stories(self._LISTING, ctx)
-        patch = next(p for p in patches if "81737137" in p.url)
+        patch = next(p for p in patches if "900000004" in p.url)
 
-        assert patch.title == "Olivia in Vulmonia"
+        assert patch.title == "Sample Eta"
         assert patch.num_chapters == 47
 
     def test_a_literotica_standalone_row_takes_its_metadata(self) -> None:
         """Assert standalone story takes full metadata."""
         urls = load(self._FIXTURE_NAME)
         metadata = {
-            "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                "title": "Angela's Stepfather Ch. 03",
+            "https://www.literotica.com/s/sample-iota-ch-03": {
+                "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                "title": "Sample Iota Ch. 03",
                 "numChapters": "1",
                 "status": "Completed",
                 "datePublished": "2026-07-08",
@@ -313,9 +313,9 @@ class TestLiteroticaWithMetadata:
         ctx = FakeCtx(settings={"max_new_metadata_per_scan": 100, "request_delay_ms": 0})
 
         patches = plugin.extract_stories(self._LISTING, ctx)
-        patch = next(p for p in patches if p.url.endswith("angelas-stepfather-ch-03"))
+        patch = next(p for p in patches if p.url.endswith("sample-iota-ch-03"))
 
-        assert patch.title == "Angela's Stepfather Ch. 03"
+        assert patch.title == "Sample Iota Ch. 03"
         assert patch.num_chapters == 1
         assert patch.status == "Completed"
         assert patch.date_published is not None
@@ -323,25 +323,25 @@ class TestLiteroticaWithMetadata:
     def test_the_confirmed_author_reaches_the_unfetched_rows(self) -> None:
         """Assert unanimously fetched author is applied to all rows."""
         urls = load(self._FIXTURE_NAME)
-        # Provide metadata for only 3 URLs, all with Morgan_Ellis as author
+        # Provide metadata for only 3 URLs, all with Writer_Zeta as author
         metadata = {
-            "https://www.literotica.com/s/joan-of-snark-ch-02": {
-                "storyUrl": "https://www.literotica.com/series/se/133778587",
-                "title": "Joan of Snark",
+            "https://www.literotica.com/s/sample-theta-ch-02": {
+                "storyUrl": "https://www.literotica.com/series/se/900000003",
+                "title": "Sample Theta",
                 "numChapters": "17",
-                "author": "Morgan_Ellis",
+                "author": "Writer_Zeta",
             },
-            "https://www.literotica.com/series/se/81737137": {
-                "storyUrl": "https://www.literotica.com/series/se/81737137",
-                "title": "Olivia in Vulmonia",
+            "https://www.literotica.com/series/se/900000004": {
+                "storyUrl": "https://www.literotica.com/series/se/900000004",
+                "title": "Sample Eta",
                 "numChapters": "47",
-                "author": "Morgan_Ellis",
+                "author": "Writer_Zeta",
             },
-            "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                "title": "Angela's Stepfather Ch. 03",
+            "https://www.literotica.com/s/sample-iota-ch-03": {
+                "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                "title": "Sample Iota Ch. 03",
                 "numChapters": "1",
-                "author": "Morgan_Ellis",
+                "author": "Writer_Zeta",
             },
         }
         pages = FakePages(urls_by_listing={self._LISTING: urls}, metadata_by_url=metadata)
@@ -350,16 +350,16 @@ class TestLiteroticaWithMetadata:
 
         patches = plugin.extract_stories(self._LISTING, ctx)
 
-        # Every patch should have Morgan_Ellis as author, even unfetched ones
+        # Every patch should have Writer_Zeta as author, even unfetched ones
         for patch in patches:
-            assert patch.author == "Morgan_Ellis"
+            assert patch.author == "Writer_Zeta"
 
 
 class TestStoriesonlineListing:
     """Test extraction from storiesonline fixture."""
 
-    _LISTING = "https://storiesonline.net/s/29762/caleb-by-pastmaster"
-    _FIXTURE_NAME = "storiesonline_caleb_urls.json"
+    _LISTING = "https://storiesonline.net/s/900005/sample-nu-by-writernu"
+    _FIXTURE_NAME = "storiesonline_sample_nu_urls.json"
 
     def test_storiesonline_yields_a_row_per_listed_url(self) -> None:
         """Assert one patch per URL in the listing."""
@@ -382,7 +382,7 @@ class TestStoriesonlineListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
         titles = {p.title for p in patches}
 
-        expected = {f"Caleb By Pastmaster {n}" for n in range(1, 96)}
+        expected = {f"Sample Nu By Writernu {n}" for n in range(1, 96)}
         assert expected.issubset(titles)
 
     def test_no_storiesonline_row_is_a_bare_number(self) -> None:
@@ -410,7 +410,7 @@ class TestStoriesonlineListing:
         ch7 = next(p for p in patches if p.url.endswith("/7"))
         info = extract_chapter_info(ch7.title)
 
-        assert info.book_name == "Caleb By Pastmaster"
+        assert info.book_name == "Sample Nu By Writernu"
         assert info.chapter_number == "7"
 
     def test_storiesonline_book_row_is_named(self) -> None:
@@ -423,7 +423,7 @@ class TestStoriesonlineListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
         titles = {p.title for p in patches}
 
-        assert "Caleb By Pastmaster" in titles
+        assert "Sample Nu By Writernu" in titles
 
     def test_storiesonline_sets_no_author_from_a_story_listing(self) -> None:
         """Assert listing URL (not author page) sets no author."""
@@ -454,8 +454,8 @@ class TestStoriesonlineListing:
 class TestRoyalRoadListing:
     """Test extraction from Royal Road fixture."""
 
-    _LISTING = "https://www.royalroad.com/fiction/26675/a-journey-of-black-and-red"
-    _FIXTURE_NAME = "royalroad_journey_urls.json"
+    _LISTING = "https://www.royalroad.com/fiction/900006/sample-xi"
+    _FIXTURE_NAME = "royalroad_sample_xi_urls.json"
 
     def test_royalroad_yields_the_canonical_fiction_row(self) -> None:
         """Assert Royal Road listing collapses to canonical fiction URL."""
@@ -467,17 +467,17 @@ class TestRoyalRoadListing:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].url == "https://www.royalroad.com/fiction/26675"
+        assert patches[0].url == "https://www.royalroad.com/fiction/900006"
 
     def test_royalroad_row_takes_its_metadata_title(self) -> None:
         """Assert Royal Road row takes full metadata."""
         urls = load(self._FIXTURE_NAME)
         metadata = {
-            "https://www.royalroad.com/fiction/26675": {
-                "storyUrl": "https://www.royalroad.com/fiction/26675",
-                "title": "A Journey of Black and Red",
-                "author": "Mecanimus",
-                "authorUrl": "https://www.royalroad.com/user/profile/105290",
+            "https://www.royalroad.com/fiction/900006": {
+                "storyUrl": "https://www.royalroad.com/fiction/900006",
+                "title": "Sample Xi",
+                "author": "WriterXi",
+                "authorUrl": "https://www.royalroad.com/user/profile/900007",
                 "numChapters": "239",
                 "numWords": "1,260,944",
                 "genre": "Action, Adventure, Fantasy",
@@ -492,10 +492,10 @@ class TestRoyalRoadListing:
 
         assert len(patches) == 1
         patch = patches[0]
-        assert patch.title == "A Journey of Black and Red"
+        assert patch.title == "Sample Xi"
         assert patch.num_chapters == 239
         assert patch.num_words == 1260944
-        assert patch.author == "Mecanimus"
-        assert patch.author_url == "https://www.royalroad.com/user/profile/105290"
+        assert patch.author == "WriterXi"
+        assert patch.author_url == "https://www.royalroad.com/user/profile/900007"
         assert patch.tags == "Action, Adventure, Fantasy"
         assert patch.status == "Completed"

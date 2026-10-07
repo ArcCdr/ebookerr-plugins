@@ -2,24 +2,43 @@
 
 from __future__ import annotations
 
-import importlib.util
-import io
+import importlib
 import json
-import sys
 import urllib.error
-from pathlib import Path
+from collections.abc import Iterator
+from contextlib import contextmanager
 from unittest import mock
 
 import pytest
+from ebookerr_sdk.testing import FakeCircuit, FakeCore, make_request, run_wire
+from literotica_stories.plugin import LiteroticaStoriesPlugin
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("literotica_stories_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["literotica_stories_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+_MODULE = importlib.import_module("literotica_stories.catalog")
+
+
+def _json_response(payload: object) -> mock.MagicMock:
+    """A stand-in for what ``urlopen`` returns: a context manager reading *payload* as JSON."""
+    body = json.dumps(payload).encode("utf-8")
+    return mock.MagicMock(
+        __enter__=mock.MagicMock(
+            return_value=mock.MagicMock(read=mock.MagicMock(return_value=body))
+        ),
+        __exit__=mock.MagicMock(return_value=None),
+    )
+
+
+class _OpeningCircuit(FakeCircuit):
+    """A ``FakeCircuit`` whose breaker opens as soon as a guarded call fails, as the core's does."""
+
+    @contextmanager
+    def guard(self, key: str, *, label: str | None = None, notice: bool = True) -> Iterator[None]:
+        """Guard a call; a block that raises opens *key* for every later ask."""
+        with super().guard(key, label=label, notice=notice):
+            try:
+                yield
+            except Exception:
+                self.open_keys.add(key)
+                raise
 
 
 @pytest.mark.pins("EXP-269")
@@ -32,16 +51,9 @@ def test_a_literotica_host_that_is_unreachable_is_probed_once_not_once_per_page(
         urlopen_calls += 1
         raise urllib.error.URLError("down")
 
-    # First call: is_open (returns false), record (opens breaker)
-    # Subsequent calls: is_open (returns true from open breaker)
-    stdin_responses = ['{"circuit": {"open": false}}\n', '{"circuit": {"open": true}}\n'] + [
-        '{"circuit": {"open": true}}\n'
-    ] * 19
-    stdin_iter = iter(stdin_responses)
+    circuit = _OpeningCircuit()
 
     with (
-        mock.patch("sys.stdout", new_callable=io.StringIO),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
         mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
         mock.patch("time.sleep"),
     ):
@@ -51,7 +63,7 @@ def test_a_literotica_host_that_is_unreachable_is_probed_once_not_once_per_page(
                 f"https://literotica.com/api/3/search/stories?params=%7B%22page%22%3A{page_num}%7D"
             )
             with pytest.raises(_MODULE.CatalogHostUnreachable):
-                _MODULE.fetch_json(url)
+                _MODULE.fetch_json(url, circuit=circuit)
 
     # urlopen should have been called exactly once (on the first attempt)
     assert urlopen_calls == 1
@@ -61,20 +73,12 @@ def test_a_literotica_host_that_is_unreachable_is_probed_once_not_once_per_page(
 def test_an_open_breaker_makes_no_request_at_all() -> None:
     """When the breaker is open, fetch_json raises without calling urlopen."""
     urlopen_mock = mock.Mock(side_effect=urllib.error.URLError("should not reach"))
+    circuit = FakeCircuit(open_keys={_MODULE.CIRCUIT_KEY})
 
-    stdin_responses = [
-        '{"circuit": {"open": true}}\n',  # is_open response
-    ]
-    stdin_iter = iter(stdin_responses)
-
-    with (
-        mock.patch("sys.stdout", new_callable=io.StringIO),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", urlopen_mock),
-    ):
+    with mock.patch("urllib.request.urlopen", urlopen_mock):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
         with pytest.raises(_MODULE.CatalogHostUnreachable):
-            _MODULE.fetch_json(url)
+            _MODULE.fetch_json(url, circuit=circuit)
 
     # urlopen should never have been called
     urlopen_mock.assert_not_called()
@@ -82,7 +86,7 @@ def test_an_open_breaker_makes_no_request_at_all() -> None:
 
 @pytest.mark.pins("EXP-269")
 def test_a_successful_fetch_reports_ok() -> None:
-    """A successful fetch reports ok=true to the circuit channel."""
+    """A successful fetch is reported to the breaker as a success."""
     response_data = {"data": [{"id": 1, "title": "test"}]}
 
     def mock_urlopen(*args: object, **kwargs: object) -> object:
@@ -96,118 +100,66 @@ def test_a_successful_fetch_reports_ok() -> None:
             __exit__=mock.MagicMock(return_value=None),
         )
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # record response
-    ]
-    stdin_iter = iter(stdin_responses)
+    circuit = FakeCircuit()
 
-    stdout_capture = io.StringIO()
-
-    with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
+    with mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
-        result = _MODULE.fetch_json(url)
+        result = _MODULE.fetch_json(url, circuit=circuit)
 
     assert result == response_data
 
-    # Check that frames were written to stdout
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    assert len(lines) >= 2
-
-    # Parse frames
-    frame1 = json.loads(lines[0])
-    frame2 = json.loads(lines[1])
-
-    # First frame should be is_open
-    assert frame1["op"] == "circuit"
-    assert frame1["call"] == "is_open"
-    assert frame1["key"] == "host:literotica.com"
-
-    # Second frame should be record with ok=true
-    assert frame2["op"] == "circuit"
-    assert frame2["call"] == "record"
-    assert frame2["ok"] is True
-    assert frame2["key"] == "host:literotica.com"
+    # One guarded call, and it did not fail
+    assert circuit.guarded == ["host:literotica.com"]
+    assert circuit.failed == []
 
 
 @pytest.mark.pins("EXP-269")
 def test_a_404_reports_ok_and_still_raises() -> None:
-    """A 404 is reported as ok=true (not a transport failure) but still raised."""
+    """A 404 is reported as a success (not a transport failure) but still raised."""
 
     def mock_urlopen(*args: object, **kwargs: object) -> object:
         raise urllib.error.HTTPError(
             "https://literotica.com/api/3/search/stories", 404, "Not Found", {}, None
         )
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # record response
-    ]
-    stdin_iter = iter(stdin_responses)
+    circuit = FakeCircuit()
 
-    stdout_capture = io.StringIO()
-
-    with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
+    with mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
         with pytest.raises(urllib.error.HTTPError) as exc_info:
-            _MODULE.fetch_json(url)
+            _MODULE.fetch_json(url, circuit=circuit)
         assert exc_info.value.code == 404
 
-    # Check that record reported ok=true
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    frame2 = json.loads(lines[1])
-    assert frame2["call"] == "record"
-    assert frame2["ok"] is True
+    # The host answered: one guarded call, not a failure
+    assert circuit.guarded == ["host:literotica.com"]
+    assert circuit.failed == []
 
 
 @pytest.mark.pins("EXP-269")
 def test_a_401_reports_ok_and_still_raises() -> None:
-    """A 401 is reported as ok=true (not a transport failure) but still raised."""
+    """A 401 is reported as a success (not a transport failure) but still raised."""
 
     def mock_urlopen(*args: object, **kwargs: object) -> object:
         raise urllib.error.HTTPError(
             "https://literotica.com/api/3/search/stories", 401, "Unauthorized", {}, None
         )
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # record response
-    ]
-    stdin_iter = iter(stdin_responses)
+    circuit = FakeCircuit()
 
-    stdout_capture = io.StringIO()
-
-    with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
+    with mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
         with pytest.raises(urllib.error.HTTPError) as exc_info:
-            _MODULE.fetch_json(url)
+            _MODULE.fetch_json(url, circuit=circuit)
         assert exc_info.value.code == 401
 
-    # Check that record reported ok=true
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    frame2 = json.loads(lines[1])
-    assert frame2["call"] == "record"
-    assert frame2["ok"] is True
+    # The host answered: one guarded call, not a failure
+    assert circuit.guarded == ["host:literotica.com"]
+    assert circuit.failed == []
 
 
 @pytest.mark.pins("EXP-269")
 def test_a_500_reports_ok_and_retries_once() -> None:
-    """A 500 is reported as ok=true and retried; second attempt succeeds."""
+    """A 500 is reported as a success and retried; second attempt succeeds."""
     call_count = 0
     response_data = {"data": [{"id": 1}]}
 
@@ -232,76 +184,47 @@ def test_a_500_reports_ok_and_retries_once() -> None:
             __exit__=mock.MagicMock(return_value=None),
         )
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # first record response (for 500)
-        '{"circuit": {"open": false}}\n',  # second record response (for success)
-    ]
-    stdin_iter = iter(stdin_responses)
-
-    stdout_capture = io.StringIO()
+    circuit = FakeCircuit()
 
     with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
         mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
         mock.patch("time.sleep"),
     ):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
-        result = _MODULE.fetch_json(url)
+        result = _MODULE.fetch_json(url, circuit=circuit)
 
     assert result == response_data
     assert call_count == 2
 
-    # Check frames
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    # Should have is_open, record (500), record (success)
-    assert len(lines) >= 3
-    frame2 = json.loads(lines[1])
-    frame3 = json.loads(lines[2])
-    assert frame2["call"] == "record"
-    assert frame2["ok"] is True
-    assert frame3["call"] == "record"
-    assert frame3["ok"] is True
+    # Both outcomes (the 500 and the success) were reported, neither as a failure
+    assert circuit.guarded == ["host:literotica.com", "host:literotica.com"]
+    assert circuit.failed == []
 
 
 @pytest.mark.pins("EXP-269")
 def test_a_transport_error_reports_a_failure() -> None:
-    """A TimeoutError is reported as ok=false to the circuit."""
+    """A TimeoutError is reported to the breaker as a failed call (on both attempts)."""
 
     def mock_urlopen(*args: object, **kwargs: object) -> object:
         raise TimeoutError("timed out")
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # record response (ok=false)
-    ]
-    stdin_iter = iter(stdin_responses)
-
-    stdout_capture = io.StringIO()
+    circuit = FakeCircuit()
 
     with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
         mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
         mock.patch("time.sleep"),
     ):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
         with pytest.raises(TimeoutError):
-            _MODULE.fetch_json(url)
+            _MODULE.fetch_json(url, circuit=circuit)
 
-    # Check that record reported ok=false
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    frame2 = json.loads(lines[1])
-    assert frame2["call"] == "record"
-    assert frame2["ok"] is False
+    # The call is retried once, and each attempt's failure is reported
+    assert circuit.failed == ["host:literotica.com", "host:literotica.com"]
 
 
 @pytest.mark.pins("EXP-269")
-def test_a_broken_channel_never_blocks_a_scan() -> None:
-    """When stdin returns EOF, _circuit returns False and fetch proceeds."""
+def test_the_breaker_key_names_the_host() -> None:
+    """The breaker is keyed 'host:literotica.com', never by the plugin's id."""
     response_data = {"data": [{"id": 1}]}
 
     def mock_urlopen(*args: object, **kwargs: object) -> object:
@@ -315,91 +238,50 @@ def test_a_broken_channel_never_blocks_a_scan() -> None:
             __exit__=mock.MagicMock(return_value=None),
         )
 
-    # stdin returns EOF for is_open, returns EOF for record
-    stdin_responses = ["", ""]
-    stdin_iter = iter(stdin_responses)
+    circuit = FakeCircuit()
 
-    with (
-        mock.patch("sys.stdout", new_callable=io.StringIO),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
+    with mock.patch("urllib.request.urlopen", side_effect=mock_urlopen):
         url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
-        result = _MODULE.fetch_json(url)
+        _MODULE.fetch_json(url, circuit=circuit)
 
-    # Should have proceeded despite broken channel
-    assert result == response_data
-
-
-@pytest.mark.pins("EXP-269")
-def test_a_malformed_reply_never_blocks_a_scan() -> None:
-    """When stdin returns invalid JSON, _circuit returns False and fetch proceeds."""
-    response_data = {"data": [{"id": 1}]}
-
-    def mock_urlopen(*args: object, **kwargs: object) -> object:
-        return mock.MagicMock(
-            read=mock.MagicMock(return_value=json.dumps(response_data).encode("utf-8")),
-            __enter__=mock.MagicMock(
-                return_value=mock.MagicMock(
-                    read=mock.MagicMock(return_value=json.dumps(response_data).encode("utf-8"))
-                )
-            ),
-            __exit__=mock.MagicMock(return_value=None),
-        )
-
-    # stdin returns invalid JSON for is_open, returns invalid JSON for record
-    stdin_responses = ["not json\n", "also not json\n"]
-    stdin_iter = iter(stdin_responses)
-
-    with (
-        mock.patch("sys.stdout", new_callable=io.StringIO),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
-        url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
-        result = _MODULE.fetch_json(url)
-
-    # Should have proceeded despite malformed response
-    assert result == response_data
+    # Every guarded call names the host, never the plugin id
+    assert circuit.guarded == ["host:literotica.com"]
 
 
 @pytest.mark.pins("EXP-269")
-def test_the_frames_name_the_host_not_the_plugin() -> None:
-    """Every frame written to stdout uses key='host:literotica.com', never the plugin id."""
-    response_data = {"data": [{"id": 1}]}
-
-    def mock_urlopen(*args: object, **kwargs: object) -> object:
-        return mock.MagicMock(
-            read=mock.MagicMock(return_value=json.dumps(response_data).encode("utf-8")),
-            __enter__=mock.MagicMock(
-                return_value=mock.MagicMock(
-                    read=mock.MagicMock(return_value=json.dumps(response_data).encode("utf-8"))
+@pytest.mark.real_impl("ebookerr_sdk.host.HostContext")
+@pytest.mark.parametrize(
+    ("urlopen_outcome", "recorded_ok"),
+    [
+        pytest.param({"return_value": _json_response({"data": []})}, [True], id="an answered call"),
+        pytest.param(
+            {
+                "side_effect": urllib.error.HTTPError(
+                    "https://literotica.com/api/3/search/stories", 401, "Unauthorized", {}, None
                 )
-            ),
-            __exit__=mock.MagicMock(return_value=None),
-        )
+            },
+            [True],
+            id="a 401",
+        ),
+        pytest.param(
+            {"side_effect": urllib.error.URLError("down")},
+            [False, False],
+            id="a transport failure, retried once",
+        ),
+    ],
+)
+def test_the_hosts_own_guard_reports_each_search_outcome_to_the_core(
+    urlopen_outcome: dict[str, object], recorded_ok: list[bool]
+) -> None:
+    """Served by the real SDK host, a search call's outcome crosses the wire by host key."""
+    request = make_request(
+        "scan", settings={"search_urls": ["https://search.literotica.com/?q=x"], "max_pages": 1}
+    )
 
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # record response
+    with mock.patch("urllib.request.urlopen", **urlopen_outcome), mock.patch("time.sleep"):
+        _terminal, frames = run_wire(LiteroticaStoriesPlugin(), request, core=FakeCore())
+
+    records = [f for f in frames if f.get("op") == "circuit" and f.get("call") == "record"]
+    assert [(f["key"], f["label"], f["ok"]) for f in records] == [
+        ("host:literotica.com", "literotica.com", ok) for ok in recorded_ok
     ]
-    stdin_iter = iter(stdin_responses)
-
-    stdout_capture = io.StringIO()
-
-    with (
-        mock.patch("sys.stdout", stdout_capture),
-        mock.patch("sys.stdin.readline", side_effect=lambda: next(stdin_iter, "")),
-        mock.patch("urllib.request.urlopen", side_effect=mock_urlopen),
-    ):
-        url = "https://literotica.com/api/3/search/stories?params=%7B%7D"
-        _MODULE.fetch_json(url)
-
-    # Check that all frames name the host correctly
-    output = stdout_capture.getvalue()
-    lines = output.strip().split("\n")
-    for line in lines:
-        frame = json.loads(line)
-        assert frame.get("key") == "host:literotica.com"
-        # Ensure no mention of plugin id like "literotica_stories"
-        assert "literotica_stories" not in frame.get("key", "")

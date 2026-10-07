@@ -14,4 +14,5 @@ homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_s
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 formats = ["epub"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"

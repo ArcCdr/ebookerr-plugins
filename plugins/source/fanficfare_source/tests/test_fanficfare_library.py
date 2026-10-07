@@ -20,13 +20,9 @@ from fanficfare_source.library import (
 )
 from fanficfare_source.protocol import UNREADABLE_MESSAGE, UNRECOGNISED_MESSAGE
 
-PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 STORY = "http://test1.com?sid=1001"
-STORED = "Ann Author/Test Story 1001.epub"
-LOGIN_SENTENCE = (
-    "the site refused the login — check this site's username and password in "
-    "FanFicFare's personal.ini"
-)
+STORED = "Test Story 1001.epub"
+LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
 _VALID_ENTRIES = (
     "valid_entries:title,author_list,authorId_list,authorUrl_list,category_list,genre_list,"
     "status,datePublished,dateUpdated,numWords,description"
@@ -52,12 +48,9 @@ TEST_STORIES = "\n".join(
 """FanFicFare's test-site stories, defined in the ini (a sid of 1000 or more reads them)."""
 
 
-def write_ini(tmp_path: Path, chapters: str, story: str = "1001") -> Path:
-    """Write the packaged personal.ini plus the test stories, *story* holding *chapters*."""
-    path = tmp_path / "personal.ini"
-    text = PACKAGED_INI.read_text(encoding="utf-8") + TEST_STORIES
-    path.write_text(text + f"\n[teststory:{story}]\nchaptertitles:{chapters}\n", encoding="utf-8")
-    return path
+def story_settings(chapters: str, story: str = "1001") -> dict[str, Any]:
+    """Return plugin settings whose advanced options define test story *story* with *chapters*."""
+    return {"extra_options": TEST_STORIES + f"\n[teststory:{story}]\nchaptertitles:{chapters}\n"}
 
 
 class _FrozenDatetime(datetime.datetime):
@@ -142,13 +135,15 @@ def _stamp_story_url(epub: Path, story_url: str) -> int:
 
 
 def test_the_update_policy_is_fixed() -> None:
-    """Every run sets exactly the five options of the fixed update policy (LIB-D27)."""
+    """Every run sets exactly the seven options of the fixed update policy (LIB-D27)."""
     assert dict(UPDATE_OVERRIDES) == {
         "always_overwrite": "true",
         "never_make_cover": "true",
         "update_check_recent_chapters": "1",
         "update_preserve_deleted_chapters": "true",
         "output_filename_safepattern": UNICODE_SAFEPATTERN,
+        "output_filename": "${title}${formatext}",
+        "make_directories": "false",
     }
 
 
@@ -163,7 +158,7 @@ def test_a_new_story_is_created_with_every_chapter(tmp_path: Path, fetched: list
     """With no staged file every chapter is fetched and the EPUB is written (LIB-D25, LIB-D29)."""
     work = tmp_path / "w"
     work.mkdir()
-    result = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three")).download(
+    result = FanFicFareLibraryGateway(story_settings("One,Two,Three")).download(
         STORY, work_dir=work, staged_filename=None
     )
     assert result.outcome == "created"
@@ -181,14 +176,27 @@ def test_a_new_story_is_created_with_every_chapter(tmp_path: Path, fetched: list
     assert fetched == ["1", "2", "3"]
 
 
+def test_a_new_story_is_written_without_a_folder(tmp_path: Path) -> None:
+    """A new story lands in the work folder as <title>.epub; ebookerr chooses its folder (D56)."""
+    work = tmp_path / "w"
+    work.mkdir()
+    result = FanFicFareLibraryGateway(story_settings("One,Two,Three")).download(
+        STORY, work_dir=work, staged_filename=None
+    )
+    assert result.outcome == "created"
+    assert result.output_filename == "Test Story 1001.epub"
+    assert "/" not in result.output_filename
+
+
 def test_an_update_fetches_only_the_new_chapter(tmp_path: Path, fetched: list[str]) -> None:
     """A staged book is rebuilt in place, fetching the re-check window and the new chapter."""
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three"))
+    settings = story_settings("One,Two,Three")
+    gateway = FanFicFareLibraryGateway(settings)
     gateway.download(STORY, work_dir=work, staged_filename=None)
     fetched.clear()
-    write_ini(tmp_path, "One,Two,Three,Four")
+    settings["extra_options"] = story_settings("One,Two,Three,Four")["extra_options"]
     result = gateway.download(STORY, work_dir=work, staged_filename=STORED)
     assert result.outcome == "updated"
     assert result.chapters_before == 3
@@ -204,7 +212,7 @@ def test_the_same_count_rebuilds_without_new_chapters(tmp_path: Path, fetched: l
     """When the site holds no new chapter only the newest one is re-checked, and kept as it was."""
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three,Four"))
+    gateway = FanFicFareLibraryGateway(story_settings("One,Two,Three,Four"))
     gateway.download(STORY, work_dir=work, staged_filename=None)
     fetched.clear()
     result = gateway.download(STORY, work_dir=work, staged_filename=STORED)
@@ -219,9 +227,10 @@ def test_chapters_the_site_removed_are_kept(tmp_path: Path) -> None:
     """A chapter the site no longer lists stays in the book (update_preserve_deleted_chapters)."""
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three,Four"))
+    settings = story_settings("One,Two,Three,Four")
+    gateway = FanFicFareLibraryGateway(settings)
     gateway.download(STORY, work_dir=work, staged_filename=None)
-    write_ini(tmp_path, "One,Two,Three")
+    settings["extra_options"] = story_settings("One,Two,Three")["extra_options"]
     result = gateway.download(STORY, work_dir=work, staged_filename=STORED)
     assert result.outcome == "updated"
     assert result.site_chapters == 3
@@ -236,7 +245,7 @@ def test_a_file_with_no_recognised_chapter_is_left_alone(
     """A merged book's file (chapters renamed) is neither rebuilt nor changed (LIB-D28)."""
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three"))
+    gateway = FanFicFareLibraryGateway(story_settings("One,Two,Three"))
     gateway.download(STORY, work_dir=work, staged_filename=None)
     _rename_chapter_files(work / STORED)
     assert get_update_data(str(work / STORED))[1] == 0
@@ -248,7 +257,7 @@ def test_a_file_with_no_recognised_chapter_is_left_alone(
     assert (work / STORED).read_bytes() == before
     assert (
         logging.INFO,
-        "FanFicFare recognises no chapter in Ann Author/Test Story 1001.epub; it is left as it is",
+        f"FanFicFare recognises no chapter in {STORED}; it is left as it is",
     ) in [(record.levelno, record.getMessage()) for record in caplog.records]
 
 
@@ -257,7 +266,7 @@ def test_an_unreadable_file_is_left_alone(tmp_path: Path, caplog: pytest.LogCapt
     work = tmp_path / "w"
     work.mkdir()
     (work / "x.epub").write_bytes(b"not a zip")
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three"))
+    gateway = FanFicFareLibraryGateway(story_settings("One,Two,Three"))
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
         result = gateway.download(STORY, work_dir=work, staged_filename="x.epub")
     assert result.outcome == "unrecognised"
@@ -275,14 +284,15 @@ def test_a_stamped_one_shot_grows_without_a_duplicate(
 ) -> None:
     """A one-chapter book stamped with its own URL grows to two chapters, not three (LIB-D30)."""
     url = "http://test1.com?sid=1002"
-    stored = "Ann Author/Test Story 1002.epub"
+    stored = "Test Story 1002.epub"
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One", story="1002"))
+    settings = story_settings("One", story="1002")
+    gateway = FanFicFareLibraryGateway(settings)
     created = gateway.download(url, work_dir=work, staged_filename=None)
     assert created.output_filename == stored
     assert _stamp_story_url(work / stored, url) == 1
-    write_ini(tmp_path, "One,Two", story="1002")
+    settings["extra_options"] = story_settings("One,Two", story="1002")["extra_options"]
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
         result = gateway.download(url, work_dir=work, staged_filename=stored)
     assert result.chapters_after == 2
@@ -291,8 +301,7 @@ def test_a_stamped_one_shot_grows_without_a_duplicate(
     assert any(
         record.levelno == logging.DEBUG
         and record.getMessage().startswith(
-            "Re-keyed the one chapter of Ann Author/Test Story 1002.epub "
-            "from http://test1.com?sid=1002 to "
+            "Re-keyed the one chapter of Test Story 1002.epub from http://test1.com?sid=1002 to "
         )
         for record in caplog.records
     )
@@ -303,7 +312,7 @@ def test_progress_is_reported_per_chapter(tmp_path: Path) -> None:
     work = tmp_path / "w"
     work.mkdir()
     calls: list[tuple[int, int]] = []
-    FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three")).download(
+    FanFicFareLibraryGateway(story_settings("One,Two,Three")).download(
         STORY,
         work_dir=work,
         staged_filename=None,
@@ -318,7 +327,7 @@ def test_fanficfare_prints_nothing_on_stdout(
     """A run writes nothing to stdout, which is the core's wire (LIB-D25)."""
     work = tmp_path / "w"
     work.mkdir()
-    gateway = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three"))
+    gateway = FanFicFareLibraryGateway(story_settings("One,Two,Three"))
     capsys.readouterr()
     gateway.download(STORY, work_dir=work, staged_filename=None)
     assert capsys.readouterr().out == ""
@@ -328,7 +337,7 @@ def test_a_missing_staged_file_is_created_at_the_stored_path(tmp_path: Path) -> 
     """A stored path with no file behind it is written there as a new book."""
     work = tmp_path / "w"
     work.mkdir()
-    result = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three")).download(
+    result = FanFicFareLibraryGateway(story_settings("One,Two,Three")).download(
         STORY, work_dir=work, staged_filename="kept/Name.epub"
     )
     assert result.outcome == "created"
@@ -344,9 +353,7 @@ def test_a_missing_story_fails_with_its_reason(
     work = tmp_path / "w"
     work.mkdir()
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
-        result = FanFicFareLibraryGateway(PACKAGED_INI).download(
-            url, work_dir=work, staged_filename=None
-        )
+        result = FanFicFareLibraryGateway({}).download(url, work_dir=work, staged_filename=None)
     assert result.outcome == "failed"
     assert result.error == "story not found: http://test1.com?sid=666"
     assert (
@@ -360,7 +367,7 @@ def test_a_refused_login_fails_with_its_reason(tmp_path: Path) -> None:
     """A site that refuses the login says so in the result (LIB-D25)."""
     work = tmp_path / "w"
     work.mkdir()
-    result = FanFicFareLibraryGateway(PACKAGED_INI).download(
+    result = FanFicFareLibraryGateway({}).download(
         "http://test1.com?sid=668", work_dir=work, staged_filename=None
     )
     assert result.outcome == "failed"
@@ -371,7 +378,7 @@ def test_an_unsupported_site_fails_with_its_reason(tmp_path: Path) -> None:
     """An address no FanFicFare adapter claims is named as unsupported (LIB-D25)."""
     work = tmp_path / "w"
     work.mkdir()
-    result = FanFicFareLibraryGateway(PACKAGED_INI).download(
+    result = FanFicFareLibraryGateway({}).download(
         "https://example.org/x", work_dir=work, staged_filename=None
     )
     assert result.outcome == "failed"
@@ -381,7 +388,7 @@ def test_an_unsupported_site_fails_with_its_reason(tmp_path: Path) -> None:
 def test_fetch_metadata_writes_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Metadata alone fetches no chapter and writes no EPUB, even in the current folder."""
     monkeypatch.chdir(tmp_path)
-    meta = FanFicFareLibraryGateway(write_ini(tmp_path, "One,Two,Three")).fetch_metadata(STORY)
+    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY)
     assert meta is not None
     assert meta["title"] == "Test Story 1001"
     assert meta["numChapters"] == "3"
@@ -394,7 +401,7 @@ def test_fetch_metadata_of_a_missing_story_is_none(
 ) -> None:
     """A story the site does not have yields None, with the reason at DEBUG (LIB-D25)."""
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
-        meta = FanFicFareLibraryGateway(PACKAGED_INI).fetch_metadata("http://test1.com?sid=666")
+        meta = FanFicFareLibraryGateway({}).fetch_metadata("http://test1.com?sid=666")
     assert meta is None
     assert (
         logging.DEBUG,
