@@ -1,3 +1,6 @@
+== 1.6.0 ==
+Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.
+
 == 1.5.0 ==
 ebookerr's own web reader and KOReader sync can now save your reading position to Komga: it lands on the chapter you are in, at the nearest position inside it. Needs ebookerr 2.23 or later.
 

@@ -1,6 +1,6 @@
 id = "llm_synopsis"
 name = "Synopsis generator"
-version = "1.1.0"
+version = "1.2.0"
 type = "book"
 spi_version = "3.0"
 description = "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. Only books without a synopsis from the configured model are processed."

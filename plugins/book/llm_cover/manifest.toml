@@ -1,6 +1,6 @@
 id = "llm_cover"
 name = "Cover generator"
-version = "1.1.0"
+version = "1.2.0"
 type = "book"
 spi_version = "3.0"
 description = "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. Candidates are never set as the cover automatically."

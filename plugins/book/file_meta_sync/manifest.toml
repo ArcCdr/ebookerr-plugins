@@ -1,6 +1,6 @@
 id = "file_meta_sync"
 name = "File metadata sync"
-version = "2.1.0"
+version = "2.2.0"
 type = "book"
 spi_version = "3.0"
 entrypoint = "entrypoint.py"

@@ -1,2 +1,5 @@
+== 2.2.0 ==
+Files beside your EPUBs are matched exactly: a file goes to the book whose file name it matches longest, so "Book 2 cover.png" belongs to "Book 2", not "Book", and in a folder holding a single book every image is offered as its cover, such as a cover.jpg. Now runs on the plugin SDK. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
+
 == 2.1.0 ==
 Moved out of the ebookerr core.

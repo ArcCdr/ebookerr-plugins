@@ -1,6 +1,6 @@
 id = "komga_sync"
 name = "Komga Sync"
-version = "1.5.0"
+version = "1.6.0"
 type = "book"
 spi_version = "3.0"
 description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
