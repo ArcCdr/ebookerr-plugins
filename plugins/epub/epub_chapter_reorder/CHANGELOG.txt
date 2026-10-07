@@ -1,3 +1,6 @@
+== 2.3.0 ==
+Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.
+
 == 2.2.0 ==
 Chapter Reorder now runs first among the automatic EPUB plugins, before chapter URLs are stamped and styling is normalized. An execution order you saved yourself is kept.
 

@@ -1,3 +1,6 @@
+== 1.3.0 ==
+Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.
+
 == 1.2.0 ==
 Declares its checker role and writes its report in the shared check-report format. Needs ebookerr 2.21 or later.
 
