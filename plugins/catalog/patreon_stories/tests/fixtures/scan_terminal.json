@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "url": "https://www.patreon.com/file?h=201&m=301",
+      "format": "epub",
+      "title": "First Post",
+      "author": "Demo Creator",
+      "author_url": "https://www.patreon.com/democreator",
+      "site": "patreon.com",
+      "date_published": "2026-07-15T10:00:00Z",
+      "story_id": "201",
+      "series": "Demo Campaign",
+      "description": "This is rich content with formatting",
+      "custom": {
+        "Post Type": "text_post",
+        "Campaign": "Demo Campaign",
+        "Membership": "Cancelled (access until 31 Jul 2026)",
+        "source_filename": "story.epub"
+      },
+      "metadata_fetched": true
+    }
+  ],
+  "logs": [
+    {
+      "level": "info",
+      "message": "Found 1 Patreon membership(s): 0 active, 1 cancelled, 0 payment declined, 0 former, 0 free, 0 unknown"
+    },
+    {
+      "level": "info",
+      "message": "Scanned campaign \"Demo Campaign\" (campaign_id=111, membership=Cancelled (access until 31 Jul 2026)): 1 stories kept, 1 locked posts skipped, 1 posts without a supported file"
+    }
+  ]
+}

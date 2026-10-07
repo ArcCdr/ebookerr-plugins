@@ -15,6 +15,7 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_sour
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["pymupdf>=1.24"]
 formats = ["pdf"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.converter]

@@ -1,0 +1,1089 @@
+"""File metadata sync on the SDK host: 3-way merge of cover candidates, cover and synopsis.
+
+``FileMetaSyncPlugin.enrich`` serves one call: on ``BookDeleted`` it unlinks the book's sidecar
+files and removes the folders that leaves empty (``handle_delete``, ``LIB-D44``); for the
+``purge_cover_candidates``/``purge_assets`` actions it unlinks
+the purged candidates' files (``handle_purge_action``); otherwise it syncs each book's sidecars
+with its record (``process_book``: ``discover_candidates``, ``merge_text``, ``merge_bytes``).
+
+The sidecar functions read and return plain mappings — the wire shape of a book and of a patch,
+which their unit tests build directly; ``enrich`` adapts ``BookView`` to that shape
+(``_book_dict``) and the result back to ``BookPatch`` (``_book_patch``). Dialogs, progress,
+durable notices and log lines go through the context: an abandoned prompt raises
+``PromptAbandoned``, which stops the run with no patch and nothing written (EXP-233).
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import logging
+import shutil
+from collections.abc import Callable, Mapping
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from ebookerr_sdk.download.paths import prune_empty_parents
+from ebookerr_sdk.spi import (
+    AssetWrite,
+    BookPatch,
+    BookView,
+    CustomValueWrite,
+    InvocationMode,
+    PluginContext,
+    SettingsSchema,
+)
+from ebookerr_sdk.spi.manifest import package_manifest
+
+_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+_PLUGIN_ID = "file_meta_sync"
+_MAX_IMPORT_BYTES = 25 * 1024 * 1024
+
+
+class PromptAbandoned(Exception):  # noqa: N818
+    """The core abandoned the pending dialog; stop without writing (EXP-233, SPI 2.17)."""
+
+
+def _get_media_type(ext: str) -> str:
+    """Map extension to media type."""
+    ext_lower = ext.lower()
+    if ext_lower == "png":
+        return "image/png"
+    if ext_lower in {"jpg", "jpeg"}:
+        return "image/jpeg"
+    if ext_lower == "gif":
+        return "image/gif"
+    if ext_lower == "webp":
+        return "image/webp"
+    return "image/png"
+
+
+def _matches_candidate_pattern(stem: str, filename: str) -> bool:
+    """Check if filename matches the cover candidate pattern: stem + [.-_ ] + more text."""
+    if not filename.startswith(stem):
+        return False
+    remainder = filename[len(stem) :]
+    if not remainder:
+        return False
+    return remainder[0] in {".", "-", "_", " "}
+
+
+def _folder_epub_stems(book_dir: Path) -> list[str]:
+    """Return the stems of the EPUB files directly inside *book_dir*."""
+    return [p.stem for p in book_dir.iterdir() if p.is_file() and p.suffix.lower() == ".epub"]
+
+
+def _is_candidate_name(stem: str, filename: str, epub_stems: list[str]) -> bool:
+    """Return whether image *filename* is a cover candidate of the EPUB named *stem* (``GEN-TR-8``).
+
+    In a folder whose only EPUB is this one, every image is its candidate (a Calibre-style
+    ``cover.jpg`` included). Otherwise the image belongs to the EPUB with the longest stem whose
+    candidate pattern it matches, so ``Book 2 cover.png`` is ``Book 2``'s, never ``Book``'s.
+
+    Args:
+        stem: The EPUB file name's stem.
+        filename: An image file name in the same folder.
+        epub_stems: The stems of every EPUB in the folder.
+
+    Returns:
+        ``True`` when the image is this EPUB's candidate.
+    """
+    if epub_stems == [stem]:
+        return True
+    owners = [s for s in {*epub_stems, stem} if _matches_candidate_pattern(s, filename)]
+    return bool(owners) and max(owners, key=len) == stem
+
+
+def _own_candidates(assets: list[Any]) -> list[dict[str, Any]]:
+    """Return this plugin's own cover_candidate rows (the core refuses writes to anyone else's)."""
+    return [
+        a
+        for a in assets
+        if a.get("kind") == "cover_candidate" and a.get("namespace", _PLUGIN_ID) == _PLUGIN_ID
+    ]
+
+
+def _is_bare_filename(name: str) -> bool:
+    """Whether *name* is a plain file name (no directory part, no traversal)."""
+    return bool(name) and "/" not in name and "\\" not in name and name not in {".", ".."}
+
+
+def discover_candidates(book_dir: Path, stem: str, assets: list[Any]) -> list[Any]:
+    """Import sidecar cover images beside the EPUB as stored candidates (``GEN-TR-8``).
+
+    A new or changed sidecar matching the candidate pattern is emitted as a stored write
+    carrying base64 ``data`` and ``meta`` (``source_file``, ``sha256``); one whose sha256
+    still matches its stored row is skipped as unchanged. An own row (library or stored)
+    whose source file is no longer one of this EPUB's candidates (it vanished from disk, or now
+    belongs to another EPUB) is emitted as a delete. Rows owned by
+    another plugin's namespace are never written to or deleted. The plugin's own
+    ``<stem>.cover.png`` export is never treated as a candidate.
+
+    An image is this EPUB's candidate when :func:`_is_candidate_name` says so: every image of a
+    folder whose only EPUB is this one, else the images whose name extends this EPUB's stem more
+    than any other EPUB's.
+
+    Args:
+        book_dir: The book's directory in the library.
+        stem: The EPUB filename stem, used to match candidate filenames.
+        assets: The book's current asset rows, as seen on the wire.
+
+    Returns:
+        A list of asset patch writes: data imports and/or deletes.
+    """
+    writes: list[Any] = []
+
+    if not book_dir.exists():
+        return writes
+
+    epub_stems = _folder_epub_stems(book_dir)
+    own = _own_candidates(assets)
+    stored_by_source = {
+        (a.get("meta") or {}).get("source_file"): a for a in own if a.get("storage") == "store"
+    }
+    found: set[str] = set()
+    export_name = f"{stem}.cover.png"  # our own cover export, never a candidate
+
+    for file_path in sorted(book_dir.iterdir()):
+        filename = file_path.name
+        if not file_path.is_file() or filename == export_name:
+            continue
+        if filename[filename.rfind(".") + 1 :].lower() not in _IMAGE_EXTENSIONS:
+            continue
+        if not _is_candidate_name(stem, filename, epub_stems):
+            continue
+
+        found.add(filename)
+        data = file_path.read_bytes()
+        if len(data) > _MAX_IMPORT_BYTES:
+            continue  # the caller logs the skip
+        sha = hashlib.sha256(data).hexdigest()
+        existing = stored_by_source.get(filename)
+        if existing is not None and (existing.get("meta") or {}).get("sha256") == sha:
+            continue  # already imported, unchanged
+        ext = filename[filename.rfind(".") + 1 :]
+        writes.append(
+            {
+                "kind": "cover_candidate",
+                "name": filename,
+                "media_type": _get_media_type(ext),
+                "data": base64.b64encode(data).decode("ascii"),
+                "meta": {"source_file": filename, "sha256": sha},
+            }
+        )
+
+    for a in own:
+        source = (
+            (a.get("meta") or {}).get("source_file")
+            if a.get("storage") == "store"
+            else a.get("name")
+        )
+        if source not in found:
+            writes.append(
+                {
+                    "kind": "cover_candidate",
+                    "name": a["name"],
+                    "delete": True,
+                }
+            )
+
+    return writes
+
+
+def _oversized_candidates(book_dir: Path, stem: str) -> int:
+    """Count candidate-pattern sidecar images in book_dir that exceed the import size limit."""
+    if not book_dir.exists():
+        return 0
+    epub_stems = _folder_epub_stems(book_dir)
+    export_name = f"{stem}.cover.png"
+    count = 0
+    for file_path in book_dir.iterdir():
+        filename = file_path.name
+        if not file_path.is_file() or filename == export_name:
+            continue
+        if filename[filename.rfind(".") + 1 :].lower() not in _IMAGE_EXTENSIONS:
+            continue
+        if not _is_candidate_name(stem, filename, epub_stems):
+            continue
+        if file_path.stat().st_size > _MAX_IMPORT_BYTES:
+            count += 1
+    return count
+
+
+def merge_text(
+    book_id: str,
+    db_value: str | None,
+    file_path: Path,
+    synced_hash: str | None,
+    logs: list[Any],
+    ask: Callable[[str, str, str], bool] | None = None,
+    *,
+    interactive: bool = False,
+    notify: Callable[[str, str], None] | None = None,
+    book_label: str = "",
+) -> tuple[str | None, str | None, float | None]:
+    """Perform 3-way text merge (synopsis) following ruled precedence.
+
+    Args:
+        book_id: The book identifier (used as fallback for book_label).
+        db_value: The app's current value for this field (merged with overrides).
+        file_path: Path to the sidecar text file.
+        synced_hash: Hash of the value that was last synced; None on first sync.
+        logs: List to append log entries to.
+        ask: Optional callable(message, yes_label, no_label) -> bool for interactive dialogs.
+        interactive: If True, use ask to prompt on conflict; otherwise apply unattended rules.
+        notify: Optional callable(level, message) for durable notifications.
+        book_label: User-facing label for the book; falls back to book_id.
+
+    Returns:
+        (resolved_value, resolved_hash, resolved_mtime) where resolved_value is the text to
+        store in the app, resolved_hash is its SHA256, and resolved_mtime is the file mtime
+        after any writes. Returns (None, None, None) if no change.
+
+    Precedence table:
+    1. Neither changed → (None, None, None).
+    2. First sync (synced_hash=None, file exists, db present, hashes differ) → adopt file.
+    3. File-only changed → adopt file.
+    4. DB-only changed → write file from db.
+    5. Both changed (synced_hash set) → if interactive & ask, ask user; else keep app.
+    """
+    label = book_label or book_id
+    field = "synopsis"
+
+    db_hash = hashlib.sha256((db_value or "").encode("utf-8")).hexdigest()
+    file_exists = file_path.exists()
+    file_text = None
+    file_mtime = None
+    file_hash = None
+
+    if file_exists:
+        file_text = file_path.read_text(encoding="utf-8-sig")
+        file_mtime = file_path.stat().st_mtime
+        file_hash = hashlib.sha256(file_text.encode("utf-8")).hexdigest()
+
+    db_changed = (db_value is not None or synced_hash is not None) and db_hash != synced_hash
+    file_changed = file_exists and file_hash != synced_hash
+
+    # 1. Neither changed
+    if not db_changed and not file_changed:
+        return None, None, None
+
+    # 2. First sync: synced_hash is None, file exists, db present, hashes differ
+    if synced_hash is None and file_exists and db_value is not None and db_hash != file_hash:
+        msg = (
+            f'{file_path.name}: first sync — adopted the sidecar {field} into the app for "{label}"'
+        )
+        logs.append({"level": "info", "message": msg})
+        return file_text, file_hash, file_mtime
+
+    # 3. File-only changed
+    if not db_changed and file_changed:
+        return file_text, file_hash, file_mtime
+
+    # 4. DB-only changed
+    if db_changed and not file_changed:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(db_value or "", encoding="utf-8")
+        file_mtime = file_path.stat().st_mtime
+        return None, db_hash, file_mtime
+
+    # 5. Both changed with tracked conflict (synced_hash is set)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_mtime_float = file_path.stat().st_mtime if file_exists else None
+
+    if interactive and ask is not None:
+        # Ask the user
+        message = (
+            f'The {field} of "{label}" was changed both in ebookerr and in '
+            f"{file_path.name}. Which version should be kept?"
+        )
+        yes_label = "Keep the ebookerr version"
+        no_label = f"Keep the {file_path.name} version"
+        keep_db = ask(message, yes_label, no_label)
+
+        if keep_db:
+            file_path.write_text(db_value or "", encoding="utf-8")
+            file_mtime_float = file_path.stat().st_mtime
+            msg = f'Conflict on {file_path.name} for "{label}": kept the ebookerr version'
+            logs.append({"level": "warning", "message": msg})
+            return None, db_hash, file_mtime_float
+        else:
+            msg = f'Conflict on {file_path.name} for "{label}": kept the file version'
+            logs.append({"level": "warning", "message": msg})
+            return file_text, file_hash, file_mtime_float
+    else:
+        # Unattended: keep app value
+        file_path.write_text(db_value or "", encoding="utf-8")
+        file_mtime_float = file_path.stat().st_mtime
+        msg = (
+            f'Conflict on {file_path.name} for "{label}": kept the ebookerr '
+            "version and rewrote the sidecar"
+        )
+        logs.append({"level": "warning", "message": msg})
+        if notify is not None:
+            notify_msg = (
+                f'Sidecar conflict on "{label}": kept the ebookerr {field} '
+                f"and rewrote {file_path.name} — the file's previous content "
+                "was replaced"
+            )
+            notify("warning", notify_msg)
+        return None, db_hash, file_mtime_float
+
+
+def merge_bytes(  # noqa: C901
+    book_id: str,
+    db_path: str | None,
+    file_path: Path,
+    synced_hash: str | None,
+    logs: list[Any],
+    ask: Callable[[str, str, str], bool] | None = None,
+    *,
+    interactive: bool = False,
+    notify: Callable[[str, str], None] | None = None,
+    book_label: str = "",
+) -> tuple[str | None, str | None, float | None]:
+    """Perform 3-way bytes merge (cover) following ruled precedence.
+
+    Args:
+        book_id: The book identifier (used as fallback for book_label).
+        db_path: Path to the app's current cover file (may not exist).
+        file_path: Path to the sidecar cover file.
+        synced_hash: Hash of the file that was last synced; None on first sync.
+        logs: List to append log entries to.
+        ask: Optional callable(message, yes_label, no_label) -> bool for interactive dialogs.
+        interactive: If True, use ask to prompt on conflict; otherwise apply unattended rules.
+        notify: Optional callable(level, message) for durable notifications.
+        book_label: User-facing label for the book; falls back to book_id.
+
+    Returns:
+        (resolved_path, resolved_hash, resolved_mtime) where resolved_path is a file path
+        to store as the cover reference, resolved_hash is its SHA256, and resolved_mtime is
+        the file mtime after any writes. Returns (None, None, None) if no change.
+
+    Precedence table:
+    1. Neither changed → (None, None, None).
+    2. First sync (synced_hash=None, file exists, db present, hashes differ) → adopt file.
+    3. File-only changed → adopt file.
+    4. DB-only changed → write file from db.
+    5. Both changed (synced_hash set) → if interactive & ask, ask user; else keep app.
+    """
+    label = book_label or book_id
+    field = "cover"
+
+    db_bytes: bytes | None = None
+    db_hash: str | None = None
+
+    if db_path:
+        db_file = Path(db_path)
+        if db_file.exists():
+            db_bytes = db_file.read_bytes()
+            db_hash = hashlib.sha256(db_bytes).hexdigest()
+
+    file_exists = file_path.exists()
+    file_mtime: float | None = None
+    file_hash: str | None = None
+
+    if file_exists:
+        file_bytes = file_path.read_bytes()
+        file_mtime = file_path.stat().st_mtime
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    db_changed = db_hash is not None and db_hash != synced_hash
+    file_changed = file_exists and file_hash != synced_hash
+
+    # 1. Neither changed
+    if not db_changed and not file_changed:
+        return None, None, None
+
+    # 2. First sync: synced_hash is None, file exists, db present, hashes differ
+    if synced_hash is None and file_exists and db_hash is not None and db_hash != file_hash:
+        msg = (
+            f'{file_path.name}: first sync — adopted the sidecar {field} into the app for "{label}"'
+        )
+        logs.append({"level": "info", "message": msg})
+        return str(file_path), file_hash, file_mtime
+
+    # 3. File-only changed
+    if not db_changed and file_changed:
+        return str(file_path), file_hash, file_mtime
+
+    # 4. DB-only changed
+    if db_changed and not file_changed:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        if db_path:
+            shutil.copy(db_path, file_path)
+        file_mtime = file_path.stat().st_mtime
+        return None, db_hash, file_mtime
+
+    # 5. Both changed with tracked conflict (synced_hash is set)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_mtime_float = file_path.stat().st_mtime if file_exists else None
+
+    if interactive and ask is not None:
+        # Ask the user
+        message = (
+            f'The {field} of "{label}" was changed both in ebookerr and in '
+            f"{file_path.name}. Which version should be kept?"
+        )
+        yes_label = "Keep the ebookerr version"
+        no_label = f"Keep the {file_path.name} version"
+        keep_db = ask(message, yes_label, no_label)
+
+        if keep_db:
+            if db_path:
+                shutil.copy(db_path, file_path)
+            file_mtime_float = file_path.stat().st_mtime
+            msg = f'Conflict on {file_path.name} for "{label}": kept the ebookerr version'
+            logs.append({"level": "warning", "message": msg})
+            return None, db_hash, file_mtime_float
+        else:
+            msg = f'Conflict on {file_path.name} for "{label}": kept the file version'
+            logs.append({"level": "warning", "message": msg})
+            return str(file_path), file_hash, file_mtime_float
+    else:
+        # Unattended: keep app value
+        if db_path:
+            shutil.copy(db_path, file_path)
+        file_mtime_float = file_path.stat().st_mtime
+        msg = (
+            f'Conflict on {file_path.name} for "{label}": kept the ebookerr '
+            "version and rewrote the sidecar"
+        )
+        logs.append({"level": "warning", "message": msg})
+        if notify is not None:
+            notify_msg = (
+                f'Sidecar conflict on "{label}": kept the ebookerr {field} '
+                f"and rewrote {file_path.name} — the file's previous content "
+                "was replaced"
+            )
+            notify("warning", notify_msg)
+        return None, db_hash, file_mtime_float
+
+
+def handle_delete(book: dict[str, Any], library_root: Path, logs: list[Any] | None = None) -> None:
+    """Handle BookDeleted: unlink sidecars, then prune the empty folders (``LIB-D44``).
+
+    After deleting the book's sidecar files, remove the parent folders that become empty,
+    up to but never including the library root. A stored row's file belongs to the core;
+    only its source sidecar is unlinked.
+    """
+    if logs is None:
+        logs = []
+
+    output_filename = book.get("output_filename", "")
+    assets = book.get("assets", [])
+
+    if not output_filename:
+        return
+
+    posix_path = PurePosixPath(output_filename)
+    dir_part = posix_path.parent
+    stem = posix_path.stem
+
+    library_path = library_root / dir_part
+
+    files_to_unlink = [
+        library_path / f"{stem}.back_cover.txt",
+        library_path / f"{stem}.synopsis.txt",
+        # Still cleaned up on delete: T2I.txt if an external tool left one next to the EPUB.
+        library_path / f"{stem}.T2I.txt",
+        library_path / f"{stem}.cover.png",
+    ]
+
+    for asset in assets:
+        if asset.get("storage", "library") == "library" and asset.get("path"):
+            files_to_unlink.append(library_root / asset["path"])
+        elif asset in _own_candidates(assets):
+            source = (asset.get("meta") or {}).get("source_file", "")
+            if _is_bare_filename(source):
+                files_to_unlink.append(library_path / source)
+
+    deleted_count = 0
+    for file_path in files_to_unlink:
+        if file_path.exists():
+            file_path.unlink()
+            deleted_count += 1
+
+    if deleted_count > 0:
+        logs.append(
+            {
+                "level": "info",
+                "message": f"{stem}: deleted {deleted_count} sidecar file(s) on BookDeleted",
+            }
+        )
+        # LIB-D44 — the core removed the EPUB first; the folder empties only now.
+        prune_empty_parents(library_root / output_filename, root=library_root)
+
+
+def handle_purge_action(
+    book: dict[str, Any],
+    library_root: Path,
+    logs: list[Any] | None = None,
+    *,
+    paths: list[str] | None = None,
+    assets: list[Any] | None = None,
+    keep_cover: bool = False,
+) -> list[Any]:
+    """Handle purge_cover_candidates/purge_assets actions. Unlink candidate and source files.
+
+    When paths is a list, unlink library_root / p for each p (skip missing). When paths
+    is None, fall back to the book's own library-storage assets. Each entry in assets
+    names one of this plugin's own purged stored rows; its meta.source_file sidecar is
+    unlinked too. <stem>.cover.png is unlinked unless keep_cover is True. Return []
+    (registry rows already gone).
+
+    Args:
+        book: The book dict from the request.
+        library_root: The library root directory.
+        logs: Optional list to append log entries to.
+        paths: Library-relative paths of removed library rows, or None to fall back to
+            the book's own library-storage assets.
+        assets: This plugin's own removed stored rows, as ``{kind, name, meta}``.
+        keep_cover: When True, the ``<stem>.cover.png`` export is not unlinked (set for
+            a single-asset ``purge_assets`` delete, never for "Delete all candidates").
+
+    Returns:
+        Always an empty list; registry rows are already gone by this point.
+    """
+    if logs is None:
+        logs = []
+
+    output_filename = book.get("output_filename", "")
+
+    if not output_filename:
+        return []
+
+    posix_path = PurePosixPath(output_filename)
+    dir_part = posix_path.parent
+    stem = posix_path.stem
+
+    library_path = library_root / dir_part
+
+    candidates_deleted = _delete_candidates(paths, book, library_root) + _delete_sources(
+        assets or [], library_path
+    )
+
+    covers_deleted = 0
+    if not keep_cover:
+        cover_file = library_path / f"{stem}.cover.png"
+        if cover_file.exists():
+            cover_file.unlink()
+            covers_deleted += 1
+
+    if candidates_deleted + covers_deleted > 0:
+        message = (
+            f"{stem}: purged {candidates_deleted} candidate file(s) "
+            f"and {covers_deleted} cover file(s)"
+        )
+        logs.append(
+            {
+                "level": "info",
+                "message": message,
+            }
+        )
+
+    return []
+
+
+def _delete_candidates(paths: list[str] | None, book: dict[str, Any], library_root: Path) -> int:
+    """Delete candidate files from *paths*, or from the book's library-storage assets.
+
+    The library-storage fallback applies when *paths* is ``None``.
+    """
+    candidates_deleted = 0
+
+    if paths is not None:
+        for p in paths:
+            asset_path = library_root / p
+            if asset_path.exists():
+                asset_path.unlink()
+                candidates_deleted += 1
+    else:
+        assets = book.get("assets", [])
+        for asset in assets:
+            if (
+                asset.get("kind") == "cover_candidate"
+                and asset.get("storage", "library") == "library"
+            ):
+                asset_path = library_root / asset.get("path", "")
+                if asset_path.exists():
+                    asset_path.unlink()
+                    candidates_deleted += 1
+
+    return candidates_deleted
+
+
+def _delete_sources(assets_meta: list[Any], library_path: Path) -> int:
+    """Unlink the sidecar each purged stored row was imported from; return how many were deleted."""
+    deleted = 0
+    for entry in assets_meta:
+        meta = entry.get("meta") if isinstance(entry, dict) else None
+        source = (meta or {}).get("source_file", "")
+        if not isinstance(source, str) or not _is_bare_filename(source):
+            continue
+        target = library_path / source
+        if target.is_file():
+            target.unlink()
+            deleted += 1
+    return deleted
+
+
+def _process_synopsis(
+    book_id: Any,
+    synopsis: str | None,
+    library_path: Path,
+    stem: str,
+    custom_values: dict[str, Any],
+    logs: list[Any],
+    ask: Callable[[str, str, str], bool] | None = None,
+    *,
+    interactive: bool = False,
+    notify: Callable[[str, str], None] | None = None,
+    book_label: str = "",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Process synopsis merge, returning (patch_fields, patch_custom_values)."""
+    patch_fields: dict[str, Any] = {}
+    patch_cv: dict[str, Any] = {}
+
+    synopsis_file = library_path / f"{stem}.back_cover.txt"
+    legacy_file = library_path / f"{stem}.synopsis.txt"
+    if not synopsis_file.exists() and legacy_file.exists():
+        legacy_file.rename(synopsis_file)
+        logs.append(
+            {
+                "level": "info",
+                "message": f"Adopted legacy sidecar {legacy_file.name} as {synopsis_file.name}",
+            }
+        )
+
+    synopsis_synced_hash = custom_values.get("synopsis.synced_hash", {}).get("value")
+    resolved_syn, resolved_hash, resolved_mtime = merge_text(
+        book_id,
+        synopsis,
+        synopsis_file,
+        synopsis_synced_hash,
+        logs,
+        ask=ask,
+        interactive=interactive,
+        notify=notify,
+        book_label=book_label,
+    )
+
+    if resolved_syn is not None:
+        patch_fields["synopsis"] = resolved_syn
+        logs.append(
+            {
+                "level": "info",
+                "message": f"{stem}: back_cover.txt adopted into DB",
+            }
+        )
+    if resolved_hash is not None:
+        patch_cv["synopsis.synced_hash"] = {
+            "value": resolved_hash,
+            "value_type": "string",
+            "updated_at": None,
+        }
+        patch_cv["synopsis.synced_mtime"] = {
+            "value": str(resolved_mtime),
+            "value_type": "string",
+            "updated_at": None,
+        }
+        if resolved_syn is None:
+            logs.append(
+                {
+                    "level": "info",
+                    "message": f"{stem}: back_cover.txt written",
+                }
+            )
+
+    return patch_fields, patch_cv
+
+
+def _process_cover(
+    book_id: Any,
+    cover_ref: str | None,
+    library_path: Path,
+    stem: str,
+    custom_values: dict[str, Any],
+    logs: list[Any],
+    ask: Callable[[str, str, str], bool] | None = None,
+    *,
+    interactive: bool = False,
+    notify: Callable[[str, str], None] | None = None,
+    book_label: str = "",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Process cover merge, returning (patch_fields, patch_custom_values)."""
+    patch_fields: dict[str, Any] = {}
+    patch_cv: dict[str, Any] = {}
+
+    cover_file = library_path / f"{stem}.cover.png"
+    cover_synced_hash = custom_values.get("cover.synced_hash", {}).get("value")
+    resolved_path, resolved_hash, resolved_mtime = merge_bytes(
+        book_id,
+        cover_ref,
+        cover_file,
+        cover_synced_hash,
+        logs,
+        ask=ask,
+        interactive=interactive,
+        notify=notify,
+        book_label=book_label,
+    )
+
+    if resolved_path is not None:
+        patch_fields["cover_ref"] = resolved_path
+    if resolved_hash is not None:
+        patch_cv["cover.synced_hash"] = {
+            "value": resolved_hash,
+            "value_type": "string",
+            "updated_at": None,
+        }
+        patch_cv["cover.synced_mtime"] = {
+            "value": str(resolved_mtime),
+            "value_type": "string",
+            "updated_at": None,
+        }
+        logs.append(
+            {
+                "level": "info",
+                "message": f"{stem}: cover sidecar written (cover.png)",
+            }
+        )
+
+    return patch_fields, patch_cv
+
+
+def process_book(
+    book: dict[str, Any],
+    library_root: Path,
+    ask: Callable[[str, str, str], bool] | None = None,
+    *,
+    interactive: bool = False,
+    notify: Callable[[str, str], None] | None = None,
+) -> dict[str, Any] | None:
+    """Process a single book, returning a patch dict or None.
+
+    Args:
+        book: The book as a plain mapping (the wire shape).
+        library_root: The library root the book's paths are relative to.
+        ask: Asks a Yes/No question; raises ``PromptAbandoned`` when abandoned.
+        interactive: Whether a conflict may ask the user.
+        notify: Called as ``notify(kind, message)`` when an unattended conflict replaced a
+            sidecar's content.
+
+    Returns:
+        The patch mapping, or ``None`` when nothing changed and nothing was logged.
+    """
+    book_id: str = book.get("book_id", "")
+    output_filename: str = book.get("output_filename", "")
+    synopsis: str | None = book.get("synopsis")
+    cover_ref: str | None = book.get("cover_ref")
+    assets: list[Any] = book.get("assets", [])
+    custom_values: dict[str, Any] = book.get("custom_values", {})
+
+    if not output_filename:
+        return None
+
+    posix_path = PurePosixPath(output_filename)
+    dir_part = posix_path.parent
+    stem = posix_path.stem
+    book_label = book.get("title") or stem
+
+    patch_fields: dict[str, Any] = {}
+    patch_custom_values: dict[str, Any] = {}
+    logs: list[Any] = []
+
+    library_path = library_root / dir_part
+
+    candidate_writes = discover_candidates(library_path, stem, assets)
+    imported = 0
+    removed = 0
+    for w in candidate_writes:
+        if "data" in w:
+            imported += 1
+            logs.append({"level": "debug", "message": f"{stem}: imported candidate {w['name']}"})
+        elif w.get("delete"):
+            removed += 1
+            logs.append({"level": "debug", "message": f"{stem}: removed candidate {w['name']}"})
+    if imported or removed:
+        logs.append(
+            {
+                "level": "info",
+                "message": f"{stem}: {imported} candidate(s) imported, {removed} removed",
+            }
+        )
+    oversized = _oversized_candidates(library_path, stem)
+    if oversized:
+        logs.append(
+            {
+                "level": "warning",
+                "message": f"{stem}: {oversized} candidate file(s) over 25 MiB not imported",
+            }
+        )
+
+    effective_ask = ask if interactive else None
+
+    syn_fields, syn_cv = _process_synopsis(
+        book_id,
+        synopsis,
+        library_path,
+        stem,
+        custom_values,
+        logs,
+        effective_ask,
+        interactive=interactive,
+        notify=notify,
+        book_label=book_label,
+    )
+    patch_fields.update(syn_fields)
+    patch_custom_values.update(syn_cv)
+
+    cov_fields, cov_cv = _process_cover(
+        book_id,
+        cover_ref,
+        library_path,
+        stem,
+        custom_values,
+        logs,
+        effective_ask,
+        interactive=interactive,
+        notify=notify,
+        book_label=book_label,
+    )
+    patch_fields.update(cov_fields)
+    patch_custom_values.update(cov_cv)
+
+    if not (patch_fields or patch_custom_values or candidate_writes or logs):
+        return None
+
+    changed = bool(patch_fields or patch_custom_values or candidate_writes)
+    logs.append(
+        {
+            "level": "debug",
+            "message": f"{stem}: processed (changed={changed})",
+        }
+    )
+
+    result: dict[str, Any] = {
+        "book_id": book_id,
+        "fields": patch_fields,
+        "custom_values": patch_custom_values,
+    }
+
+    if candidate_writes:
+        result["assets"] = candidate_writes
+
+    if logs:
+        result["logs"] = logs
+
+    return result
+
+
+def _process_books(  # noqa: C901
+    books: list[dict[str, Any]],
+    library_root: Path,
+    logs: list[Any],
+    *,
+    event: str | None = None,
+    settings: Mapping[str, Any] | None = None,
+    ui_context: Mapping[str, str] | None = None,
+    interactive: bool = False,
+    ask: Callable[[str, str, str], bool] | None = None,
+    report: Callable[[float], None] | None = None,
+    notify: Callable[[str, str], None] | None = None,
+) -> list[Any]:
+    """Process *books* for one call: the BookDeleted clean-up, a purge action, or the sync.
+
+    A ``PromptAbandoned`` raised while syncing one book propagates: the batch stops there and
+    the books after it are left as they were (EXP-233).
+
+    Args:
+        books: The books as plain mappings (``_book_dict``).
+        library_root: The library root the books' paths are relative to.
+        logs: Collects ``{"level", "message"}`` entries for the run.
+        event: The triggering event's name (``"BookDeleted"``…), or ``None``.
+        settings: The plugin's settings (``delete_on_book_delete``).
+        ui_context: The headed trigger's context (``action``, ``paths``, ``assets``).
+        interactive: Whether a conflict may ask the user.
+        ask: Asks a Yes/No question; raises ``PromptAbandoned`` when abandoned.
+        report: Receives the percentage of books done after each book.
+        notify: Receives ``(kind, message)`` for a durable notice.
+
+    Returns:
+        The patch mappings (empty for a delete or a purge).
+    """
+    settings = settings or {}
+    ui = ui_context or {}
+    result: list[Any] = []
+    total = len(books)
+
+    def progress(index: int) -> None:
+        """Report the share of books done once the book at *index* is done."""
+        if report is not None:
+            report((index + 1) / total * 100.0 if total else 100.0)
+
+    if event == "BookDeleted":
+        if settings.get("delete_on_book_delete", True):
+            for index, book in enumerate(books):
+                handle_delete(book, library_root, logs)
+                progress(index)
+        else:
+            logs.append(
+                {"level": "info", "message": "delete_on_book_delete is off: sidecar files kept"}
+            )
+    elif ui.get("action") in {"purge_cover_candidates", "purge_assets"}:
+        paths = json.loads(ui["paths"]) if ui.get("paths") else None
+        purged_assets = json.loads(ui["assets"]) if ui.get("assets") else []
+        keep_cover = ui.get("action") == "purge_assets"
+        for index, book in enumerate(books):
+            deletes = handle_purge_action(
+                book, library_root, logs, paths=paths, assets=purged_assets, keep_cover=keep_cover
+            )
+            if deletes:
+                result.append({"book_id": book.get("book_id", ""), "assets": deletes})
+            progress(index)
+    else:
+        for index, book in enumerate(books):
+            patch = process_book(
+                book, library_root, ask=ask, interactive=interactive, notify=notify
+            )
+            if patch:
+                result.append(patch)
+            progress(index)
+    return result
+
+
+def _book_dict(view: BookView) -> dict[str, Any]:
+    """Return *view* as the plain mapping the sidecar functions read (the wire shape)."""
+    return {
+        "book_id": view.book_id,
+        "title": view.title,
+        "output_filename": view.output_filename or "",
+        "synopsis": view.synopsis,
+        "cover_ref": view.cover_ref,
+        "assets": [
+            {
+                "kind": asset.kind,
+                "name": asset.name,
+                "path": asset.path,
+                "media_type": asset.media_type,
+                "updated_at": asset.updated_at,
+                "storage": asset.storage,
+                "namespace": asset.namespace,
+                "meta": dict(asset.meta),
+            }
+            for asset in view.assets
+        ],
+        "custom_values": {
+            key: {"value": cv.value, "value_type": cv.value_type, "updated_at": cv.updated_at}
+            for key, cv in view.custom_values.items()
+        },
+    }
+
+
+def _book_patch(result: Mapping[str, Any]) -> BookPatch:
+    """Return one patch mapping of ``_process_books`` as a ``BookPatch``."""
+    assets: list[AssetWrite] = []
+    for write in result.get("assets", []):
+        if write.get("delete"):
+            assets.append(AssetWrite(kind=write["kind"], name=write["name"], delete=True))
+        else:
+            assets.append(
+                AssetWrite(
+                    kind=write["kind"],
+                    name=write["name"],
+                    media_type=write.get("media_type"),
+                    data=base64.b64decode(write["data"]),
+                    meta=dict(write.get("meta") or {}),
+                )
+            )
+    return BookPatch(
+        book_id=str(result.get("book_id", "")),
+        fields=dict(result.get("fields", {})),
+        custom_values={
+            key: CustomValueWrite(
+                value=cv["value"], value_type=cv["value_type"], updated_at=cv.get("updated_at")
+            )
+            for key, cv in result.get("custom_values", {}).items()
+        },
+        assets=tuple(assets),
+    )
+
+
+def _emit_logs(logger: logging.Logger, entries: list[Any]) -> None:
+    """Write each ``{"level", "message"}`` entry through *logger* at its level."""
+    for entry in entries:
+        level = getattr(logging, str(entry.get("level", "info")).upper(), logging.INFO)
+        logger.log(level, "%s", entry.get("message", ""))
+
+
+def _asker(ctx: PluginContext) -> Callable[[str, str, str], bool]:
+    """Return a Yes/No prompt over *ctx* that raises ``PromptAbandoned`` when abandoned."""
+
+    def ask(message: str, yes: str, no: str) -> bool:
+        """Ask through the core; an abandoned prompt stops the run without writing (EXP-233)."""
+        answer = ctx.ask_yes_no(message, yes, no)
+        if answer is None:
+            raise PromptAbandoned
+        return answer
+
+    return ask
+
+
+class FileMetaSyncPlugin:
+    """File metadata sync: a book's sidecar files and its record, kept in step (``GEN-TR-8``)."""
+
+    manifest = package_manifest(__file__)
+
+    def settings_schema(self) -> SettingsSchema:
+        """Return the settings schema the manifest declares."""
+        return self.manifest.settings_schema
+
+    def enrich(self, books: tuple[BookView, ...], ctx: PluginContext) -> list[BookPatch]:
+        """Sync, clean up or purge the sidecar files of *books*, as the call asks.
+
+        ``BookDeleted`` unlinks each book's sidecars (when ``delete_on_book_delete`` is on); the
+        ``purge_cover_candidates``/``purge_assets`` actions unlink the purged candidates' files;
+        any other call runs the 3-way sync of the synopsis, the cover and the cover candidates.
+        Progress is reported per book, a conflict settled unattended leaves a durable notice,
+        and an abandoned prompt stops the run with no patch (EXP-233).
+
+        Args:
+            books: The books of this call.
+            ctx: The call's context.
+
+        Returns:
+            One patch per changed book.
+
+        Raises:
+            ValueError: The request carries no library root.
+        """
+        library_root = ctx.library_root
+        if library_root is None:
+            raise ValueError("No library_root in request")
+        logs: list[Any] = []
+        try:
+            results = _process_books(
+                [_book_dict(view) for view in books],
+                library_root,
+                logs,
+                event=ctx.event_type.value if ctx.event_type is not None else None,
+                settings=ctx.settings,
+                ui_context=ctx.ui_context,
+                interactive=ctx.mode == InvocationMode.HEADED,
+                ask=_asker(ctx),
+                report=lambda percent: ctx.report(percent),
+                notify=lambda kind, message: ctx.notify(kind, message, durable=True),
+            )
+        except PromptAbandoned:
+            logs.append(
+                {"level": "warning", "message": "prompt abandoned — stopped without writing"}
+            )
+            results = []
+        _emit_logs(ctx.logger, logs)
+        patches: list[BookPatch] = []
+        for result in results:
+            _emit_logs(ctx.logger, result.get("logs", []))
+            patches.append(_book_patch(result))
+        return patches

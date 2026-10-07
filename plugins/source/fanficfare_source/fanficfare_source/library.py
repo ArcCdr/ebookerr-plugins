@@ -1,7 +1,8 @@
 """FanFicFare run inside this plugin's own process (``LIB-D25``).
 
 ``FanFicFareLibraryGateway`` is the :class:`~fanficfare_source.protocol.FanFicFareGateway` the pull
-engine uses. Each call builds a FanFicFare configuration (:mod:`fanficfare_source.fff_support`) with
+engine uses. Each call builds a FanFicFare configuration (:mod:`fanficfare_source.fff_support`) from
+the plugin's settings, the user's advanced FanFicFare options and the site's stored sign-in, under
 the fixed update policy of :data:`UPDATE_OVERRIDES` (``LIB-D27``), asks FanFicFare's adapter for the
 story and, for a download, writes the EPUB with FanFicFare's own writer — what FanFicFare's command
 line does for ``--update-epub``: a staged EPUB is rebuilt in place, fetching only the chapters it
@@ -14,7 +15,7 @@ and the plugin process is the isolation boundary: the core ends it on a cancel o
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -26,12 +27,15 @@ from fanficfare.configurable import Configuration
 from fanficfare.epubutils import get_update_data
 
 from fanficfare_source.fff_support import (
+    apply_sign_in,
     build_configuration,
     captured_stdout,
     config_sections,
     failure_message,
     is_outage,
+    packaged_base_ini,
     quiet_fanficfare_logging,
+    settings_options,
 )
 from fanficfare_source.protocol import (
     UNREADABLE_MESSAGE,
@@ -41,7 +45,7 @@ from fanficfare_source.protocol import (
 )
 
 if TYPE_CHECKING:
-    from ebookerr_sdk.spi import CircuitGuard
+    from ebookerr_sdk.spi import CircuitGuard, SiteCredential
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +60,8 @@ UPDATE_OVERRIDES: Mapping[str, str] = MappingProxyType(
         "update_check_recent_chapters": "1",
         "update_preserve_deleted_chapters": "true",
         "output_filename_safepattern": UNICODE_SAFEPATTERN,
+        "output_filename": "${title}${formatext}",
+        "make_directories": "false",
     }
 )
 """The fixed policy of every FanFicFare run (``LIB-D27``).
@@ -64,7 +70,9 @@ UPDATE_OVERRIDES: Mapping[str, str] = MappingProxyType(
 stages it with a fresh mtime). ``never_make_cover``: ebookerr manages covers; every former
 command-line run set it. ``update_check_recent_chapters``: re-fetch the newest chapter and keep it
 only if its text changed. ``update_preserve_deleted_chapters``: keep chapters the site removed.
-``output_filename_safepattern``: :data:`UNICODE_SAFEPATTERN`.
+``output_filename_safepattern``: :data:`UNICODE_SAFEPATTERN`. ``output_filename`` and
+``make_directories``: FanFicFare names no folder — the file lands in the work folder as
+``<title>.epub`` and ebookerr chooses where a new book goes (``D56``).
 """
 
 
@@ -114,10 +122,11 @@ class FanFicFareLibraryGateway:
     method returns a ``DownloadResult`` and never raises (failures are encoded in
     the result).
 
-    The instance receives the FanFicFare configuration file (``personal_ini`` as a
-    Path) and an optional circuit breaker (``circuit`` as a CircuitGuard). The
-    ``_configuration()`` method builds the story's configuration with fixed update
-    overrides. The circuit breaker is consulted via ``_circuit_key()`` to extract
+    The instance receives the plugin's resolved settings (``settings``), a lookup of a
+    site's stored sign-in (``credentials``) and an optional circuit breaker (``circuit`` as a
+    CircuitGuard). The ``_configuration()`` method builds the story's configuration from the
+    settings, the user's advanced FanFicFare options and the stored sign-in, under the fixed
+    update overrides. The circuit breaker is consulted via ``_circuit_key()`` to extract
     the host key and label, ``_blocked()`` to check if a call should be refused,
     and ``_record()`` to report an outage as a failure.
 
@@ -126,18 +135,27 @@ class FanFicFareLibraryGateway:
         refused without making any request: ``fetch_metadata`` returns ``None`` and
         ``download`` returns a ``DownloadResult`` with status ``"failed"``. A failure
         is recorded only when an outage occurs (via ``_record(ok=False)``). The
-        instance retains the configuration file path and circuit breaker across
+        instance retains the settings, the sign-in lookup and the circuit breaker across
         multiple calls and uses them for all subsequent invocations.
     """
 
-    def __init__(self, personal_ini: Path, *, circuit: CircuitGuard | None = None) -> None:
-        """Remember the configuration file and the breakers; quiet FanFicFare's logging.
+    def __init__(
+        self,
+        settings: Mapping[str, Any],
+        *,
+        credentials: Callable[[str], SiteCredential | None] | None = None,
+        circuit: CircuitGuard | None = None,
+    ) -> None:
+        """Remember the settings, the sign-in lookup and the breakers; quiet FanFicFare's logging.
 
         Args:
-            personal_ini: This install's FanFicFare ``personal.ini``.
+            settings: The plugin's resolved settings (ctx.settings), read on every call.
+            credentials: Returns the stored sign-in of a URL's site (ctx.credentials); None signs
+                in nowhere.
             circuit: The app's shared circuit breakers (``SPI 2.21``); ``None`` records nothing.
         """
-        self._personal_ini = personal_ini
+        self._settings = settings
+        self._credentials = credentials
         self._circuit = circuit
         quiet_fanficfare_logging()
 
@@ -186,13 +204,29 @@ class FanFicFareLibraryGateway:
         return None
 
     def _configuration(self, url: str) -> Configuration:
-        """Build the story's configuration with :data:`UPDATE_OVERRIDES`."""
-        return build_configuration(
+        """Build the story's configuration: settings, advanced options, update policy, sign-in.
+
+        The settings are read now, so a change to them takes effect on the next call. The site's
+        stored sign-in, when it has one, goes on top of everything (``C36``).
+
+        Args:
+            url: The story address.
+
+        Returns:
+            The FanFicFare configuration for *url*.
+        """
+        config = build_configuration(
             config_sections(url, unknown_site_ok=False),
-            self._personal_ini,
             fileform="epub",
+            base_ini=packaged_base_ini(),
+            options=settings_options(self._settings),
+            extra_options=str(self._settings.get("extra_options") or ""),
             overrides=UPDATE_OVERRIDES,
         )
+        host = (urlsplit(url).hostname or "").lower()
+        credential = self._credentials(url) if self._credentials is not None else None
+        apply_sign_in(config, credential, host)
+        return config
 
     def fetch_metadata(self, url: str) -> dict[str, Any] | None:
         """Return the story's metadata without fetching any chapter, or ``None`` on any failure.
@@ -316,6 +350,8 @@ class FanFicFareLibraryGateway:
                 total = int(adapter.story.getChapterCount())
                 on_chapter(min(total, round(fraction * total)), total)
 
+        # make_directories is off (D56), so FanFicFare would not create a stored path's folder
+        target.parent.mkdir(parents=True, exist_ok=True)
         writers.getWriter("epub", config, adapter).writeStory(
             outfilename=str(target), forceOverwrite=True, notification=_notify
         )

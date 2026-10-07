@@ -24,23 +24,23 @@ def _embedded_json(path: Path) -> dict[str, Any]:
     return json.loads(text[text.index("{") : text.rindex("}") + 1])
 
 
-def test_maps_real_the_12th_key(fanficfare_fixtures: Path) -> None:
-    data = _embedded_json(fanficfare_fixtures / "the-12th-key.create.stdout")
+def test_maps_the_sample_beta_capture(fanficfare_fixtures: Path) -> None:
+    data = _embedded_json(fanficfare_fixtures / "sample-beta.create.stdout")
     f = fanficfare_json_to_book_fields(data)
 
-    assert f["title"] == "The 12th Key"
-    assert f["author"] == "gabthewriter"
-    assert f["story_id"] == "the-12th-key"
-    assert f["story_url"] == "https://www.literotica.com/s/the-12th-key"
-    assert f["section_url"] == "https://www.literotica.com/s/the-12th-key"
-    assert f["author_url"].endswith("/gabthewriter/works/stories")
+    assert f["title"] == "Sample Beta"
+    assert f["author"] == "writerbeta"
+    assert f["story_id"] == "sample-beta"
+    assert f["story_url"] == "https://www.literotica.com/s/sample-beta"
+    assert f["section_url"] == "https://www.literotica.com/s/sample-beta"
+    assert f["author_url"].endswith("/writerbeta/works/stories")
     assert f["category"] == "Erotic Horror"
     assert "Gang Bang" in f["tags"]
     assert f["site"] == "literotica.com"
     assert f["status"] == "Completed"
     assert f["date_published"] == datetime(2026, 5, 19, tzinfo=UTC)
     assert f["date_updated"] == datetime(2026, 5, 19, tzinfo=UTC)
-    assert f["output_filename"] == "gabthewriter/The 12th Key.epub"
+    assert f["output_filename"] == "writerbeta/Sample Beta.epub"
     # numeric coercion + empty-string-to-None
     assert f["num_chapters"] == 1
     assert f["num_words"] is None
@@ -58,10 +58,10 @@ def test_maps_multi_chapter_fixture(fanficfare_fixtures: Path) -> None:
 
 def test_fields_are_valid_book_kwargs(fanficfare_fixtures: Path) -> None:
     """Every mapped key should be compatible with a Book constructor."""
-    data = _embedded_json(fanficfare_fixtures / "the-12th-key.create.stdout")
+    data = _embedded_json(fanficfare_fixtures / "sample-beta.create.stdout")
     fields = fanficfare_json_to_book_fields(data)
-    assert fields["title"] == "The 12th Key"
-    assert fields["author"] == "gabthewriter"
+    assert fields["title"] == "Sample Beta"
+    assert fields["author"] == "writerbeta"
     # Verify that the structure is as expected (would be valid for Book constructor)
     assert isinstance(fields, dict)
     assert "title" in fields
@@ -69,8 +69,8 @@ def test_fields_are_valid_book_kwargs(fanficfare_fixtures: Path) -> None:
 
 
 def test_sanitize_strips_tags_and_decodes_entities() -> None:
-    html = '<div class="_widget__info_1absz_119">Nightmares turned fantasy come to life.</div>'
-    assert sanitize(html) == "Nightmares turned fantasy come to life."
+    html = '<div class="_widget__info_1absz_119">A short tale told in one sitting.</div>'
+    assert sanitize(html) == "A short tale told in one sitting."
     assert sanitize("<p>Chapter one. <b>Bold</b> bits.</p>") == "Chapter one. Bold bits."
     assert sanitize("Tom &amp; Jerry &lt;3") == "Tom & Jerry <3"
 
@@ -165,11 +165,11 @@ def test_json_to_fields_dates_not_sanitised() -> None:
 
 class TestSanitiseAtPersistence:
     def test_description_html_stripped(self, fanficfare_fixtures: Path) -> None:
-        data = _embedded_json(fanficfare_fixtures / "the-12th-key.create.stdout")
+        data = _embedded_json(fanficfare_fixtures / "sample-beta.create.stdout")
         f = fanficfare_json_to_book_fields(data)
         # Raw JSON description is HTML; must be stored as plain text.
         assert "<" not in f["description"]
-        assert f["description"] == "Nightmares turned fantasy come to life."
+        assert f["description"] == "A short tale told in one sitting."
 
     def test_title_and_author_sanitised(self) -> None:
         f = fanficfare_json_to_book_fields(

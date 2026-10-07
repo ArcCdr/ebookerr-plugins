@@ -162,13 +162,13 @@ class TestExtractStories:
     def test_extract_derives_a_readable_title(self) -> None:
         """Assert title is derived from the URL path."""
         pages = FakePages(
-            urls_by_listing={"https://x.test/l": ["https://x.test/s/the-senators-daughter-ch-01"]}
+            urls_by_listing={"https://x.test/l": ["https://x.test/s/sample-fern-ch-01"]}
         )
         plugin = UrlStoryExtractorPlugin(pages=pages)
         ctx = FakeCtx()
         patches = plugin.extract_stories("https://x.test/l", ctx)
         assert len(patches) == 1
-        assert patches[0].title == "The Senators Daughter Ch. 01"
+        assert patches[0].title == "Sample Fern Ch. 01"
 
     def test_extract_falls_back_to_the_url_as_title(self) -> None:
         """Assert title falls back to the full URL when no path."""
@@ -229,36 +229,36 @@ class TestExtractStories:
         """Assert author_url is derived from the listing URL."""
         pages = FakePages(
             urls_by_listing={
-                "https://www.literotica.com/authors/Morgan_Ellis/works/stories": [
-                    "https://www.literotica.com/s/joan-of-snark-ch-02"
+                "https://www.literotica.com/authors/Writer_Zeta/works/stories": [
+                    "https://www.literotica.com/s/sample-theta-ch-02"
                 ]
             }
         )
         plugin = UrlStoryExtractorPlugin(pages=pages)
         ctx = FakeCtx()
         patches = plugin.extract_stories(
-            "https://www.literotica.com/authors/Morgan_Ellis/works/stories", ctx
+            "https://www.literotica.com/authors/Writer_Zeta/works/stories", ctx
         )
         assert len(patches) == 1
-        assert patches[0].author_url == "https://www.literotica.com/authors/Morgan_Ellis"
+        assert patches[0].author_url == "https://www.literotica.com/authors/Writer_Zeta"
 
     def test_extract_sets_author_and_author_url_together(self) -> None:
         """Assert author and author_url are both set from the listing URL."""
         pages = FakePages(
             urls_by_listing={
-                "https://www.literotica.com/authors/Morgan_Ellis/works/stories": [
-                    "https://www.literotica.com/s/joan-of-snark-ch-02"
+                "https://www.literotica.com/authors/Writer_Zeta/works/stories": [
+                    "https://www.literotica.com/s/sample-theta-ch-02"
                 ]
             }
         )
         plugin = UrlStoryExtractorPlugin(pages=pages)
         ctx = FakeCtx()
         patches = plugin.extract_stories(
-            "https://www.literotica.com/authors/Morgan_Ellis/works/stories", ctx
+            "https://www.literotica.com/authors/Writer_Zeta/works/stories", ctx
         )
         assert len(patches) == 1
-        assert patches[0].author == "Morgan Ellis"
-        assert patches[0].author_url == "https://www.literotica.com/authors/Morgan_Ellis"
+        assert patches[0].author == "Writer Zeta"
+        assert patches[0].author_url == "https://www.literotica.com/authors/Writer_Zeta"
 
     def test_extract_leaves_author_url_none_for_an_unrecognised_listing(self) -> None:
         """Assert author_url is None when listing URL is not recognized."""

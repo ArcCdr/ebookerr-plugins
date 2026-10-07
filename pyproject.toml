@@ -63,6 +63,10 @@ mypy_path = [
     "plugins/source/rtf_download_source", "plugins/source/fanficfare_source",
     "plugins/book/llm_synopsis", "plugins/book/llm_cover", "plugins/book/kavita_sync",
     "plugins/book/komga_sync", "plugins/catalog/url_story_extractor",
+    "plugins/book/file_meta_sync",
+    "plugins/catalog/literotica_stories",
+    "plugins/catalog/my_literotica",
+    "plugins/catalog/patreon_stories",
 ]
 
 [[tool.mypy.overrides]]

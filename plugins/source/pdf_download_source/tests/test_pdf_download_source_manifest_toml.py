@@ -21,3 +21,9 @@ def test_the_manifest_declares_the_converter_role() -> None:
     assert manifest.formats == ("pdf",)
     assert manifest.spi_version == "3.0"
     assert isinstance(PdfDownloadSourcePlugin(), Converting)
+
+
+def test_the_source_receives_the_sign_in_of_any_site() -> None:
+    """The Source receives the sign-in of the site it downloads from (auth_sites = [\"*\"])."""
+    manifest = PdfDownloadSourcePlugin.manifest
+    assert manifest.auth_sites == ("*",)

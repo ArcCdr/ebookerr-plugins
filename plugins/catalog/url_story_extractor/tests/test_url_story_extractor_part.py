@@ -13,11 +13,11 @@ class TestRule1DifferentStoryUrl:
     def test_a_different_story_url_is_a_part(self) -> None:
         """When meta.storyUrl differs from the requested URL, metadata is the parent's."""
         assert _is_part(
-            "https://www.literotica.com/s/joan-of-snark-ch-02",
-            "Joan Of Snark Ch. 02",
+            "https://www.literotica.com/s/sample-theta-ch-02",
+            "Sample Theta Ch. 02",
             {
-                "storyUrl": "https://www.literotica.com/series/se/133778587",
-                "title": "Joan of Snark",
+                "storyUrl": "https://www.literotica.com/series/se/900000003",
+                "title": "Sample Theta",
                 "numChapters": "17",
             },
         )
@@ -25,11 +25,11 @@ class TestRule1DifferentStoryUrl:
     def test_the_same_story_url_is_not_a_part(self) -> None:
         """When meta.storyUrl equals the requested URL, Rule 1 does not fire."""
         assert not _is_part(
-            "https://www.literotica.com/s/angelas-stepfather-ch-03",
-            "Angelas Stepfather Ch. 03",
+            "https://www.literotica.com/s/sample-iota-ch-03",
+            "Sample Iota Ch. 03",
             {
-                "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                "title": "Angela's Stepfather Ch. 03",
+                "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                "title": "Sample Iota Ch. 03",
                 "numChapters": "1",
             },
         )
@@ -65,11 +65,11 @@ class TestRule2ChapterUrlUnderMultiChapterTitle:
     def test_a_chapter_url_under_a_multi_chapter_title_is_a_part(self) -> None:
         """URL has chapter, metadata title has none, metadata count > 1: metadata is parent's."""
         assert _is_part(
-            "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-            "Caleb By Pastmaster 7",
+            "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+            "Sample Nu By Writernu 7",
             {
-                "storyUrl": "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-                "title": "Caleb",
+                "storyUrl": "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+                "title": "Sample Nu",
                 "numChapters": "95",
             },
         )
@@ -77,11 +77,11 @@ class TestRule2ChapterUrlUnderMultiChapterTitle:
     def test_a_single_chapter_work_is_not_a_part(self) -> None:
         """When numChapters is 1, Rule 2 does not fire."""
         assert not _is_part(
-            "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-            "Caleb By Pastmaster 7",
+            "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+            "Sample Nu By Writernu 7",
             {
-                "storyUrl": "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-                "title": "Caleb",
+                "storyUrl": "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+                "title": "Sample Nu",
                 "numChapters": "1",
             },
         )
@@ -89,11 +89,11 @@ class TestRule2ChapterUrlUnderMultiChapterTitle:
     def test_a_missing_chapter_count_is_not_a_part(self) -> None:
         """When numChapters is absent, Rule 2 does not fire."""
         assert not _is_part(
-            "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-            "Caleb By Pastmaster 7",
+            "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+            "Sample Nu By Writernu 7",
             {
-                "storyUrl": "https://storiesonline.net/s/29762/caleb-by-pastmaster/7",
-                "title": "Caleb",
+                "storyUrl": "https://storiesonline.net/s/900005/sample-nu-by-writernu/7",
+                "title": "Sample Nu",
             },
         )
 
