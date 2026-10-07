@@ -3,18 +3,22 @@
 Every first-party plugin that imports FanFicFare carries this file byte for byte — a plugin may
 import only its own package — and the plugins repository's
 ``tests/test_fanficfare_support_twins.py`` fails when two copies differ (``LIB-D26``). It gives its
-plugin four things:
+plugin five things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
-  from FanFicFare's own ``defaults.ini``, the install's ``personal.ini`` and per-call overrides; a
-  parse error never quotes a line of ``personal.ini``, which may hold a site password;
+  from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's settings, its
+  "Advanced FanFicFare options" and per-call overrides; a parse error never quotes a line of the
+  options, which may hold a site password;
 * :func:`quiet_fanficfare_logging` — importing ``fanficfare`` attaches a DEBUG handler that writes
   to stderr, which the core reports as a WARNING after the plugin's run; once quieted, only
   FanFicFare's WARNING and ERROR records reach the log, re-logged through this plugin's logger;
 * :func:`captured_stdout` — the plugin process's stdout carries the core's wire protocol, so what
   FanFicFare prints is captured and logged at DEBUG instead;
 * :func:`failure_message` and :func:`is_outage` — one plain sentence per FanFicFare failure, and
-  whether it means the site was unreachable.
+  whether it means the site was unreachable;
+* :func:`settings_options`, :func:`strip_naming_keys`, :func:`apply_sign_in` and
+  :func:`packaged_base_ini` — the plugin's settings, its advanced options without the file-naming
+  keys, a stored sign-in and its packaged base options, as FanFicFare options.
 """
 
 from __future__ import annotations
@@ -22,12 +26,15 @@ from __future__ import annotations
 import contextlib
 import io
 import logging
+import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
 import fanficfare
 import requests
+from ebookerr_sdk.spi import SiteCredential
 from fanficfare import adapters, exceptions
 from fanficfare.configurable import Configuration
 
@@ -42,9 +49,33 @@ _PRINTED_MAX_CHARS = 2000
 _NO_OVERRIDES: Mapping[str, str] = MappingProxyType({})
 """The default: no per-call option."""
 
+NAMING_KEYS: frozenset[str] = frozenset(
+    {
+        "output_filename",
+        "output_filename_safepattern",
+        "make_directories",
+        "zip_output",
+        "zip_filename",
+        "always_overwrite",
+    }
+)
+"""FanFicFare options that name or place the output file — ebookerr chooses those (``D56``)."""
+
+_DEFAULTS_OPTIONS: tuple[str, ...] = ("is_adult", "include_subject_tags")
+"""Plugin settings written to FanFicFare's ``[defaults]`` section (``C36``)."""
+
+_EPUB_OPTIONS: tuple[str, ...] = ("include_images", "keep_summary_html", "make_firstimage_cover")
+"""Plugin settings written to FanFicFare's ``[epub]`` section (``C36``)."""
+
+_OPTION_LINE = re.compile(r"^([^\s:=#;\[][^:=]*?)\s*[:=]")
+"""An option line of an ini text: a key starting at column 0, then ``:`` or ``=``."""
+
 
 class ConfigurationError(RuntimeError):
-    """``personal.ini`` could not be parsed; the message names only the exception type."""
+    """The plugin's FanFicFare options could not be parsed.
+
+    The message names only the exception type.
+    """
 
 
 class _ForwardHandler(logging.Handler):
@@ -75,6 +106,102 @@ def quiet_fanficfare_logging() -> None:
     fff_logger.addHandler(_ForwardHandler())
 
 
+def packaged_base_ini() -> str:
+    """Return the plugin's packaged FanFicFare base options (``base.ini``, ``C35``)."""
+    return Path(__file__).with_name("base.ini").read_text(encoding="utf-8")
+
+
+def _ini_value(value: Any) -> str:
+    """Render one setting as a FanFicFare option value: booleans or percent-escaped."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).replace("%", "%%")
+
+
+def settings_options(settings: Mapping[str, Any]) -> dict[str, dict[str, str]]:
+    """Return FanFicFare options from the plugin's settings, by section (``C36``).
+
+    Only the settings present are written: ``is_adult`` and ``include_subject_tags`` under
+    ``defaults``; ``include_images``, ``keep_summary_html`` and ``make_firstimage_cover`` under
+    ``epub``.
+
+    Args:
+        settings: The plugin's resolved settings.
+
+    Returns:
+        ``{"defaults": {...}, "epub": {...}}``, values rendered as FanFicFare option text.
+    """
+    options: dict[str, dict[str, str]] = {"defaults": {}, "epub": {}}
+    for key in _DEFAULTS_OPTIONS:
+        if key in settings:
+            options["defaults"][key] = _ini_value(settings[key])
+    for key in _EPUB_OPTIONS:
+        if key in settings:
+            options["epub"][key] = _ini_value(settings[key])
+    return options
+
+
+def strip_naming_keys(text: str) -> str:
+    """Return *text* without the option lines that name or place the file (``D56``, ``C37``).
+
+    A dropped key's continuation lines (the indented lines right after it) go with it. Each dropped
+    key is logged once per call at WARNING; its value never is.
+
+    Args:
+        text: The user's "Advanced FanFicFare options", in FanFicFare's ini format.
+
+    Returns:
+        The same text without those lines.
+    """
+    kept: list[str] = []
+    warned: set[str] = set()
+    dropping = False
+    for line in text.splitlines():
+        if dropping and line[:1] in (" ", "\t") and line.strip():
+            continue
+        dropping = False
+        match = _OPTION_LINE.match(line)
+        key = match.group(1).strip().lower() if match else ""
+        if key in NAMING_KEYS:
+            if key not in warned:
+                warned.add(key)
+                logger.warning(
+                    "FanFicFare option %r is ignored: ebookerr chooses file names and folders", key
+                )
+            dropping = True
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def apply_sign_in(config: Configuration, credential: SiteCredential | None, host: str) -> None:
+    """Put a stored sign-in into the configuration's ``overrides`` section (``C36``, ``C37``).
+
+    A ``basic`` sign-in sets FanFicFare's ``username`` and ``password`` (``%`` doubled — its ini
+    parser interpolates). Any other kind is not used, with one WARNING; ``None`` sets nothing.
+
+    Args:
+        config: The configuration being built.
+        credential: The site's stored sign-in (``ctx.credentials``), or ``None``.
+        host: The site's host, for the log line.
+    """
+    if credential is None:
+        return
+    if credential.kind != "basic":
+        logger.warning(
+            "FanFicFare uses only a username and password; "
+            "the %s sign-in stored for %s is not used",
+            credential.kind,
+            host,
+        )
+        return
+    if not config.has_section("overrides"):
+        config.add_section("overrides")
+    config.set("overrides", "username", credential.name.replace("%", "%%"))
+    config.set("overrides", "password", credential.value.replace("%", "%%"))
+    logger.debug("Using the stored sign-in for %s", host)
+
+
 def config_sections(url: str, *, unknown_site_ok: bool) -> list[str]:
     """Return FanFicFare's configuration sections for *url*.
 
@@ -101,37 +228,60 @@ def config_sections(url: str, *, unknown_site_ok: bool) -> list[str]:
 
 def build_configuration(
     sections: list[str],
-    personal_ini: Path,
     *,
     fileform: str,
+    base_ini: str,
+    options: Mapping[str, Mapping[str, str]],
+    extra_options: str,
     overrides: Mapping[str, str] = _NO_OVERRIDES,
     lightweight: bool = False,
 ) -> Configuration:
-    """Build a FanFicFare configuration: ``defaults.ini``, then *personal_ini*, then *overrides*.
+    """Build a FanFicFare configuration, each layer overriding the ones before it (``C36``).
+
+    The order: FanFicFare's own ``defaults.ini``, then *base_ini*, then *options*, then
+    *extra_options* without the file-naming keys (:func:`strip_naming_keys`), then *overrides*. A
+    stored sign-in goes on top of the result with :func:`apply_sign_in`.
 
     Args:
         sections: What :func:`config_sections` returned for the address.
-        personal_ini: The install's FanFicFare ``personal.ini``.
         fileform: The output format FanFicFare's per-format sections are keyed by.
+        base_ini: The plugin's base options in FanFicFare's ini format (:func:`packaged_base_ini`).
+        options: The plugin's settings as FanFicFare options, by section name
+            (:func:`settings_options`).
+        extra_options: The user's "Advanced FanFicFare options", in FanFicFare's ini format.
         overrides: Option name to value, set in FanFicFare's ``overrides`` section, which wins over
-            every file.
+            every other layer.
         lightweight: FanFicFare's lightweight mode (no output-format machinery).
 
     Returns:
         The configuration.
 
     Raises:
-        ConfigurationError: *personal_ini* could not be parsed. The message carries only the
-            exception's type name and the original is not chained — a parse error quotes the
-            offending line, which may be a site login.
+        ConfigurationError: *base_ini* or *extra_options* could not be parsed. The message carries
+            only the exception's type name and the original is not chained — a parse error quotes
+            the offending line, which may be a site login.
     """
     config = Configuration(sections, fileform, lightweight=lightweight)
     defaults_ini = Path(fanficfare.__file__).parent / "defaults.ini"
     try:
-        config.read([str(defaults_ini), str(personal_ini)])
+        config.read([str(defaults_ini)])
+        config.read_string(base_ini)
     except Exception as exc:  # noqa: BLE001 — none may leak its text
         raise ConfigurationError(
             f"Could not parse FanFicFare configuration: {type(exc).__name__}"
+        ) from None
+    # the plugin's settings: plain values, set after the base options
+    for section, values in options.items():
+        if not config.has_section(section):
+            config.add_section(section)
+        for key, value in values.items():
+            config.set(section, key, value)
+    # the user's advanced options, naming keys dropped, win over the settings
+    try:
+        config.read_string(strip_naming_keys(extra_options))
+    except Exception as exc:  # noqa: BLE001 — none may leak its text
+        raise ConfigurationError(
+            f"Could not read the Advanced FanFicFare options: {type(exc).__name__}"
         ) from None
     if not config.has_section("overrides"):
         config.add_section("overrides")
@@ -178,14 +328,11 @@ def failure_message(exc: BaseException, url: str) -> str:  # noqa: C901
     if isinstance(exc, exceptions.AccessDenied):
         return "the site refused access to this story"
     if isinstance(exc, exceptions.FailedToLogin):
-        return (
-            "the site refused the login — check this site's username and password in "
-            "FanFicFare's personal.ini"
-        )
+        return "the site refused the login — check this site's sign-in in Settings → Credentials"
     if isinstance(exc, exceptions.AdultCheckRequired):
         return (
-            "the site asks you to confirm you are an adult — set is_adult:true in "
-            "FanFicFare's personal.ini"
+            'the site asks you to confirm you are an adult — turn on "Confirm adult content" in '
+            "this plugin's settings"
         )
     if isinstance(exc, exceptions.NeedTimedOneTimePassword):
         return "the site asks for a one-time password, which a background download cannot give"

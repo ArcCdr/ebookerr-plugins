@@ -2,30 +2,43 @@
 
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import json
-import sys
 import urllib.error
 from datetime import UTC
 from pathlib import Path
 from unittest import mock
 
 import pytest
+from ebookerr_sdk.spi import SiteCredential
+from ebookerr_sdk.testing import FakeCircuit, FakeContext, FakeCore, make_request, run_wire
+from ebookerr_sdk.wire import decode_story_patch
+from patreon_stories.plugin import PatreonStoriesPlugin
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("patreon_stories_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["patreon_stories_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+_MODULE = importlib.import_module("patreon_stories.catalog")
 
 _MEMBERSHIPS_FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "memberships.json"
 _MEMBERSHIPS_FIXTURE_DATA = json.loads(_MEMBERSHIPS_FIXTURE_PATH.read_text())
 
 _POSTS_FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "posts_page.json"
 _POSTS_FIXTURE_DATA = json.loads(_POSTS_FIXTURE_PATH.read_text())
+
+_SCAN_TERMINAL_PATH = Path(__file__).resolve().parent / "fixtures" / "scan_terminal.json"
+"""The script-form plugin's terminal response to the request of the SDK-host round-trip test."""
+
+_CREDENTIAL = SiteCredential("cookie", "session_id", "c")
+"""A stored patreon.com session cookie, as ``ctx.credentials`` answers it."""
+
+_NOT_CONFIGURED = (
+    "Patreon session cookie not configured — add a patreon.com profile under Settings → Credentials"
+)
+"""The message of a scan whose sign-in is absent or blank."""
+
+_NEEDS_A_COOKIE = "Patreon needs a cookie sign-in for patreon.com in Settings → Credentials"
+"""The message of a scan whose sign-in is of a kind other than a cookie."""
+
+_CREDENTIALS_FRAME = {"op": "credentials", "url": "https://www.patreon.com/"}
+"""The frame the scan writes to ask the core for the patreon.com sign-in."""
 
 
 def _memberships_payload(campaigns: list[tuple[str, str, str]]) -> dict[str, object]:
@@ -231,7 +244,7 @@ def test_get_json_auth_error_message() -> None:
         mock.patch("urllib.request.urlopen", side_effect=http_error),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE._get_json("https://www.patreon.com/api/test", "fake_cookie")
+        _MODULE._get_json("https://www.patreon.com/api/test", "fake_cookie", circuit=FakeCircuit())
     assert "session cookie missing or expired" in str(exc_info.value).lower()
 
 
@@ -243,7 +256,7 @@ def test_get_json_http_error_message() -> None:
         mock.patch("urllib.request.urlopen", side_effect=http_error),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE._get_json("https://www.patreon.com/api/test", "fake_cookie")
+        _MODULE._get_json("https://www.patreon.com/api/test", "fake_cookie", circuit=FakeCircuit())
     assert "Patreon API error" in str(exc_info.value)
     assert "500" in str(exc_info.value)
 
@@ -262,7 +275,10 @@ def test_get_json_sends_configured_cookie_name() -> None:
 
     with mock.patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
         _MODULE._get_json(
-            "https://www.patreon.com/api/test", "the-value", cookie_name="patreon_token"
+            "https://www.patreon.com/api/test",
+            "the-value",
+            cookie_name="patreon_token",
+            circuit=FakeCircuit(),
         )
 
     sent_request = mock_urlopen.call_args[0][0]
@@ -276,7 +292,7 @@ def test_get_json_defaults_cookie_name_to_session_id() -> None:
     mock_response.read.return_value = b'{"ok": true}'
 
     with mock.patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
-        _MODULE._get_json("https://www.patreon.com/api/test", "the-value")
+        _MODULE._get_json("https://www.patreon.com/api/test", "the-value", circuit=FakeCircuit())
 
     sent_request = mock_urlopen.call_args[0][0]
     assert sent_request.get_header("Cookie") == "session_id=the-value"
@@ -296,12 +312,14 @@ def test_scan_applies_recent_weeks_cutoff() -> None:
     # With recent_weeks=1, cutoff = 2026-07-11, so posts 202 and 203 are old
     # Expected: only post 201 included, pagination stopped (second page never requested)
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {"recent_weeks": "1"}
 
     fetch_log: list[str] = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         fetch_log.append(url)
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -313,7 +331,7 @@ def test_scan_applies_recent_weeks_cutoff() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     # Only post 201 (2026-07-15) is within 1 week
     assert len(stories) == 1
@@ -333,7 +351,7 @@ def test_scan_skips_locked_and_counts() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}  # Default recent_weeks
 
     # Fixture with 201 (can_view=True, has epub) and 202 (can_view=False)
@@ -381,7 +399,9 @@ def test_scan_skips_locked_and_counts() -> None:
         "meta": {"pagination": {"cursors": {}}},
     }
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         elif "api/posts" in url:
@@ -389,7 +409,7 @@ def test_scan_skips_locked_and_counts() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     # Only post 201 should produce a story
     assert len(stories) == 1
@@ -410,7 +430,7 @@ def test_scan_skips_posts_without_files() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     # Fixture with 201 (has epub) and 203 (no media)
@@ -458,7 +478,9 @@ def test_scan_skips_posts_without_files() -> None:
         "meta": {"pagination": {"cursors": {}}},
     }
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         elif "api/posts" in url:
@@ -466,7 +488,7 @@ def test_scan_skips_posts_without_files() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     # Only post 201 should produce a story
     assert len(stories) == 1
@@ -489,7 +511,7 @@ def test_scan_dedupes_by_url() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     # Create two campaigns
@@ -497,7 +519,9 @@ def test_scan_dedupes_by_url() -> None:
         [("111", "Demo Campaign", "Demo Creator"), ("222", "Second Campaign", "Second Creator")]
     )
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return memberships_2camps
         elif "api/posts" in url:
@@ -506,7 +530,7 @@ def test_scan_dedupes_by_url() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     # Both campaigns yield same URLs, should be deduplicated
     urls = [s["url"] for s in stories]
@@ -523,7 +547,7 @@ def test_scan_pagination_follows_cursor() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     # Modify posts_page to have next cursor
@@ -563,7 +587,9 @@ def test_scan_pagination_follows_cursor() -> None:
 
     fetch_calls = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         fetch_calls.append(url)
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -575,7 +601,7 @@ def test_scan_pagination_follows_cursor() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     # Both pages should be fetched
     posts_calls = [c for c in fetch_calls if "api/posts" in c]
@@ -585,18 +611,33 @@ def test_scan_pagination_follows_cursor() -> None:
     assert len(stories) >= 2, "Should have stories from both pages"
 
 
-def test_scan_no_auth_raises_actionable_error() -> None:
-    """Empty auth → scan() raises RuntimeError with actionable message."""
+@pytest.mark.parametrize(
+    "credential",
+    [None, SiteCredential("cookie", "session_id", "")],
+    ids=["nothing stored", "blank value"],
+)
+def test_scan_no_auth_raises_actionable_error(credential: SiteCredential | None) -> None:
+    """No usable stored sign-in → scan() raises RuntimeError with actionable message."""
     with pytest.raises(RuntimeError) as exc_info:
-        _MODULE.scan({}, {})
+        _MODULE.scan(credential, {}, FakeContext())
 
     error_msg = str(exc_info.value)
+    assert error_msg == _NOT_CONFIGURED
     assert "Patreon session cookie not configured" in error_msg
-    assert "Settings → Site authentication" in error_msg
+    assert "Settings → Credentials" in error_msg
+
+
+@pytest.mark.parametrize("kind", ["basic", "header", "bearer"])
+def test_a_non_cookie_sign_in_is_refused_with_its_message(kind: str) -> None:
+    """A stored sign-in that is not a cookie is named as such, whatever its value."""
+    with pytest.raises(RuntimeError) as exc_info:
+        _MODULE.scan(SiteCredential(kind, "u", "p"), {}, FakeContext())
+
+    assert str(exc_info.value) == _NEEDS_A_COOKIE
 
 
 def test_scan_uses_configured_cookie_name() -> None:
-    """scan() threads the site-auth profile's 'name' field through to every _get_json call."""
+    """scan() threads the stored sign-in's cookie name through to every _get_json call."""
     from datetime import datetime
 
     fake_now_dt = datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
@@ -604,24 +645,26 @@ def test_scan_uses_configured_cookie_name() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"name": "patreon_token", "value": "test_cookie"}}
+    credential = SiteCredential("cookie", "patreon_token", "test_cookie")
     captured_names: list[str] = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         captured_names.append(cookie_name)
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         return _POSTS_FIXTURE_DATA
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _MODULE.scan(auth, {}, fake_now)
+        _MODULE.scan(credential, {}, FakeContext(), now_fn=fake_now)
 
     assert captured_names, "expected _get_json to have been called at least once"
     assert all(name == "patreon_token" for name in captured_names)
 
 
 def test_scan_defaults_cookie_name_when_profile_has_no_name() -> None:
-    """No 'name' on the site-auth profile (legacy data) → scan() falls back to 'session_id'."""
+    """A stored sign-in with no cookie name → scan() falls back to 'session_id'."""
     from datetime import datetime
 
     fake_now_dt = datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
@@ -629,40 +672,63 @@ def test_scan_defaults_cookie_name_when_profile_has_no_name() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}  # no "name" key
+    credential = SiteCredential("cookie", "", "test_cookie")  # no cookie name
     captured_names: list[str] = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         captured_names.append(cookie_name)
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         return _POSTS_FIXTURE_DATA
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _MODULE.scan(auth, {}, fake_now)
+        _MODULE.scan(credential, {}, FakeContext(), now_fn=fake_now)
 
     assert captured_names, "expected _get_json to have been called at least once"
     assert all(name == "session_id" for name in captured_names)
 
 
-def test_main_no_auth_outputs_ok_false(capsys: pytest.CaptureFixture) -> None:
-    """main() with no auth via stdin → JSON output has ok=False and cookie error message."""
-    import builtins
+def test_no_sign_in_answers_ok_false_with_its_message() -> None:
+    """Served by the SDK host with no stored sign-in, a scan answers ok=false and says why."""
+    terminal, _frames = run_wire(PatreonStoriesPlugin(), make_request("scan"), core=FakeCore())
 
-    request_json = json.dumps({"op": "scan", "request": {"auth": {}, "settings": {}}})
+    assert terminal["ok"] is False
+    assert terminal["error"] == _NOT_CONFIGURED
 
-    with (
-        mock.patch.object(builtins, "input", return_value=request_json),
-        pytest.raises(SystemExit),
-    ):
-        _MODULE.main()
 
-    captured = capsys.readouterr()
-    output = json.loads(captured.out)
+def test_patreon_stories_runs_on_the_sdk_host(monkeypatch) -> None:
+    """Served by the SDK host, a scan answers the stories, logs and progress the script wrote."""
+    expected = json.loads(_SCAN_TERMINAL_PATH.read_text(encoding="utf-8"))
+    last_page = {**_POSTS_FIXTURE_DATA, "meta": {"pagination": {"cursors": {}}}}
+    cookies_sent: list[tuple[str, str]] = []
 
-    assert output["ok"] is False
-    assert "Patreon session cookie not configured" in output["error"]
-    assert "Settings → Site authentication" in output["error"]
+    def fake_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
+        cookies_sent.append((cookie_name, session_cookie))
+        return _MEMBERSHIPS_FIXTURE_DATA if url == _MODULE.MEMBERSHIPS_URL else last_page
+
+    monkeypatch.setattr(_MODULE, "_get_json", fake_get_json)
+    core = FakeCore(credentials_by_host={"www.patreon.com": _CREDENTIAL})
+
+    terminal, frames = run_wire(
+        PatreonStoriesPlugin(), make_request("scan", settings={"recent_weeks": 5200}), core=core
+    )
+
+    assert terminal["ok"] is True
+    assert [decode_story_patch(d) for d in terminal["result"]] == [
+        decode_story_patch(d) for d in expected["result"]
+    ]
+    # Every log entry the script wrote is still written, in the same order (the host may add more).
+    remaining = iter(terminal["logs"])
+    assert all(entry in remaining for entry in expected["logs"])
+    # The sign-in came from the core, and its cookie name and value reached every request.
+    assert [f for f in frames if f.get("op") == "credentials"] == [_CREDENTIALS_FRAME]
+    assert set(cookies_sent) == {("session_id", "c")}
+    percents = [f["percent"] for f in frames if f.get("op") == "progress"]
+    assert pytest.approx(percents) == [100.0]
 
 
 def test_manifest_parses_with_auth_sites() -> None:
@@ -1157,16 +1223,8 @@ def test_build_story_format_txt_for_text_mimes() -> None:
     assert story["format"] == "txt"
 
 
-def test_report_progress_writes_a_progress_frame(capsys: pytest.CaptureFixture) -> None:
-    """_report_progress(42.5) → stdout emits {"op": "progress", "percent": 42.5}."""
-    _MODULE._report_progress(42.5)
-    captured = capsys.readouterr()
-    output = json.loads(captured.out)
-    assert output == {"op": "progress", "percent": 42.5}
-
-
-def test_scan_reports_once_per_campaign(capsys: pytest.CaptureFixture) -> None:
-    """Four campaigns → progress frames at 25%, 50%, 75%, 100%."""
+def test_scan_reports_once_per_campaign() -> None:
+    """Four campaigns → progress reports at 25%, 50%, 75%, 100%."""
     from datetime import datetime
 
     fake_now_dt = datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
@@ -1174,7 +1232,7 @@ def test_scan_reports_once_per_campaign(capsys: pytest.CaptureFixture) -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     # Create a stub with 4 campaigns
@@ -1187,7 +1245,9 @@ def test_scan_reports_once_per_campaign(capsys: pytest.CaptureFixture) -> None:
         ]
     )
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return memberships_4camps
         elif "api/posts" in url:
@@ -1195,22 +1255,16 @@ def test_scan_reports_once_per_campaign(capsys: pytest.CaptureFixture) -> None:
             return {"data": [], "included": [], "meta": {"pagination": {"cursors": {}}}}
         raise ValueError(f"Unexpected URL: {url}")
 
+    ctx = FakeContext()
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, ctx, now_fn=fake_now)
 
-    captured = capsys.readouterr()
-    lines = [line for line in captured.out.split("\n") if line.strip()]
-    progress_lines = [line for line in lines if "progress" in line]
-
-    progress_values = []
-    for line in progress_lines:
-        parsed = json.loads(line)
-        progress_values.append(parsed["percent"])
+    progress_values = [percent for percent, _note, _detail in ctx.reports]
 
     assert progress_values == pytest.approx([25.0, 50.0, 75.0, 100.0])
 
 
-def test_scan_reports_a_failed_campaign(capsys: pytest.CaptureFixture) -> None:
+def test_scan_reports_a_failed_campaign() -> None:
     """Two campaigns, first raises RuntimeError → scan() raises with campaign name."""
     from datetime import datetime
 
@@ -1219,7 +1273,7 @@ def test_scan_reports_a_failed_campaign(capsys: pytest.CaptureFixture) -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     memberships_2camps = _memberships_payload(
@@ -1228,7 +1282,9 @@ def test_scan_reports_a_failed_campaign(capsys: pytest.CaptureFixture) -> None:
 
     call_count = 0
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         nonlocal call_count
         if "api/current_user" in url:
             return memberships_2camps
@@ -1244,7 +1300,7 @@ def test_scan_reports_a_failed_campaign(capsys: pytest.CaptureFixture) -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     error_msg = str(exc_info.value)
     assert "Campaign 1" in error_msg
@@ -1261,18 +1317,20 @@ def test_scan_returns_empty_when_the_account_has_no_memberships() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     memberships_none = _memberships_payload([])
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return memberships_none
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     assert stories == []
 
@@ -1288,9 +1346,7 @@ def test_scan_returns_empty_when_the_account_has_no_memberships() -> None:
     assert len(warning_logs) == 0
 
 
-def test_scan_reports_progress_to_completion_on_an_empty_account(
-    capsys: pytest.CaptureFixture,
-) -> None:
+def test_scan_reports_progress_to_completion_on_an_empty_account() -> None:
     """Empty account scan reports progress to 100%."""
     from datetime import datetime
 
@@ -1299,25 +1355,24 @@ def test_scan_reports_progress_to_completion_on_an_empty_account(
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     memberships_none = _memberships_payload([])
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return memberships_none
         raise ValueError(f"Unexpected URL: {url}")
 
+    ctx = FakeContext()
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, ctx, now_fn=fake_now)
 
-    captured = capsys.readouterr()
-    lines = [line for line in captured.out.split("\n") if line.strip()]
-    progress_frames = [json.loads(line) for line in lines if "progress" in line]
-
-    # Check that a 100% progress frame was emitted
-    progress_100 = [f for f in progress_frames if f.get("percent") == 100.0]
+    # Check that a 100% progress report was made
+    progress_100 = [percent for percent, _note, _detail in ctx.reports if percent == 100.0]
     assert len(progress_100) == 1
 
 
@@ -1330,12 +1385,14 @@ def test_scan_raises_when_patreon_does_not_accept_the_cookie() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     rejected_payload = {"data": None, "included": []}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return rejected_payload
         raise ValueError(f"Unexpected URL: {url}")
@@ -1344,11 +1401,11 @@ def test_scan_raises_when_patreon_does_not_accept_the_cookie() -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     error_msg = str(exc_info.value)
     assert "Patreon did not accept the stored session cookie" in error_msg
-    assert "Settings → Site authentication" in error_msg
+    assert "Settings → Credentials" in error_msg
 
 
 def test_scan_raises_when_the_pledges_payload_has_no_user_object() -> None:
@@ -1360,12 +1417,14 @@ def test_scan_raises_when_the_pledges_payload_has_no_user_object() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     no_data_payload = {"included": []}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return no_data_payload
         raise ValueError(f"Unexpected URL: {url}")
@@ -1374,11 +1433,11 @@ def test_scan_raises_when_the_pledges_payload_has_no_user_object() -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     error_msg = str(exc_info.value)
     assert "Patreon did not accept the stored session cookie" in error_msg
-    assert "Settings → Site authentication" in error_msg
+    assert "Settings → Credentials" in error_msg
 
 
 def test_scan_raises_when_the_user_object_has_a_blank_id() -> None:
@@ -1390,12 +1449,14 @@ def test_scan_raises_when_the_user_object_has_a_blank_id() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     blank_id_payload = {"data": {"id": "", "type": "user"}, "included": []}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return blank_id_payload
         raise ValueError(f"Unexpected URL: {url}")
@@ -1404,11 +1465,11 @@ def test_scan_raises_when_the_user_object_has_a_blank_id() -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     error_msg = str(exc_info.value)
     assert "Patreon did not accept the stored session cookie" in error_msg
-    assert "Settings → Site authentication" in error_msg
+    assert "Settings → Credentials" in error_msg
 
 
 def test_is_authenticated_accepts_a_signed_in_payload() -> None:
@@ -1437,7 +1498,7 @@ def test_is_authenticated_rejects_a_non_dict_data() -> None:
     assert _MODULE.is_authenticated({}) is False
 
 
-def test_scan_emits_no_progress_when_pledges_fetch_fails(capsys: pytest.CaptureFixture) -> None:
+def test_scan_emits_no_progress_when_pledges_fetch_fails() -> None:
     """_get_json raises RuntimeError → scan() raises."""
     from datetime import datetime
 
@@ -1446,19 +1507,23 @@ def test_scan_emits_no_progress_when_pledges_fetch_fails(capsys: pytest.CaptureF
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         raise RuntimeError("boom")
 
+    ctx = FakeContext()
     with (
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, ctx, now_fn=fake_now)
 
     assert "boom" in str(exc_info.value)
+    assert ctx.reports == []
 
 
 def test_build_story_declares_metadata_fetched() -> None:
@@ -1486,17 +1551,19 @@ def test_scan_raises_on_a_fetch_failure_instead_of_reporting_empty() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         raise RuntimeError("HTTP 500")
 
     with (
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     assert "HTTP 500" in str(exc_info.value)
 
@@ -1511,17 +1578,19 @@ def test_scan_raises_on_an_auth_failure() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         raise RuntimeError("HTTP 401")
 
     with (
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     assert "401" in str(exc_info.value)
 
@@ -1536,7 +1605,7 @@ def test_scan_raises_when_a_single_campaign_fails() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     # Create a second campaign for testing
@@ -1553,7 +1622,9 @@ def test_scan_raises_when_a_single_campaign_fails() -> None:
 
     call_count = 0
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         nonlocal call_count
         if "api/current_user" in url:
             return memberships_2camps
@@ -1569,7 +1640,7 @@ def test_scan_raises_when_a_single_campaign_fails() -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan(auth, settings, fake_now)
+        _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     error_msg = str(exc_info.value)
     assert "Campaign" in error_msg
@@ -1586,12 +1657,14 @@ def test_scan_with_zero_recent_posts_returns_empty_successfully() -> None:
     def fake_now() -> datetime:
         return fake_now_dt
 
-    auth = {"patreon.com": {"value": "test_cookie"}}
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
     settings = {}
 
     empty_posts = {"data": [], "included": [], "meta": {"pagination": {"cursors": {}}}}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         elif "api/posts" in url:
@@ -1599,7 +1672,7 @@ def test_scan_with_zero_recent_posts_returns_empty_successfully() -> None:
         raise ValueError(f"Unexpected URL: {url}")
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan(auth, settings, fake_now)
+        stories, logs = _MODULE.scan(credential, settings, FakeContext(), now_fn=fake_now)
 
     assert stories == []
     # Should not raise, logs should be populated
@@ -1728,14 +1801,16 @@ def test_scan_discovers_campaigns_through_active_memberships() -> None:
     last_page = {**_POSTS_FIXTURE_DATA, "meta": {"pagination": {"cursors": {}}}}
     requested: list[str] = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         requested.append(url)
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         return last_page
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, _logs = _MODULE.scan({"patreon.com": {"value": "c"}}, {}, lambda: fake_now_dt)
+        stories, _logs = _MODULE.scan(_CREDENTIAL, {}, FakeContext(), now_fn=lambda: fake_now_dt)
 
     assert requested[0] == _MODULE.MEMBERSHIPS_URL
     assert "include=active_memberships.campaign.creator" in requested[0]
@@ -1747,11 +1822,13 @@ def test_scan_discovers_campaigns_through_active_memberships() -> None:
 def test_scan_routes_a_skipped_campaign_warning_into_the_scan_log() -> None:
     """A campaign parse_campaigns skips is reported in the logs scan() returns."""
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         return _campaign_without_url_payload()
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, logs = _MODULE.scan({"patreon.com": {"value": "c"}}, {})
+        stories, logs = _MODULE.scan(_CREDENTIAL, {}, FakeContext())
 
     assert stories == []
     assert {"level": "warning", "message": _SKIPPED_222} in logs
@@ -1797,13 +1874,15 @@ def test_scan_labels_stories_with_their_membership() -> None:
     fake_now_dt = datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
     last_page = {**_POSTS_FIXTURE_DATA, "meta": {"pagination": {"cursors": {}}}}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         return last_page
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        stories, _logs = _MODULE.scan({"patreon.com": {"value": "c"}}, {}, lambda: fake_now_dt)
+        stories, _logs = _MODULE.scan(_CREDENTIAL, {}, FakeContext(), now_fn=lambda: fake_now_dt)
 
     assert stories[0]["custom"]["Membership"] == "Cancelled (access until 31 Jul 2026)"
 
@@ -1871,13 +1950,15 @@ def test_scan_logs_one_membership_summary_and_one_line_per_campaign() -> None:
     fake_now_dt = datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
     empty_page = {"data": [], "included": [], "meta": {"pagination": {"cursors": {}}}}
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _three_memberships_payload()
         return empty_page
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _stories, logs = _MODULE.scan({"patreon.com": {"value": "c"}}, {}, lambda: fake_now_dt)
+        _stories, logs = _MODULE.scan(_CREDENTIAL, {}, FakeContext(), now_fn=lambda: fake_now_dt)
 
     counts = " 0 stories kept, 0 locked posts skipped, 0 posts without a supported file"
     messages = [entry["message"] for entry in logs if entry["level"] == "info"]
@@ -1916,14 +1997,16 @@ def test_scan_warns_when_a_campaign_hits_the_page_limit() -> None:
     }
     posts_calls: list[str] = []
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         posts_calls.append(url)
         return endless_page
 
     with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
-        _stories, logs = _MODULE.scan({"patreon.com": {"value": "c"}}, {}, lambda: fake_now_dt)
+        _stories, logs = _MODULE.scan(_CREDENTIAL, {}, FakeContext(), now_fn=lambda: fake_now_dt)
 
     assert len(posts_calls) == 20
     expected = (
@@ -1936,7 +2019,9 @@ def test_scan_warns_when_a_campaign_hits_the_page_limit() -> None:
 def test_scan_failure_names_the_campaign_in_double_quotes() -> None:
     """A failing campaign's error names it in double quotes with its id."""
 
-    def mock_get_json(url: str, session_cookie: str, cookie_name: str = "session_id") -> dict:
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
         raise RuntimeError("boom")
@@ -1945,7 +2030,7 @@ def test_scan_failure_names_the_campaign_in_double_quotes() -> None:
         mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json),
         pytest.raises(RuntimeError) as exc_info,
     ):
-        _MODULE.scan({"patreon.com": {"value": "c"}}, {})
+        _MODULE.scan(_CREDENTIAL, {}, FakeContext())
 
     expected = 'Campaign "Demo Campaign" (campaign_id=111): scan failed: boom'
     assert str(exc_info.value) == expected

@@ -16,7 +16,6 @@ from fanficfare_source import library
 from fanficfare_source.library import FanFicFareLibraryGateway
 from fanficfare_source.plugin import FanFicFareSourcePlugin
 
-PACKAGED_INI = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
 URL = "http://test1.com?sid=1"
 KEY = "host:test1.com"
 REFUSED = "test1.com is not reachable; retrying automatically"
@@ -73,8 +72,8 @@ class MockGuardContext:
 
 
 def _gateway(circuit: MockCircuit | None) -> FanFicFareLibraryGateway:
-    """A library gateway over the packaged personal.ini and *circuit*."""
-    return FanFicFareLibraryGateway(PACKAGED_INI, circuit=circuit)
+    """A library gateway over FanFicFare's own defaults and *circuit*."""
+    return FanFicFareLibraryGateway({}, circuit=circuit)
 
 
 @pytest.mark.pins("EXP-269")
@@ -293,11 +292,8 @@ def test_the_skip_is_logged_at_info(tmp_path: Path, caplog: pytest.LogCaptureFix
 
 
 @pytest.mark.pins("EXP-269")
-def test_the_plugin_passes_its_context_circuit_to_the_gateway(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_plugin_passes_its_context_circuit_to_the_gateway() -> None:
     """The plugin builds the library gateway over the context's own circuit breakers."""
-    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path))
     ctx = FakeContext()
 
     engine = FanFicFareSourcePlugin()._engine(ctx)

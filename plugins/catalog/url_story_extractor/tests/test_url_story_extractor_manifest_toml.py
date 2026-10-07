@@ -5,30 +5,6 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-import pytest
-from url_story_extractor.plugin import default_pages
-
-
-def test_the_default_gateway_reads_the_fanficfare_sources_file_when_present(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The shared site-login file wins over the packaged default (D37)."""
-    shared = tmp_path / "fanficfare_source" / "personal.ini"
-    shared.parent.mkdir()
-    shared.write_text("[defaults]\n", encoding="utf-8")
-    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "url_story_extractor"))
-    assert default_pages()._personal_ini == shared
-
-
-def test_the_default_gateway_falls_back_to_the_packaged_copy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """With no shared file, the packaged default beside the plugin is read (D37)."""
-    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "url_story_extractor"))
-    packaged = Path(__file__).resolve().parents[1] / "url_story_extractor" / "personal.ini"
-    assert default_pages()._personal_ini == packaged
-    assert packaged.is_file()
-
 
 def test_the_manifest_declares_the_story_extractor_role() -> None:
     """The manifest declares the story-extractor role with url patterns and settings reference."""
@@ -58,3 +34,16 @@ def test_the_extractor_is_version_1_3_0() -> None:
     from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
     assert UrlStoryExtractorPlugin.manifest.version == "1.3.0"
+
+
+def test_the_extractor_declares_its_fanficfare_settings() -> None:
+    """The extractor has its own FanFicFare settings and receives any site's sign-in (C36, D55)."""
+    from url_story_extractor.plugin import UrlStoryExtractorPlugin
+
+    manifest = UrlStoryExtractorPlugin.manifest
+    last_two = manifest.settings_schema.fields[-2:]
+
+    assert [field.key for field in last_two] == ["is_adult", "extra_options"]
+    assert [field.type for field in last_two] == ["bool", "textarea"]
+    assert [field.default for field in last_two] == [True, ""]
+    assert manifest.auth_sites == ("*",)

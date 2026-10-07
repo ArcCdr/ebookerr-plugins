@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
-import contextlib
-import importlib.util
+import importlib
 import json
-import sys
 import tomllib
 import urllib.parse
 from pathlib import Path
 
 import pytest
+from ebookerr_sdk.testing import FakeCircuit, FakeContext, make_request, run_wire
+from ebookerr_sdk.wire import decode_story_patch
+from literotica_stories.plugin import LiteroticaStoriesPlugin
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("literotica_stories_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["literotica_stories_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+_MODULE = importlib.import_module("literotica_stories.catalog")
 
 _FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "search_page.json"
 _FIXTURE_DATA = json.loads(_FIXTURE_PATH.read_text())
+_SCAN_TERMINAL_PATH = Path(__file__).resolve().parent / "fixtures" / "scan_terminal.json"
+"""The script-form plugin's terminal response to the settings of the SDK-host round-trip test."""
 
 
 def test_parse_search_url_full() -> None:
@@ -76,16 +72,16 @@ def test_map_story_core_fields() -> None:
     """map_story returns correct core StoryPatch fields."""
     story_a = _FIXTURE_DATA["data"][0]
     result = _MODULE.map_story(story_a)
-    assert result["url"] == "https://www.literotica.com/s/not-another-spiral-story"
-    assert result["title"] == "Not Another Spiral Story"
-    assert result["author"] == "4SomeoneSpecial"
-    assert result["author_url"] == "https://www.literotica.com/authors/4SomeoneSpecial"
+    assert result["url"] == "https://www.literotica.com/s/sample-sigma"
+    assert result["title"] == "Sample Sigma"
+    assert result["author"] == "reader_five"
+    assert result["author_url"] == "https://www.literotica.com/authors/reader_five"
     assert result["category"] == "Mind Control"
     assert result["tags"] == "wlw, hypnosis"
     assert result["rating"] == 4.52
     assert result["num_words"] == 2999
     assert result["date_published"] == "2026-07-03"
-    assert result["story_id"] == "4450510"
+    assert result["story_id"] == "9000007"
     assert result["site"] == "literotica.com"
     assert "series" not in result
     assert "series_url" not in result
@@ -132,8 +128,8 @@ def test_map_story_series() -> None:
     """map_story with series dict extracts series fields."""
     story_b = _FIXTURE_DATA["data"][1]
     result = _MODULE.map_story(story_b)
-    assert result["series"] == "Bad Mom And Naughty Shrink"
-    assert result["series_url"] == "https://www.literotica.com/series/se/495401236"
+    assert result["series"] == "Sample Tau"
+    assert result["series_url"] == "https://www.literotica.com/series/se/900000009"
     assert result["custom"]["Series Parts"] == 2
 
 
@@ -179,7 +175,7 @@ def test_apply_thresholds_empty_keeps_all() -> None:
 def test_scan_fetches_and_maps(monkeypatch) -> None:
     """scan fetches and maps stories, returns result and logs."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -189,7 +185,7 @@ def test_scan_fetches_and_maps(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=a"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
     assert len(stories) == 2
     assert all(isinstance(s, dict) for s in stories)
 
@@ -207,7 +203,7 @@ def test_scan_paginates_until_short_page(monkeypatch) -> None:
     """scan stops paging when a page has fewer than PAGE_SIZE stories."""
     call_list = []
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         call_list.append(url)
         if len(call_list) == 1:
             # First page: 50 stories
@@ -237,7 +233,7 @@ def test_scan_paginates_until_short_page(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=a"],
         "max_pages": 3,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
     assert len(call_list) == 2
     assert len(stories) == 52
 
@@ -246,7 +242,7 @@ def test_scan_respects_max_pages(monkeypatch) -> None:
     """scan stops after max_pages even if all pages are full."""
     call_list = []
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         call_list.append(url)
         # Always return a full 50-story page
         return {
@@ -267,7 +263,7 @@ def test_scan_respects_max_pages(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=a"],
         "max_pages": 2,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
     assert len(call_list) == 2
 
 
@@ -275,7 +271,7 @@ def test_scan_start_page_from_url(monkeypatch) -> None:
     """scan starts paging from URL's page parameter."""
     call_list = []
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         call_list.append(url)
         # Always return a full page to prevent short-circuit
         return {
@@ -296,7 +292,7 @@ def test_scan_start_page_from_url(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=a&page=3"],
         "max_pages": 2,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Both URLs passed to fake should contain page 3 and 4
     assert "%22page%22%3A3" in call_list[0]
@@ -306,7 +302,7 @@ def test_scan_start_page_from_url(monkeypatch) -> None:
 def test_scan_thresholds_filter(monkeypatch) -> None:
     """scan applies thresholds and logs kept count."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -317,7 +313,7 @@ def test_scan_thresholds_filter(monkeypatch) -> None:
         "max_pages": 1,
         "min_thresholds": {"rating": 4.6},
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Fixture stories both have rating 4.52, which is < 4.6, so 0 kept
     assert len(stories) == 0
@@ -330,7 +326,7 @@ def test_scan_thresholds_filter(monkeypatch) -> None:
 def test_scan_dedupes_across_urls(monkeypatch) -> None:
     """scan deduplicates stories by URL across multiple search URLs."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -343,7 +339,7 @@ def test_scan_dedupes_across_urls(monkeypatch) -> None:
         ],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Both URLs return the same 2 stories, but they should be deduplicated
     assert len(stories) == 2
@@ -359,7 +355,7 @@ def test_scan_raises_when_the_first_page_fails(monkeypatch) -> None:
     """scan raises RuntimeError when the first page fetch fails."""
     import urllib.error
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         raise urllib.error.URLError("down")
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -371,7 +367,7 @@ def test_scan_raises_when_the_first_page_fails(monkeypatch) -> None:
     }
 
     with pytest.raises(RuntimeError) as exc_info:
-        _MODULE.scan(settings)
+        _MODULE.scan(settings, FakeContext())
 
     # Check that error message contains "page"
     assert "page" in str(exc_info.value).lower()
@@ -381,7 +377,7 @@ def test_scan_raises_on_a_mid_paging_failure(monkeypatch) -> None:
     """scan raises RuntimeError when a mid-paging fetch fails."""
     call_count = [0]
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         call_count[0] += 1
         if call_count[0] == 1:
             # First page: full page (50 stories)
@@ -408,14 +404,14 @@ def test_scan_raises_on_a_mid_paging_failure(monkeypatch) -> None:
     }
 
     with pytest.raises(RuntimeError):
-        _MODULE.scan(settings)
+        _MODULE.scan(settings, FakeContext())
 
 
 def test_scan_raises_when_one_of_two_urls_fails(monkeypatch) -> None:
     """scan raises RuntimeError when one of multiple URLs fails (not short listing)."""
     call_count = [0]
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         call_count[0] += 1
         if call_count[0] == 1:
             # First URL succeeds
@@ -436,13 +432,13 @@ def test_scan_raises_when_one_of_two_urls_fails(monkeypatch) -> None:
     }
 
     with pytest.raises(RuntimeError):
-        _MODULE.scan(settings)
+        _MODULE.scan(settings, FakeContext())
 
 
 def test_scan_with_an_empty_listing_is_a_successful_empty_scan(monkeypatch) -> None:
     """scan returns empty result when page 1 has no data, without raising."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {"data": []}
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -452,7 +448,7 @@ def test_scan_with_an_empty_listing_is_a_successful_empty_scan(monkeypatch) -> N
         "search_urls": ["https://search.literotica.com/?query=a"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Should return empty list without raising
     assert stories == []
@@ -463,7 +459,7 @@ def test_scan_with_an_empty_listing_is_a_successful_empty_scan(monkeypatch) -> N
 def test_scan_warns_on_unknown_params(monkeypatch) -> None:
     """scan warns when URL has unknown search parameters."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -473,7 +469,7 @@ def test_scan_warns_on_unknown_params(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=a&foo=1"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Check for warning log about unknown params
     warn_logs = [entry for entry in logs if entry["level"] == "warning"]
@@ -487,12 +483,6 @@ def test_fetch_json_retries_once_on_429(monkeypatch) -> None:
 
     call_count = [0]
     sleep_calls = []
-    stdin_responses = [
-        '{"circuit": {"open": false}}\n',  # is_open response
-        '{"circuit": {"open": false}}\n',  # first record response (429)
-        '{"circuit": {"open": false}}\n',  # second record response (success)
-    ]
-    stdin_iter = iter(stdin_responses)
 
     def fake_urlopen(request, timeout=None):
         call_count[0] += 1
@@ -507,78 +497,66 @@ def test_fetch_json_retries_once_on_429(monkeypatch) -> None:
     def fake_sleep(duration):
         sleep_calls.append(duration)
 
-    def fake_stdin_readline():
-        return next(stdin_iter, "")
-
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     monkeypatch.setattr(_MODULE.time, "sleep", fake_sleep)
-    monkeypatch.setattr("sys.stdin.readline", fake_stdin_readline)
 
-    result = _MODULE.fetch_json("https://example.com")
+    result = _MODULE.fetch_json("https://example.com", circuit=FakeCircuit())
     assert result == {"data": [], "meta": {}}
     assert len(sleep_calls) == 1
     assert sleep_calls[0] == _MODULE._RETRY_DELAY_S
 
 
-def test_main_scan_roundtrip(monkeypatch) -> None:
-    """main reads scan request, calls scan, outputs JSON response."""
+def test_literotica_stories_runs_on_the_sdk_host(monkeypatch) -> None:
+    """Served by the SDK host, a scan answers the stories, logs and progress the script wrote."""
+    expected = json.loads(_SCAN_TERMINAL_PATH.read_text(encoding="utf-8"))
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return _FIXTURE_DATA
-
-    stdin_data = json.dumps(
-        {
-            "spi_version": "3.0",
-            "op": "scan",
-            "request": {"settings": {"search_urls": ["https://search.literotica.com/?query=a"]}},
-        }
-    )
-    captured_stdout = []
-
-    def fake_print(*args, **kwargs):
-        captured_stdout.append(" ".join(str(a) for a in args))
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
     monkeypatch.setattr(_MODULE.time, "sleep", lambda _: None)
-    monkeypatch.setattr("builtins.input", lambda: stdin_data)
-    monkeypatch.setattr("builtins.print", fake_print)
+    settings = {
+        "search_urls": ["https://search.literotica.com/?query=a"],
+        "max_pages": 1,
+        "min_thresholds": {},
+    }
 
-    _MODULE.main()
+    terminal, frames = run_wire(LiteroticaStoriesPlugin(), make_request("scan", settings=settings))
 
-    # The final response is the one starting with {"ok"...
-    response_output = next((line for line in captured_stdout if line.startswith('{"ok"')), None)
-    assert response_output is not None, f"No response found in {captured_stdout}"
-    parsed = json.loads(response_output)
-    assert parsed["ok"] is True
-    assert len(parsed["result"]) == 2
-    assert isinstance(parsed["logs"], list)
+    assert terminal["ok"] is True
+    assert [decode_story_patch(d) for d in terminal["result"]] == [
+        decode_story_patch(d) for d in expected["result"]
+    ]
+    # Every log entry the script wrote is still written, in the same order (the host may add more).
+    remaining = iter(terminal["logs"])
+    assert all(entry in remaining for entry in expected["logs"])
+    assert any(f.get("op") == "progress" and f.get("percent") == 100.0 for f in frames)
 
 
-def test_main_bad_op_reports_error(monkeypatch) -> None:
-    """main reports error for unsupported operation."""
+def test_an_unsupported_op_is_refused() -> None:
+    """The host refuses an op the plugin does not implement, naming it."""
+    terminal, _frames = run_wire(LiteroticaStoriesPlugin(), make_request("pull"))
 
-    stdin_data = json.dumps(
-        {
-            "spi_version": "3.0",
-            "op": "pull",
-            "request": {"settings": {}},
-        }
+    assert terminal["ok"] is False
+    assert "unsupported op" in terminal["error"]
+
+
+def test_a_scan_failure_is_reported_verbatim(monkeypatch) -> None:
+    """A failed fetch answers ok=false with the scan's own message, without a type prefix."""
+
+    def failing_fetch(url: str, *, circuit: object) -> dict:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(_MODULE, "fetch_json", failing_fetch)
+    monkeypatch.setattr(_MODULE.time, "sleep", lambda _: None)
+    settings = {"search_urls": ["https://search.literotica.com/?query=a"], "max_pages": 1}
+
+    terminal, _frames = run_wire(LiteroticaStoriesPlugin(), make_request("scan", settings=settings))
+
+    assert terminal["ok"] is False
+    assert (
+        terminal["error"] == "scan failed for https://search.literotica.com/?query=a page 1: boom"
     )
-    captured_stdout = []
-
-    def fake_print(*args, **kwargs):
-        captured_stdout.append(" ".join(str(a) for a in args))
-
-    monkeypatch.setattr("builtins.input", lambda: stdin_data)
-    monkeypatch.setattr("builtins.print", fake_print)
-
-    with contextlib.suppress(SystemExit):
-        _MODULE.main()
-
-    output = captured_stdout[0]
-    parsed = json.loads(output)
-    assert parsed["ok"] is False
-    assert "unsupported operation" in parsed["error"]
 
 
 def test_story_url_prefix_by_type() -> None:
@@ -660,18 +638,10 @@ def test_manifest_spi_3_0() -> None:
     assert manifest.version == "2.2.0"
 
 
-def test_report_progress_writes_a_progress_frame(capsys) -> None:
-    """_report_progress emits a progress frame JSON on stdout."""
-    _MODULE._report_progress(42.5)
-    captured = capsys.readouterr()
-    parsed = json.loads(captured.out)
-    assert parsed == {"op": "progress", "percent": 42.5}
-
-
-def test_literotica_scan_reports_once_per_search_url(monkeypatch, capsys) -> None:
+def test_literotica_scan_reports_once_per_search_url(monkeypatch) -> None:
     """scan reports progress once per search URL with increasing percents."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         # Return a single short page (fewer items than PAGE_SIZE)
         return {
             "data": [
@@ -690,24 +660,21 @@ def test_literotica_scan_reports_once_per_search_url(monkeypatch, capsys) -> Non
         "search_urls": ["u1", "u2", "u3", "u4"],
         "max_pages": 1,
     }
-    _MODULE.scan(settings)
+    ctx = FakeContext()
+    _MODULE.scan(settings, ctx)
 
-    captured = capsys.readouterr()
-    lines = [line.strip() for line in captured.out.split("\n") if line.strip()]
-    progress_frames = [json.loads(line) for line in lines if line.startswith('{"op": "progress"')]
-
-    percents = [frame["percent"] for frame in progress_frames]
+    percents = [percent for percent, _note, _detail in ctx.reports]
 
     assert pytest.approx(percents) == [25.0, 50.0, 75.0, 100.0]
 
 
-def test_literotica_scan_with_no_urls_emits_no_progress(capsys) -> None:
-    """scan with empty search_urls list emits no progress frame."""
+def test_literotica_scan_with_no_urls_emits_no_progress() -> None:
+    """scan with empty search_urls list reports no progress."""
     settings = {"search_urls": []}
-    _MODULE.scan(settings)
+    ctx = FakeContext()
+    _MODULE.scan(settings, ctx)
 
-    captured = capsys.readouterr()
-    assert '{"op": "progress"' not in captured.out
+    assert ctx.reports == []
 
 
 def test_category_name_maps_the_reported_examples() -> None:
@@ -792,7 +759,7 @@ def test_category_table_values_are_non_empty_strings() -> None:
 def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
     """scan emits exactly one aggregated warning for an unmapped category."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {
             "data": [
                 {
@@ -815,7 +782,7 @@ def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=x"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     warn_logs = [entry for entry in logs if entry["level"] == "warning"]
     unmapped_warnings = [
@@ -832,7 +799,7 @@ def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
 def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
     """scan lists all unique (id, slug) pairs in a single warning."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {
             "data": [
                 {
@@ -860,7 +827,7 @@ def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=x"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     warn_logs = [entry for entry in logs if entry["level"] == "warning"]
     unmapped_warnings = [
@@ -878,7 +845,7 @@ def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
 def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
     """scan emits no warning when all categories are mapped."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {
             "data": [
                 {
@@ -901,7 +868,7 @@ def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=x"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     warn_logs = [entry for entry in logs if entry["level"] == "warning"]
     unmapped_warnings = [
@@ -916,7 +883,7 @@ def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
 def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
     """scan does not warn when unmapped category has no slug to report."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {
             "data": [
                 {
@@ -933,7 +900,7 @@ def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=x"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     warn_logs = [entry for entry in logs if entry["level"] == "warning"]
     unmapped_warnings = [
@@ -948,7 +915,7 @@ def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
 def test_scan_complete_line_is_still_last(monkeypatch) -> None:
     """scan keeps final 'Scan complete' line as the last info entry."""
 
-    def fake_fetch(url: str) -> dict:
+    def fake_fetch(url: str, *, circuit: object) -> dict:
         return {
             "data": [
                 {
@@ -966,7 +933,7 @@ def test_scan_complete_line_is_still_last(monkeypatch) -> None:
         "search_urls": ["https://search.literotica.com/?query=x"],
         "max_pages": 1,
     }
-    stories, logs = _MODULE.scan(settings)
+    stories, logs = _MODULE.scan(settings, FakeContext())
 
     # Last entry should be the Scan complete line
     assert logs[-1]["level"] == "info"

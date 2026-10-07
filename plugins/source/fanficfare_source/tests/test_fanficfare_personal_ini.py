@@ -1,39 +1,94 @@
-"""FanFicFare configuration seeding and BOM stripping (D37, TXE-D1)."""
+"""Tests for personal.ini removal in FanFicFareSourcePlugin (D54)."""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+from fanficfare_source.plugin import FanFicFareSourcePlugin, remove_leftover_personal_ini
 
 
-def test_personal_ini_is_seeded_on_first_use_without_bom(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_a_leftover_personal_ini_is_removed_once(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """The configuration file is seeded from the package default on first use,
-    and any UTF-8 BOM is stripped, but user edits are preserved."""
-    from fanficfare_source.plugin import personal_ini_path
+    """A leftover personal.ini is deleted on the first call; a second adds no log."""
+    caplog.set_level(logging.INFO)
 
-    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "fanficfare_source"))
-    path = personal_ini_path()
+    # Write a personal.ini file
+    personal_ini = tmp_path / "personal.ini"
+    personal_ini.write_text("[defaults]\nmax_request_retries: 0\n", encoding="utf-8")
 
-    # Check the file was created at the expected location
-    assert path == tmp_path / "fanficfare_source" / "personal.ini"
-    assert path.is_file()
+    # Call with env var set
+    with patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}):
+        remove_leftover_personal_ini()
 
-    # Verify the packaged default was copied
-    packaged = Path(__file__).resolve().parents[1] / "fanficfare_source" / "personal.ini"
-    assert packaged.is_file()
-    assert path.read_bytes() == packaged.read_bytes()
+    # File should be gone
+    assert not personal_ini.exists()
 
-    # Second call should not overwrite (no BOM present)
-    path.write_bytes(b"[defaults]\nis_adult:true\n")
-    path = personal_ini_path()
-    assert path.read_bytes() == b"[defaults]\nis_adult:true\n"
+    # Should have one INFO log
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "INFO"
+    assert f"personal.ini is no longer used; removed {personal_ini}" in caplog.text
 
-    # But a file with a BOM should have it stripped
-    monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "fanficfare_bom"))
-    path_bom = personal_ini_path()
-    path_bom.write_bytes(b"\xef\xbb\xbf[defaults]\n")
-    path_bom = personal_ini_path()
-    assert path_bom.read_bytes() == b"[defaults]\n"
+    # Clear logs
+    caplog.clear()
+
+    # Second call should add no record
+    with patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}):
+        remove_leftover_personal_ini()
+
+    assert len(caplog.records) == 0
+
+
+def test_no_personal_ini_means_no_log(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """When there is no personal.ini, no log is recorded."""
+    caplog.set_level(logging.INFO)
+
+    with patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}):
+        remove_leftover_personal_ini()
+
+    assert len(caplog.records) == 0
+
+
+def test_the_engine_removes_the_leftover(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Calling _engine() removes a leftover personal.ini."""
+    caplog.set_level(logging.INFO)
+
+    # Write a personal.ini file
+    personal_ini = tmp_path / "personal.ini"
+    personal_ini.write_text("[defaults]\nmax_request_retries: 0\n", encoding="utf-8")
+
+    # Call _engine with env var set
+    with patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}):
+        plugin = FanFicFareSourcePlugin()
+        plugin._engine(None)
+
+    # File should be gone
+    assert not personal_ini.exists()
+
+    # Should have logged the removal
+    assert any("personal.ini is no longer used" in record.message for record in caplog.records)
+
+
+def test_a_leftover_that_cannot_be_removed_is_reported(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A personal.ini the plugin cannot delete stays in place with one WARNING and no INFO."""
+    caplog.set_level(logging.INFO)
+    personal_ini = tmp_path / "personal.ini"
+    personal_ini.write_text("[defaults]\nmax_request_retries: 0\n", encoding="utf-8")
+
+    with (
+        patch.dict("os.environ", {"EBOOKERR_PLUGIN_DATA_DIR": str(tmp_path)}),
+        patch.object(Path, "unlink", side_effect=PermissionError(13, "Permission denied")),
+    ):
+        remove_leftover_personal_ini()
+
+    assert personal_ini.exists()
+    assert [
+        (record.levelno, record.getMessage())
+        for record in caplog.records
+        if record.name == "fanficfare_source.plugin"
+    ] == [(logging.WARNING, f"Could not remove {personal_ini}: [Errno 13] Permission denied")]

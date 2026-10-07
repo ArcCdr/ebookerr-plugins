@@ -15,6 +15,7 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_sou
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["charset-normalizer>=3.3"]
 formats = ["txt"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.converter]

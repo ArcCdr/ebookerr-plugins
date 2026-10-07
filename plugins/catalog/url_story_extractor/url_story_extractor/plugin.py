@@ -13,13 +13,10 @@ already-extracted URLs without re-listing their pages.
 from __future__ import annotations
 
 import html
-import logging
-import os
 import re
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Any
 
 from ebookerr_sdk.domain.chapter_number import extract_chapter_info
@@ -42,9 +39,7 @@ from ebookerr_sdk.spi.manifest import package_manifest
 
 from url_story_extractor.pages import FanFicFarePagesGateway
 
-__all__ = ["UrlStoryExtractorPlugin", "default_pages"]
-
-logger = logging.getLogger(__name__)
+__all__ = ["UrlStoryExtractorPlugin"]
 
 
 @dataclass
@@ -59,27 +54,6 @@ class _MetadataBudget:
 
     remaining: int
     spaced: bool = False
-
-
-def default_pages() -> FanFicFarePagesGateway:
-    """Build the page gateway on the FanFicFare configuration this install uses (D37).
-
-    The FanFicFare Source owns the one ``personal.ini`` holding the user's site logins, at
-    ``<plugin data root>/fanficfare_source/personal.ini``; when it exists this plugin reads
-    it, otherwise it reads its own packaged default beside this module.
-
-    Returns:
-        A gateway reading the shared configuration file, or the packaged default.
-    """
-    data_dir = os.environ.get("EBOOKERR_PLUGIN_DATA_DIR")
-    if data_dir:
-        shared = Path(data_dir).parent / "fanficfare_source" / "personal.ini"
-        if shared.is_file():
-            logger.debug("Reading FanFicFare configuration from %s", shared)
-            return FanFicFarePagesGateway(shared)
-    packaged = Path(__file__).with_name("personal.ini")
-    logger.debug("Reading the packaged FanFicFare configuration %s", packaged)
-    return FanFicFarePagesGateway(packaged)
 
 
 def _cap(ctx: PluginContext) -> int:
@@ -453,15 +427,31 @@ class UrlStoryExtractorPlugin:
         """Store the injected gateway and compile the manifest's story_extractor role patterns.
 
         Args:
-            pages: The gateway used to list story URLs and fetch metadata; built by
-                :func:`default_pages` when omitted (the plugin process serves one call).
+            pages: The gateway used to list story URLs and fetch metadata; when omitted, one is
+                built from the call's context on first use (:meth:`_pages_for`).
         """
-        self._pages = pages if pages is not None else default_pages()
+        self._pages = pages
         # One source of truth: the claim patterns are the manifest's, compiled once, exactly as
         # ExecCatalogPlugin does for a local_exec catalog (EXT-TR-4).
         role = self.manifest.roles.story_extractor
         patterns = role.url_patterns if role is not None else ()
         self._patterns = tuple(re.compile(pattern) for pattern in patterns)
+
+    def _pages_for(self, ctx: PluginContext) -> FanFicFarePagesGateway:
+        """The gateway for this call: the injected one, else one built from ``ctx`` on first use.
+
+        The gateway reads the plugin's own settings and the site's stored sign-in from ``ctx``
+        (``D55``); the plugin process serves one call, so the one it builds is that call's.
+
+        Args:
+            ctx: Runtime services for this call.
+
+        Returns:
+            The injected gateway, or one configured from ``ctx.settings`` and ``ctx.credentials``.
+        """
+        if self._pages is None:
+            self._pages = FanFicFarePagesGateway(ctx.settings, credentials=ctx.credentials)
+        return self._pages
 
     def _patches_for_listing(self, url: str, ctx: PluginContext) -> list[StoryPatch]:
         """List *url* and build one URL-only StoryPatch per story found.
@@ -482,7 +472,7 @@ class UrlStoryExtractorPlugin:
         """
         ctx.logger.info("Extracting stories from %s", url)
 
-        story_urls = self._pages.list_story_urls(url)
+        story_urls = self._pages_for(ctx).list_story_urls(url)
         patches: list[StoryPatch] = []
 
         for story_url in story_urls:
@@ -560,7 +550,7 @@ class UrlStoryExtractorPlugin:
                 time.sleep(delay_ms / 1000)
             budget.spaced = True
 
-            meta = self._pages.fetch_story_metadata(patch.url)
+            meta = self._pages_for(ctx).fetch_story_metadata(patch.url)
             budget.remaining -= 1
             if meta is None:
                 ctx.logger.debug("No metadata for %s — keeping the URL-derived row", patch.url)

@@ -15,17 +15,17 @@ from fanficfare_source.plugin import FanFicFareSourcePlugin, SourcePullError
 from fanficfare_source.protocol import DownloadResult
 from fanficfare_source.pull import FanFicFarePull
 
-URL = "https://www.literotica.com/s/the-12th-key"
-OUTPUT = "gabthewriter/The 12th Key.epub"
+URL = "https://www.literotica.com/s/sample-beta"
+OUTPUT = "writerbeta/Sample Beta.epub"
 _META_SAME = {"numChapters": "1", "dateUpdated": "2026-05-19", "status": "In-Progress"}
 
 
 def fff_json(**overrides: Any) -> dict[str, Any]:
     """Build a FanFicFare-shaped download JSON payload, one field at a time."""
     base: dict[str, Any] = {
-        "title": "The 12th Key",
-        "author": "gabthewriter",
-        "storyId": "the-12th-key",
+        "title": "Sample Beta",
+        "author": "writerbeta",
+        "storyId": "sample-beta",
         "storyUrl": URL,
         "sectionUrl": URL,
         "category": "Erotic Horror",
@@ -162,10 +162,12 @@ class TestClaims:
 
 
 class TestSettingsSchema:
-    def test_settings_schema_empty(self) -> None:
-        """settings_schema() returns an empty SettingsSchema."""
+    def test_settings_schema_is_the_manifests(self) -> None:
+        """settings_schema() returns the manifest's SettingsSchema with 6 fields (C36)."""
         plugin = FanFicFareSourcePlugin()
-        assert plugin.settings_schema() == api.SettingsSchema()
+        manifest_schema = FanFicFareSourcePlugin.manifest.settings_schema
+        assert plugin.settings_schema() == manifest_schema
+        assert len(manifest_schema.fields) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -181,15 +183,23 @@ class TestInit:
         sig = inspect.signature(FanFicFareSourcePlugin.__init__)
         assert "book_repo" not in sig.parameters
 
-    def test_pull_can_construct_engine_when_not_injected(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_pull_can_construct_engine_when_not_injected(self) -> None:
         """Plugin can construct an engine on demand when none is injected."""
-        monkeypatch.setenv("EBOOKERR_PLUGIN_DATA_DIR", str(tmp_path / "plugin_data"))
         plugin = FanFicFareSourcePlugin()
         # Engine construction doesn't require an injected engine
         assert plugin._engine(None) is not None
         assert type(plugin._engine(None)._fanficfare).__name__ == "FanFicFareLibraryGateway"
+
+    def test_the_built_engine_uses_the_contexts_settings_and_sign_ins(self) -> None:
+        """A built engine configures FanFicFare from ctx.settings and ctx.credentials (C36)."""
+        ctx = FakeContext(
+            settings={"include_images": False},
+            credentials_by_host={"test1.com": api.SiteCredential("basic", "me", "pw")},
+        )
+        gateway = FanFicFareSourcePlugin()._engine(ctx)._fanficfare
+        config = gateway._configuration("http://test1.com?sid=1001")
+        assert config.getConfig("include_images") is False
+        assert config.getConfig("username") == "me"
 
 
 # ---------------------------------------------------------------------------

@@ -935,13 +935,13 @@ class TestEnrichmentHandlesEmptyParsedValues:
 class TestPartMetadataIsNotAppliedToTheRow:
     """Test that a parent work's metadata never overwrites a chapter row."""
 
-    _LISTING = "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
-    _CHAPTER = "https://www.literotica.com/s/joan-of-snark-ch-02"
+    _LISTING = "https://www.literotica.com/authors/Writer_Zeta/works/stories"
+    _CHAPTER = "https://www.literotica.com/s/sample-theta-ch-02"
     _SERIES_META = {
-        "storyUrl": "https://www.literotica.com/series/se/133778587",
-        "title": "Joan of Snark",
-        "author": "Morgan_Ellis",
-        "authorUrl": "https://www.literotica.com/authors/Morgan_Ellis/works/stories",
+        "storyUrl": "https://www.literotica.com/series/se/900000003",
+        "title": "Sample Theta",
+        "author": "Writer_Zeta",
+        "authorUrl": "https://www.literotica.com/authors/Writer_Zeta/works/stories",
         "category": "Erotic Horror",
         "numChapters": "17",
         "numWords": "90000",
@@ -963,7 +963,7 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].title == "Joan Of Snark Ch. 02"
+        assert patches[0].title == "Sample Theta Ch. 02"
 
     def test_a_part_records_the_parent_as_its_series(self) -> None:
         """Assert the parent work is recorded as the series."""
@@ -977,7 +977,7 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].series == "Joan of Snark"
+        assert patches[0].series == "Sample Theta"
 
     def test_a_part_records_the_parent_url_as_its_series_url(self) -> None:
         """Assert the parent URL is recorded as series_url."""
@@ -991,7 +991,7 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].series_url == "https://www.literotica.com/series/se/133778587"
+        assert patches[0].series_url == "https://www.literotica.com/series/se/900000003"
 
     def test_a_part_does_not_inherit_the_parent_chapter_count(self) -> None:
         """Assert the chapter count from parent metadata is not inherited."""
@@ -1076,9 +1076,9 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].author == "Morgan_Ellis"
+        assert patches[0].author == "Writer_Zeta"
         assert (
-            patches[0].author_url == "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
+            patches[0].author_url == "https://www.literotica.com/authors/Writer_Zeta/works/stories"
         )
 
     def test_a_part_takes_the_category_from_the_parent(self) -> None:
@@ -1190,14 +1190,14 @@ class TestMetadataFetchedIsRecorded:
         pages = FakePages(
             urls_by_listing={
                 "https://x.test/l": [
-                    "https://www.literotica.com/s/joan-of-snark-ch-02",
+                    "https://www.literotica.com/s/sample-theta-ch-02",
                     "https://x.test/s/a-tale",
                 ]
             },
             metadata_by_url={
-                "https://www.literotica.com/s/joan-of-snark-ch-02": {
-                    "storyUrl": "https://www.literotica.com/series/se/133778587",
-                    "title": "Joan of Snark",
+                "https://www.literotica.com/s/sample-theta-ch-02": {
+                    "storyUrl": "https://www.literotica.com/series/se/900000003",
+                    "title": "Sample Theta",
                     "numChapters": "17",
                 },
                 "https://x.test/s/a-tale": {"title": "A Tale"},
@@ -1234,14 +1234,14 @@ class TestMetadataFetchedIsRecorded:
         pages = FakePages(
             urls_by_listing={
                 "https://x.test/l": [
-                    "https://www.literotica.com/s/joan-of-snark-ch-02",
+                    "https://www.literotica.com/s/sample-theta-ch-02",
                     "https://x.test/s/a-tale",
                 ]
             },
             metadata_by_url={
-                "https://www.literotica.com/s/joan-of-snark-ch-02": {
-                    "storyUrl": "https://www.literotica.com/series/se/133778587",
-                    "title": "Joan of Snark",
+                "https://www.literotica.com/s/sample-theta-ch-02": {
+                    "storyUrl": "https://www.literotica.com/series/se/900000003",
+                    "title": "Sample Theta",
                     "numChapters": "17",
                 },
                 "https://x.test/s/a-tale": {"title": "A Tale"},
@@ -1254,25 +1254,23 @@ class TestMetadataFetchedIsRecorded:
             plugin.extract_stories("https://x.test/l", ctx)
 
         assert "as a part" in caplog.text
-        assert 'series="Joan of Snark"' in caplog.text
+        assert 'series="Sample Theta"' in caplog.text
 
 
 class TestWholeWorkMetadataIsAppliedInFull:
     """Test that a whole work's metadata is applied fully."""
 
-    _LISTING = "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
+    _LISTING = "https://www.literotica.com/authors/Writer_Zeta/works/stories"
 
     def test_a_whole_work_takes_the_metadata_title(self) -> None:
         """Assert whole work takes title from metadata."""
         pages = FakePages(
-            urls_by_listing={
-                self._LISTING: ["https://www.literotica.com/s/angelas-stepfather-ch-03"]
-            },
+            urls_by_listing={self._LISTING: ["https://www.literotica.com/s/sample-iota-ch-03"]},
             metadata_by_url={
-                "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                    "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                    "title": "Angela's Stepfather Ch. 03",
-                    "author": "Morgan_Ellis",
+                "https://www.literotica.com/s/sample-iota-ch-03": {
+                    "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                    "title": "Sample Iota Ch. 03",
+                    "author": "Writer_Zeta",
                     "numChapters": "1",
                     "status": "Completed",
                     "datePublished": "2026-07-08",
@@ -1285,19 +1283,17 @@ class TestWholeWorkMetadataIsAppliedInFull:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].title == "Angela's Stepfather Ch. 03"
+        assert patches[0].title == "Sample Iota Ch. 03"
 
     def test_a_whole_work_takes_its_chapter_count(self) -> None:
         """Assert whole work takes chapter count from metadata."""
         pages = FakePages(
-            urls_by_listing={
-                self._LISTING: ["https://www.literotica.com/s/angelas-stepfather-ch-03"]
-            },
+            urls_by_listing={self._LISTING: ["https://www.literotica.com/s/sample-iota-ch-03"]},
             metadata_by_url={
-                "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                    "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                    "title": "Angela's Stepfather Ch. 03",
-                    "author": "Morgan_Ellis",
+                "https://www.literotica.com/s/sample-iota-ch-03": {
+                    "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                    "title": "Sample Iota Ch. 03",
+                    "author": "Writer_Zeta",
                     "numChapters": "1",
                     "status": "Completed",
                     "datePublished": "2026-07-08",
@@ -1315,14 +1311,12 @@ class TestWholeWorkMetadataIsAppliedInFull:
     def test_a_whole_work_takes_its_status(self) -> None:
         """Assert whole work takes status from metadata."""
         pages = FakePages(
-            urls_by_listing={
-                self._LISTING: ["https://www.literotica.com/s/angelas-stepfather-ch-03"]
-            },
+            urls_by_listing={self._LISTING: ["https://www.literotica.com/s/sample-iota-ch-03"]},
             metadata_by_url={
-                "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                    "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                    "title": "Angela's Stepfather Ch. 03",
-                    "author": "Morgan_Ellis",
+                "https://www.literotica.com/s/sample-iota-ch-03": {
+                    "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                    "title": "Sample Iota Ch. 03",
+                    "author": "Writer_Zeta",
                     "numChapters": "1",
                     "status": "Completed",
                     "datePublished": "2026-07-08",
@@ -1340,14 +1334,12 @@ class TestWholeWorkMetadataIsAppliedInFull:
     def test_a_whole_work_takes_its_published_date(self) -> None:
         """Assert whole work takes published date from metadata."""
         pages = FakePages(
-            urls_by_listing={
-                self._LISTING: ["https://www.literotica.com/s/angelas-stepfather-ch-03"]
-            },
+            urls_by_listing={self._LISTING: ["https://www.literotica.com/s/sample-iota-ch-03"]},
             metadata_by_url={
-                "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                    "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                    "title": "Angela's Stepfather Ch. 03",
-                    "author": "Morgan_Ellis",
+                "https://www.literotica.com/s/sample-iota-ch-03": {
+                    "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                    "title": "Sample Iota Ch. 03",
+                    "author": "Writer_Zeta",
                     "numChapters": "1",
                     "status": "Completed",
                     "datePublished": "2026-07-08",
@@ -1366,14 +1358,12 @@ class TestWholeWorkMetadataIsAppliedInFull:
     def test_a_whole_work_has_no_series_when_the_site_reports_none(self) -> None:
         """Assert whole work has no series when metadata does not provide one."""
         pages = FakePages(
-            urls_by_listing={
-                self._LISTING: ["https://www.literotica.com/s/angelas-stepfather-ch-03"]
-            },
+            urls_by_listing={self._LISTING: ["https://www.literotica.com/s/sample-iota-ch-03"]},
             metadata_by_url={
-                "https://www.literotica.com/s/angelas-stepfather-ch-03": {
-                    "storyUrl": "https://www.literotica.com/s/angelas-stepfather-ch-03",
-                    "title": "Angela's Stepfather Ch. 03",
-                    "author": "Morgan_Ellis",
+                "https://www.literotica.com/s/sample-iota-ch-03": {
+                    "storyUrl": "https://www.literotica.com/s/sample-iota-ch-03",
+                    "title": "Sample Iota Ch. 03",
+                    "author": "Writer_Zeta",
                     "numChapters": "1",
                     "status": "Completed",
                     "datePublished": "2026-07-08",
@@ -1392,11 +1382,13 @@ class TestWholeWorkMetadataIsAppliedInFull:
     def test_a_series_url_row_keeps_its_metadata_title_and_count(self) -> None:
         """Assert a series URL row keeps its metadata title and chapter count."""
         pages = FakePages(
-            urls_by_listing={"https://x.test/l": ["https://www.literotica.com/series/se/81737137"]},
+            urls_by_listing={
+                "https://x.test/l": ["https://www.literotica.com/series/se/900000004"]
+            },
             metadata_by_url={
-                "https://www.literotica.com/series/se/81737137": {
-                    "storyUrl": "https://www.literotica.com/series/se/81737137",
-                    "title": "Olivia in Vulmonia",
+                "https://www.literotica.com/series/se/900000004": {
+                    "storyUrl": "https://www.literotica.com/series/se/900000004",
+                    "title": "Sample Eta",
                     "numChapters": "47",
                 }
             },
@@ -1407,7 +1399,7 @@ class TestWholeWorkMetadataIsAppliedInFull:
         patches = plugin.extract_stories("https://x.test/l", ctx)
 
         assert len(patches) == 1
-        assert patches[0].title == "Olivia in Vulmonia"
+        assert patches[0].title == "Sample Eta"
         assert patches[0].num_chapters == 47
         assert patches[0].series is None
 
@@ -1513,13 +1505,13 @@ class TestMetadataPassMapsTheSiteRating:
 
     def test_a_part_does_not_inherit_the_parent_rating(self) -> None:
         """Assert a chapter does not inherit rating from parent metadata."""
-        listing_url = "https://www.literotica.com/authors/Morgan_Ellis/works/stories"
-        chapter_url = "https://www.literotica.com/s/joan-of-snark-ch-02"
+        listing_url = "https://www.literotica.com/authors/Writer_Zeta/works/stories"
+        chapter_url = "https://www.literotica.com/s/sample-theta-ch-02"
         series_meta = {
-            "storyUrl": "https://www.literotica.com/series/se/133778587",
-            "title": "Joan of Snark",
-            "author": "Morgan_Ellis",
-            "authorUrl": "https://www.literotica.com/authors/Morgan_Ellis/works/stories",
+            "storyUrl": "https://www.literotica.com/series/se/900000003",
+            "title": "Sample Theta",
+            "author": "Writer_Zeta",
+            "authorUrl": "https://www.literotica.com/authors/Writer_Zeta/works/stories",
             "category": "Erotic Horror",
             "numChapters": "17",
             "averrating": "4.72",

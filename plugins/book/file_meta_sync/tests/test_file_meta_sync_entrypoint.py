@@ -1,25 +1,36 @@
-"""Tests for the FileMetaSync bundled plugin entrypoint."""
+"""Tests for File metadata sync's sidecar functions (file_meta_sync.plugin)."""
 
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
+import file_meta_sync.plugin as _module
 import pytest
 
-# Dynamically import entrypoint module
-_ENTRYPOINT_PATH = Path(__file__).resolve().parents[1] / "entrypoint.py"
-_SPEC = importlib.util.spec_from_file_location("file_meta_sync_entrypoint", _ENTRYPOINT_PATH)
-assert _SPEC is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-assert _SPEC.loader is not None, f"Could not load entrypoint from {_ENTRYPOINT_PATH}"
-_MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["file_meta_sync_entrypoint"] = _MODULE
-_SPEC.loader.exec_module(_MODULE)
+
+def _run_books(
+    request: dict[str, Any], library_root: Path, logs: list[Any], **kwargs: Any
+) -> list[Any]:
+    """Call ``_process_books`` with the fields of a request envelope.
+
+    As the old script read them.
+    """
+    req = request.get("request", {})
+    return _module._process_books(
+        req.get("books", []),
+        library_root,
+        logs,
+        event=request.get("event"),
+        settings=req.get("settings", {}),
+        ui_context=req.get("ui_context", {}),
+        interactive=bool(req.get("interactive", False)),
+        **kwargs,
+    )
 
 
 class TestDiscoverCandidates:
@@ -41,7 +52,7 @@ class TestDiscoverCandidates:
             assets = []
 
             # Discover candidates for stem "book"
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Should find .cover1.png and -alt.jpg, but not other.png
             assert len(writes) == 2
@@ -77,7 +88,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Should emit delete for missing asset
             assert len(writes) == 1
@@ -94,7 +105,7 @@ class TestDiscoverCandidates:
             (book_dir / "book.cover1.png").write_bytes(b"png")
 
             assets = []
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             # Only PNG should be found
             assert len(writes) == 1
@@ -109,7 +120,7 @@ class TestDiscoverCandidates:
             book_dir = Path(tmpdir)
             (book_dir / "book.cover1.png").write_bytes(b"img1")
 
-            writes = _MODULE.discover_candidates(book_dir, "book", [])
+            writes = _module.discover_candidates(book_dir, "book", [])
 
             assert len(writes) == 1
             w = writes[0]
@@ -143,7 +154,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == []
 
@@ -169,7 +180,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert len(writes) == 1
             assert writes[0]["meta"]["sha256"] == hashlib.sha256(b"img2").hexdigest()
@@ -195,7 +206,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == [
                 {"kind": "cover_candidate", "name": "book.cover1.png", "delete": True}
@@ -217,7 +228,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert writes == []
 
@@ -237,7 +248,7 @@ class TestDiscoverCandidates:
                 }
             ]
 
-            writes = _MODULE.discover_candidates(book_dir, "book", assets)
+            writes = _module.discover_candidates(book_dir, "book", assets)
 
             assert len(writes) == 1
             assert "data" in writes[0]
@@ -250,20 +261,20 @@ class TestDiscoverCandidates:
             book_dir = Path(tmpdir)
             (book_dir / "book.cover.png").write_bytes(b"cover_export")
 
-            writes = _MODULE.discover_candidates(book_dir, "book", [])
+            writes = _module.discover_candidates(book_dir, "book", [])
 
             assert writes == []
 
     def test_discover_skips_oversized_files(self, monkeypatch) -> None:
         """A sidecar over the size limit produces no write; process_book logs the skip."""
-        monkeypatch.setattr(_MODULE, "_MAX_IMPORT_BYTES", 3)
+        monkeypatch.setattr(_module, "_MAX_IMPORT_BYTES", 3)
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
             books_dir = lib_root / "books"
             books_dir.mkdir()
             (books_dir / "book.c.png").write_bytes(b"toolong")
 
-            writes = _MODULE.discover_candidates(books_dir, "book", [])
+            writes = _module.discover_candidates(books_dir, "book", [])
             assert writes == []
 
             book = {
@@ -274,7 +285,7 @@ class TestDiscoverCandidates:
                 "assets": [],
                 "custom_values": {},
             }
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             assert result is not None
             warnings = [log for log in result["logs"] if log["level"] == "warning"]
@@ -296,7 +307,7 @@ class TestMergeText:
             synced_hash = "old_hash"  # Neither matches current
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -324,7 +335,7 @@ class TestMergeText:
 
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -351,7 +362,7 @@ class TestMergeText:
 
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -374,7 +385,7 @@ class TestMergeBytes:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", db_path, file_path, synced_hash, logs
             )
 
@@ -398,7 +409,7 @@ class TestMergeBytes:
             synced_hash = file_hash  # File unchanged
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", str(db_file), file_path, synced_hash, logs
             )
 
@@ -434,7 +445,7 @@ class TestLegacySynopsisAdoption:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert new file exists with legacy content
             back_cover_file = library_path / "book.back_cover.txt"
@@ -474,7 +485,7 @@ class TestLegacySynopsisAdoption:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert both files still exist
             assert back_cover_file.exists()
@@ -502,7 +513,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -543,7 +554,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -576,7 +587,7 @@ class TestConflictMostRecentWins:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs
             )
 
@@ -600,7 +611,7 @@ class TestConflictMostRecentWins:
                 ask_calls.append((message, yes, no))
                 return True
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -640,7 +651,7 @@ class TestConflictMostRecentWins:
             def ask_false(m: str, y: str, n: str) -> bool:
                 return False
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id",
                 db_value,
                 file_path,
@@ -669,7 +680,7 @@ class TestConflictMostRecentWins:
             synced_hash = None
             logs: list[dict] = []
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id",
                 str(db_file),
                 file_path,
@@ -702,7 +713,7 @@ class TestConflictMostRecentWins:
             def notify_spy(level: str, message: str) -> None:
                 notify_calls.append((level, message))
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id",
                 str(db_file),
                 file_path,
@@ -739,7 +750,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return True
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -764,7 +775,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return False
 
-            resolved_value, resolved_hash, resolved_mtime = _MODULE.merge_text(
+            resolved_value, resolved_hash, resolved_mtime = _module.merge_text(
                 "book_id", db_value, file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -791,7 +802,7 @@ class TestConflictMostRecentWins:
             def ask(m: str, y: str, n: str) -> bool:
                 return True
 
-            resolved_path, resolved_hash, resolved_mtime = _MODULE.merge_bytes(
+            resolved_path, resolved_hash, resolved_mtime = _module.merge_bytes(
                 "book_id", str(db_file), file_path, synced_hash, logs, ask=ask, interactive=True
             )
 
@@ -808,7 +819,7 @@ class TestNoT2ISync:
 
     def test_module_has_no_t2i_processor(self) -> None:
         """The _process_t2i function has been removed from the module."""
-        assert not hasattr(_MODULE, "_process_t2i")
+        assert not hasattr(_module, "_process_t2i")
 
     def test_process_book_ignores_a_t2i_sidecar(self) -> None:
         """process_book ignores T2I.txt file and doesn't return T2I keys."""
@@ -830,7 +841,7 @@ class TestNoT2ISync:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Returned patch (if any) should have no T2I keys
             if result is not None:
@@ -861,7 +872,7 @@ class TestNoT2ISync:
                 "assets": [],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # File should be deleted
             assert not t2i_file.exists()
@@ -884,7 +895,7 @@ class TestNoT2ISync:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_delete(book, lib_root, logs)
+            _module.handle_delete(book, lib_root, logs)
 
             # Should have logged deletion with "deleted" and "sidecar file(s) on BookDeleted"
             delete_logs = [log for log in logs if "deleted" in log["message"]]
@@ -928,7 +939,7 @@ class TestBookDeleted:
                 ],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # All files should be deleted
             assert not synopsis_file.exists()
@@ -962,7 +973,7 @@ class TestBookDeleted:
                 "assets": [],
             }
 
-            _MODULE.handle_delete(book, lib_root)
+            _module.handle_delete(book, lib_root)
 
             # Both synopsis files should be deleted
             assert not back_cover_file.exists()
@@ -983,7 +994,7 @@ class TestBookDeleted:
                 "assets": [],
             }
 
-            result = _MODULE.handle_delete(book, lib_root)
+            result = _module.handle_delete(book, lib_root)
 
             # Should succeed even with no files (returns None)
             assert result is None
@@ -1014,7 +1025,7 @@ class TestBookDeleted:
             ],
         }
 
-        _MODULE.handle_delete(book, tmp_path)
+        _module.handle_delete(book, tmp_path)
 
         assert store_file.exists()
         assert not sidecar.exists()
@@ -1049,7 +1060,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1089,7 +1100,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1142,7 +1153,7 @@ class TestBookDeleted:
             }
 
             logs: list[dict] = []
-            result = _MODULE._process_books(request, lib_root, logs)
+            result = _run_books(request, lib_root, logs)
 
             # Should return empty result
             assert result == []
@@ -1189,7 +1200,7 @@ class TestPurgeAction:
                 "custom_values": {},
             }
 
-            deletes = _MODULE.handle_purge_action(book, lib_root)
+            deletes = _module.handle_purge_action(book, lib_root)
 
             # Files should be deleted
             assert not candidate_file.exists()
@@ -1230,7 +1241,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             # handle_purge_action returns [] since registry rows are already deleted
             # So _process_books won't append anything to result
@@ -1268,7 +1279,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             # Should return empty result
             assert result == []
@@ -1296,7 +1307,7 @@ class TestPurgeAction:
                 "assets": [],
             }
 
-            _MODULE.handle_purge_action(
+            _module.handle_purge_action(
                 book,
                 lib_root,
                 paths=[],
@@ -1354,7 +1365,7 @@ class TestPurgeAction:
                 },
             }
 
-            result = _MODULE._process_books(request, lib_root, [])
+            result = _run_books(request, lib_root, [])
 
             assert result == []
             assert not sidecar.exists()
@@ -1376,7 +1387,7 @@ class TestPurgeAction:
                 "assets": [],
             }
 
-            _MODULE.handle_purge_action(
+            _module.handle_purge_action(
                 book,
                 lib_root,
                 paths=[],
@@ -1415,7 +1426,7 @@ class TestPurgeDoesNotResurrectCandidates:
             }
 
             # 1. Discover and import the sidecar.
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
             assert result is not None
             written = next(a for a in result["assets"] if "data" in a)
 
@@ -1452,12 +1463,12 @@ class TestPurgeDoesNotResurrectCandidates:
                     "books": [book],
                 },
             }
-            _MODULE._process_books(purge_request, lib_root, [])
+            _run_books(purge_request, lib_root, [])
             assert not sidecar.exists()
 
             # 4. Re-run process_book: the core has removed the stored row too.
             book["assets"] = []
-            final = _MODULE.process_book(book, lib_root)
+            final = _module.process_book(book, lib_root)
             assert final is None or "assets" not in final
 
 
@@ -1483,7 +1494,7 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is not None
             assert result is not None
@@ -1518,7 +1529,7 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is not None (candidates alone warrant a patch)
             assert result is not None
@@ -1546,76 +1557,10 @@ class TestProcessBookAssets:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             # Assert result is None
             assert result is None
-
-
-class TestAskYesNo:
-    """Tests for the _ask_yes_no helper."""
-
-    def test_ask_yes_no_parses_answer(self, monkeypatch) -> None:
-        """_ask_yes_no emits dialog op and reads answer from stdin."""
-        import io
-
-        # Mock stdin to return the dialog answer
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = '{"answer": true}\n'
-
-        # Mock stdout to capture the dialog op
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        result = _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
-
-        # Result should be True
-        assert result is True
-
-        # Captured stdout should contain the dialog op
-        output = mock_stdout.getvalue()
-        dialog_op = json.loads(output)
-        assert dialog_op["op"] == "dialog"
-        assert dialog_op["kind"] == "yes_no"
-        assert dialog_op["message"] == "Do you agree?"
-        assert dialog_op["yes"] == "Yes please"
-        assert dialog_op["no"] == "No thanks"
-
-    def test_ask_yes_no_raises_on_the_abandonment_frame(self, monkeypatch) -> None:
-        """_ask_yes_no raises PromptAbandoned when the core sends the abandonment frame."""
-        import io
-
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = '{"abandoned": true}\n'
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
-
-        # The dialog op was still emitted before the abandonment was raised
-        output = mock_stdout.getvalue()
-        dialog_op = json.loads(output)
-        assert dialog_op["op"] == "dialog"
-        assert dialog_op["kind"] == "yes_no"
-
-    def test_ask_yes_no_raises_on_a_closed_stdin(self, monkeypatch) -> None:
-        """_ask_yes_no raises PromptAbandoned when stdin returns an empty line (closed)."""
-        import io
-
-        mock_stdin = MagicMock()
-        mock_stdin.readline.return_value = ""
-        mock_stdout = io.StringIO()
-
-        monkeypatch.setattr(sys, "stdin", mock_stdin)
-        monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-        with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._ask_yes_no("Do you agree?", "Yes please", "No thanks")
 
 
 class TestBatchAbortsOnAbandonment:
@@ -1623,8 +1568,8 @@ class TestBatchAbortsOnAbandonment:
 
     def test_the_batch_stops_at_the_abandoned_book(self, monkeypatch, tmp_path: Path) -> None:
         """A PromptAbandoned raised on book 2 propagates and book 3 is never processed."""
-        spy = MagicMock(side_effect=[None, _MODULE.PromptAbandoned(), None])
-        monkeypatch.setattr(_MODULE, "process_book", spy)
+        spy = MagicMock(side_effect=[None, _module.PromptAbandoned(), None])
+        monkeypatch.setattr(_module, "process_book", spy)
 
         books = [
             {"book_id": "b1", "output_filename": "books/b1.epub"},
@@ -1640,71 +1585,11 @@ class TestBatchAbortsOnAbandonment:
             },
         }
 
-        with pytest.raises(_MODULE.PromptAbandoned):
-            _MODULE._process_books(request, tmp_path, [])
+        with pytest.raises(_module.PromptAbandoned):
+            _run_books(request, tmp_path, [])
 
         # Book 3's process_book call never happened
         assert spy.call_count == 2
-
-
-class TestEnvelopeRoundTrip:
-    """Tests for full envelope processing via main()."""
-
-    def test_envelope_round_trip(self, monkeypatch) -> None:
-        """Feed a full request envelope via stdin, verify JSON response."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            lib_root = Path(tmpdir)
-            dir_part = "books"
-            (lib_root / dir_part).mkdir()
-
-            request_data = {
-                "op": "enrich",
-                "event": "BookUpdated",
-                "request": {
-                    "library_root": str(lib_root),
-                    "books": [
-                        {
-                            "book_id": "test_book",
-                            "output_filename": "books/book.epub",
-                            "synopsis": "db synopsis",
-                            "cover_ref": None,
-                            "assets": [],
-                            "custom_values": {},
-                        }
-                    ],
-                },
-            }
-
-            import io
-
-            mock_stdin = MagicMock()
-            mock_stdin.readline.return_value = json.dumps(request_data)
-            mock_stdout = io.StringIO()
-
-            monkeypatch.setattr(sys, "stdin", mock_stdin)
-            monkeypatch.setattr(sys, "stdout", mock_stdout)
-
-            _MODULE.main()
-
-            output = mock_stdout.getvalue()
-            # Find the final response (the line with "ok" key)
-            lines = output.strip().split("\n")
-            response_line = None
-            for line in lines:
-                try:
-                    frame = json.loads(line)
-                    if "ok" in frame:
-                        response_line = line
-                        break
-                except json.JSONDecodeError:
-                    pass
-
-            assert response_line is not None, f"No response found in output: {output}"
-            response = json.loads(response_line)
-
-            assert response["ok"] is True
-            assert isinstance(response["result"], list)
-            assert isinstance(response["logs"], list)
 
 
 class TestActionLogs:
@@ -1737,7 +1622,7 @@ class TestActionLogs:
 
             logs: list[dict] = []
 
-            syn_fields, syn_cv = _MODULE._process_synopsis(
+            syn_fields, syn_cv = _module._process_synopsis(
                 "test_book",
                 db_synopsis,
                 library_path,
@@ -1770,7 +1655,7 @@ class TestActionLogs:
                 "custom_values": {},
             }
 
-            result = _MODULE.process_book(book, lib_root)
+            result = _module.process_book(book, lib_root)
 
             assert result is not None
             assert {
@@ -1799,7 +1684,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_delete(book, lib_root, logs)
+            _module.handle_delete(book, lib_root, logs)
 
             # Should have logged deletion with count
             delete_logs = [log for log in logs if "deleted" in log["message"]]
@@ -1828,7 +1713,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            _MODULE.handle_purge_action(book, lib_root, logs, paths=["books/book.cover1.png"])
+            _module.handle_purge_action(book, lib_root, logs, paths=["books/book.cover1.png"])
 
             # Should have logged purge with count
             purge_logs = [log for log in logs if "purged" in log["message"]]
@@ -1858,7 +1743,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            result = _MODULE.handle_purge_action(
+            result = _module.handle_purge_action(
                 book, lib_root, logs, paths=["books/book.cover1.png"]
             )
 
@@ -1897,7 +1782,7 @@ class TestActionLogs:
             }
 
             logs: list[dict] = []
-            result = _MODULE.handle_purge_action(book, lib_root, logs)
+            result = _module.handle_purge_action(book, lib_root, logs)
 
             # Files should be deleted
             assert not candidate_file.exists()
@@ -1910,14 +1795,7 @@ class TestActionLogs:
 class TestProgressFrames:
     """Tests for progress frame emission."""
 
-    def test_report_progress_writes_a_progress_frame(self, capsys) -> None:
-        """_report_progress emits a fire-and-forget progress frame on stdout."""
-        _MODULE._report_progress(42.5)
-        captured = capsys.readouterr()
-        frame = json.loads(captured.out)
-        assert frame == {"op": "progress", "percent": 42.5}
-
-    def test_process_books_reports_once_per_book(self, capsys) -> None:
+    def test_process_books_reports_once_per_book(self) -> None:
         """_process_books reports progress after each book in normal branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -1946,22 +1824,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames from stdout
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 3 progress frames with 100/3, 200/3, 100.0
             assert len(progress_frames) == 3
             assert progress_frames == pytest.approx([100 / 3, 200 / 3, 100.0])
 
-    def test_process_books_reports_on_the_delete_branch(self, capsys) -> None:
+    def test_process_books_reports_on_the_delete_branch(self) -> None:
         """_process_books reports progress on BookDeleted branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -1991,22 +1862,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 2 progress frames with 50.0, 100.0
             assert len(progress_frames) == 2
             assert progress_frames == pytest.approx([50.0, 100.0])
 
-    def test_process_books_reports_on_the_purge_branch(self, capsys) -> None:
+    def test_process_books_reports_on_the_purge_branch(self) -> None:
         """_process_books reports progress on purge_cover_candidates branch."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2032,22 +1896,15 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    frame = json.loads(line)
-                    if frame.get("op") == "progress":
-                        progress_frames.append(frame["percent"])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have 2 progress frames with 50.0, 100.0
             assert len(progress_frames) == 2
             assert progress_frames == pytest.approx([50.0, 100.0])
 
-    def test_process_books_with_no_books_emits_no_progress(self, capsys) -> None:
+    def test_process_books_with_no_books_emits_no_progress(self) -> None:
         """_process_books with empty books list emits no progress frames."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2061,24 +1918,16 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
 
             # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    try:
-                        frame = json.loads(line)
-                        if frame.get("op") == "progress":
-                            progress_frames.append(frame["percent"])
-                    except json.JSONDecodeError:
-                        pass
+            progress_frames = reports
 
             # Should have no progress frames
             assert len(progress_frames) == 0
 
-    def test_delete_disabled_emits_no_progress(self, capsys) -> None:
+    def test_delete_disabled_emits_no_progress(self) -> None:
         """_process_books on BookDeleted with delete_on_book_delete=False emits no progress."""
         with tempfile.TemporaryDirectory() as tmpdir:
             lib_root = Path(tmpdir)
@@ -2104,19 +1953,9 @@ class TestProgressFrames:
                 },
             }
 
-            _MODULE._process_books(request, lib_root, [])
-
-            # Parse progress frames
-            captured = capsys.readouterr()
-            progress_frames = []
-            for line in captured.out.strip().split("\n"):
-                if line:
-                    try:
-                        frame = json.loads(line)
-                        if frame.get("op") == "progress":
-                            progress_frames.append(frame["percent"])
-                    except json.JSONDecodeError:
-                        pass
+            reports: list[float] = []
+            _run_books(request, lib_root, [], report=reports.append)
+            progress_frames = reports
 
             # Should have no progress frames (branch loops over nothing)
             assert len(progress_frames) == 0

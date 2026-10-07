@@ -13,6 +13,7 @@ homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extra
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["fanficfare>=4.62.0"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.story_extractor]
@@ -42,3 +43,17 @@ type = "int"
 label = "Delay between metadata fetches (ms)"
 default = "750"
 help = "Spacing between metadata requests, to stay a polite visitor."
+
+[[settings_schema.fields]]
+key = "is_adult"
+type = "bool"
+label = "Confirm adult content"
+default = true
+help = "Answer yes when a site asks you to confirm you are an adult."
+
+[[settings_schema.fields]]
+key = "extra_options"
+type = "textarea"
+label = "Advanced FanFicFare options"
+default = ""
+help = "More FanFicFare settings in its own format, for example a [www.example.com] section. Sign-ins belong in Settings → Credentials."

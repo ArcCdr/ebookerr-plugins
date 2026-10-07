@@ -15,6 +15,7 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_sour
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["striprtf>=0.0.26", "charset-normalizer>=3.3"]
 formats = ["rtf"]
+auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
 [roles.converter]

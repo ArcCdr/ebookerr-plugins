@@ -5,11 +5,11 @@ from __future__ import annotations
 import contextlib
 import logging
 import re
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from ebookerr_sdk.spi import SiteCredential
 from url_story_extractor.pages import FanFicFarePagesGateway
 
 
@@ -21,7 +21,7 @@ class TestListStoryUrls:
         mock_lister = MagicMock(
             return_value={"urllist": ["https://x.test/s/a", "https://x.test/s/b"]}
         )
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -32,7 +32,7 @@ class TestListStoryUrls:
         mock_lister = MagicMock(
             return_value={"urllist": ["https://x.test/s/a", "https://x.test/s/a"]}
         )
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -45,7 +45,7 @@ class TestListStoryUrls:
                 "urllist": ["https://x.test/s/c", "https://x.test/s/a", "https://x.test/s/b"]
             }
         )
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -56,7 +56,7 @@ class TestListStoryUrls:
         mock_lister = MagicMock(
             return_value={"urllist": ["https://x.test/s/u"], "name": "A Series", "desc": "..."}
         )
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -65,7 +65,7 @@ class TestListStoryUrls:
     def test_list_of_a_missing_urllist_is_empty(self) -> None:
         """Returns empty list when urllist key is missing."""
         mock_lister = MagicMock(return_value={})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -74,7 +74,7 @@ class TestListStoryUrls:
     def test_list_of_a_non_list_urllist_is_empty(self) -> None:
         """Returns empty list when urllist is not a list."""
         mock_lister = MagicMock(return_value={"urllist": "nope"})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -83,7 +83,7 @@ class TestListStoryUrls:
     def test_list_drops_non_string_entries(self) -> None:
         """Filters out non-string entries from urllist."""
         mock_lister = MagicMock(return_value={"urllist": ["https://x.test/s/u", 5, None]})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -94,7 +94,7 @@ class TestListStoryUrls:
         from url_story_extractor.pages import ListingError
 
         mock_lister = MagicMock(side_effect=RuntimeError("boom"))
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         match_pattern = r"could not list stories at https://x\.test/authors/jane: boom"
         with pytest.raises(ListingError, match=match_pattern) as info:
@@ -111,7 +111,7 @@ class TestListStoryUrls:
         """An empty listing page returns [] without raising."""
         caplog.set_level(logging.INFO)
         mock_lister = MagicMock(return_value={"urllist": []})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         result = gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -128,7 +128,7 @@ class TestListStoryUrls:
         mock_lister = MagicMock(
             return_value={"urllist": ["https://x.test/s/a", "https://x.test/s/b"]}
         )
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -142,7 +142,7 @@ class TestListStoryUrls:
     def test_list_passes_the_url_to_the_lister(self) -> None:
         """Passes the URL as the first argument to lister."""
         mock_lister = MagicMock(return_value={"urllist": []})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -152,7 +152,7 @@ class TestListStoryUrls:
     def test_list_asks_for_normalised_urls(self) -> None:
         """Passes normalize=True as the third argument to lister."""
         mock_lister = MagicMock(return_value={"urllist": ["https://x.test/s/a"]})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -163,7 +163,7 @@ class TestListStoryUrls:
     def test_list_passes_the_configuration_positionally(self) -> None:
         """Passes configuration as the second positional argument."""
         mock_lister = MagicMock(return_value={"urllist": ["https://x.test/s/a"]})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=mock_lister)
+        gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
         gateway.list_story_urls("https://x.test/authors/jane")
 
@@ -177,7 +177,7 @@ class TestFetchStoryMetadata:
     def test_metadata_returns_the_dict(self) -> None:
         """Returns the metadata dict from the fetcher."""
         mock_fetcher = MagicMock(return_value={"title": "A Tale"})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), metadata_fetcher=mock_fetcher)
+        gateway = FanFicFarePagesGateway({}, metadata_fetcher=mock_fetcher)
 
         result = gateway.fetch_story_metadata("https://x.test/s/a")
 
@@ -186,7 +186,7 @@ class TestFetchStoryMetadata:
     def test_metadata_returns_none_on_none(self) -> None:
         """Returns None when fetcher returns None."""
         mock_fetcher = MagicMock(return_value=None)
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), metadata_fetcher=mock_fetcher)
+        gateway = FanFicFarePagesGateway({}, metadata_fetcher=mock_fetcher)
 
         result = gateway.fetch_story_metadata("https://x.test/s/a")
 
@@ -195,7 +195,7 @@ class TestFetchStoryMetadata:
     def test_metadata_swallows_a_raising_fetcher(self, caplog: Any) -> None:
         """Returns None and logs WARNING when fetcher raises."""
         mock_fetcher = MagicMock(side_effect=RuntimeError("boom"))
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), metadata_fetcher=mock_fetcher)
+        gateway = FanFicFarePagesGateway({}, metadata_fetcher=mock_fetcher)
 
         result = gateway.fetch_story_metadata("https://x.test/s/a")
 
@@ -210,7 +210,7 @@ class TestFetchStoryMetadata:
         """Logs DEBUG messages for fetch start and completion."""
         caplog.set_level(logging.DEBUG)
         mock_fetcher = MagicMock(return_value={"title": "A Tale"})
-        gateway = FanFicFarePagesGateway(Path("personal.ini"), metadata_fetcher=mock_fetcher)
+        gateway = FanFicFarePagesGateway({}, metadata_fetcher=mock_fetcher)
 
         gateway.fetch_story_metadata("https://x.test/s/a")
 
@@ -221,18 +221,18 @@ class TestFetchStoryMetadata:
             for msg in messages
         )
 
-    def test_no_secret_reaches_the_log(self, caplog: Any, tmp_path: Path) -> None:
-        """Does not log personal.ini contents or secrets."""
+    def test_no_secret_reaches_the_log(self, caplog: Any) -> None:
+        """Does not log the advanced options or the secrets in them."""
         from url_story_extractor.pages import ListingError
 
         caplog.set_level(logging.DEBUG)
-        personal_ini = tmp_path / "personal.ini"
-        personal_ini.write_text("password:hunter2\n")
 
         mock_lister = MagicMock(return_value={"urllist": ["https://x.test/s/a"]})
         mock_fetcher = MagicMock(return_value={"title": "A Tale"})
         gateway = FanFicFarePagesGateway(
-            personal_ini, lister=mock_lister, metadata_fetcher=mock_fetcher
+            {"extra_options": "password:hunter2\n"},
+            lister=mock_lister,
+            metadata_fetcher=mock_fetcher,
         )
 
         with contextlib.suppress(ListingError):
@@ -240,6 +240,26 @@ class TestFetchStoryMetadata:
         gateway.fetch_story_metadata("https://x.test/s/a")
 
         all_log_text = "\n".join(record.message for record in caplog.records)
+        assert "hunter2" not in all_log_text
+
+    def test_a_stored_sign_in_never_reaches_the_log(self, caplog: Any) -> None:
+        """Does not log the password of the stored sign-in it applies."""
+        caplog.set_level(logging.DEBUG)
+
+        mock_lister = MagicMock(return_value={"urllist": ["https://x.test/s/a"]})
+        mock_fetcher = MagicMock(return_value={"title": "A Tale"})
+        gateway = FanFicFarePagesGateway(
+            {},
+            credentials=lambda url: SiteCredential("basic", "me", "hunter2"),
+            lister=mock_lister,
+            metadata_fetcher=mock_fetcher,
+        )
+
+        gateway.list_story_urls("https://x.test/authors/jane")
+        gateway.fetch_story_metadata("https://x.test/s/a")
+
+        all_log_text = "\n".join(record.message for record in caplog.records)
+        assert "Using the stored sign-in for x.test" in all_log_text
         assert "hunter2" not in all_log_text
 
 
@@ -251,7 +271,7 @@ def _printing_lister(url, configuration, normalize):  # noqa: ANN001, ANN201, D1
 
 def test_a_listing_leaves_stdout_clean(capsys: Any) -> None:
     """Listing does not leave output on stdout."""
-    gateway = FanFicFarePagesGateway(Path("personal.ini"), lister=_printing_lister)
+    gateway = FanFicFarePagesGateway({}, lister=_printing_lister)
 
     capsys.readouterr()  # discard any prior output
     result = gateway.list_story_urls("https://x.test/a")
@@ -262,7 +282,7 @@ def test_a_listing_leaves_stdout_clean(capsys: Any) -> None:
 
 def test_the_gateway_quiets_fanficfare_logging() -> None:
     """The gateway quiets FanFicFare's logging."""
-    _gateway = FanFicFarePagesGateway(Path("personal.ini"))  # noqa: F841
+    _gateway = FanFicFarePagesGateway({})  # noqa: F841
 
     log = logging.getLogger("fanficfare")
 
