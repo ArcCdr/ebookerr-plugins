@@ -1,3 +1,6 @@
+== 1.3.0 ==
+Its card now shows that it uses the sign-ins stored in Settings → Credentials for the sites it downloads from. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
+
 == 1.2.0 ==
 Also converts DOCX files you add from your computer: Add books turns each into an EPUB and reviews it like any other. Needs ebookerr 2.22 or later.
 

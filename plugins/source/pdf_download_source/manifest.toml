@@ -1,6 +1,6 @@
 id = "pdf_download_source"
 name = "PDF download"
-version = "1.2.0"
+version = "1.3.0"
 type = "source"
 spi_version = "3.0"
 description = "Downloads a PDF and converts it to EPUB in the library."
@@ -9,7 +9,7 @@ update_check = true
 run_timeout_s = 900
 icon = "picture_as_pdf"
 author = "ArcCdr"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source"
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
