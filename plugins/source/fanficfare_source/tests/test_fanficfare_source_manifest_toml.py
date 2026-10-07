@@ -26,11 +26,11 @@ def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
     assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.62.0",)
 
 
-def test_the_source_is_version_1_4_0() -> None:
-    """The 2.22.1 release of the FanFicFare Source is 1.4.0."""
+def test_the_source_is_version_2_0_0() -> None:
+    """The 2.24.0 release of the FanFicFare Source is 2.0.0."""
     from fanficfare_source.plugin import FanFicFareSourcePlugin
 
-    assert FanFicFareSourcePlugin.manifest.version == "1.4.0"
+    assert FanFicFareSourcePlugin.manifest.version == "2.0.0"
 
 
 def test_the_manifest_declares_its_fanficfare_settings() -> None:

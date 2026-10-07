@@ -27,3 +27,8 @@ def test_the_source_receives_the_sign_in_of_any_site() -> None:
     """The Source receives the sign-in of the site it downloads from (auth_sites = [\"*\"])."""
     manifest = PdfDownloadSourcePlugin.manifest
     assert manifest.auth_sites == ("*",)
+
+
+def test_the_licence_is_agpl_3_or_later() -> None:
+    """The Source declares the licence of the PDF library it bundles (AGPL-3.0-or-later)."""
+    assert PdfDownloadSourcePlugin.manifest.license == "AGPL-3.0-or-later"
