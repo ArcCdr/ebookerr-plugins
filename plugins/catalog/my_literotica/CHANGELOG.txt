@@ -1,2 +1,5 @@
+== 1.2.0 ==
+Now runs on the plugin SDK and asks ebookerr for your literotica.com sign-in from Settings → Credentials only when it signs in. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
+
 == 1.1.0 ==
 Moved out of the ebookerr core.

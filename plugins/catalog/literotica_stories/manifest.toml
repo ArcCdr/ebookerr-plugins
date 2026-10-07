@@ -1,6 +1,6 @@
 id = "literotica_stories"
 name = "Literotica search"
-version = "2.2.0"
+version = "2.3.0"
 type = "catalog"
 spi_version = "3.0"
 entrypoint = "entrypoint.py"
