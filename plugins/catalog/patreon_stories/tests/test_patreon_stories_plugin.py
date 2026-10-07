@@ -772,7 +772,7 @@ def test_the_manifest_declares_a_complete_listing() -> None:
 
 
 def test_manifest_loads_via_loader() -> None:
-    """The staged manifest parses to the catalog patreon_stories, version 2.2.0."""
+    """The staged manifest parses to the catalog patreon_stories, version 2.3.0."""
     import tomllib
 
     from ebookerr_sdk.spi.manifest import parse_manifest
@@ -780,7 +780,7 @@ def test_manifest_loads_via_loader() -> None:
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest = parse_manifest(tomllib.loads(manifest_path.read_text(encoding="utf-8")))
     assert manifest.id == "patreon_stories"
-    assert manifest.version == "2.2.0"
+    assert manifest.version == "2.3.0"
 
 
 def test_build_story_includes_source_filename() -> None:

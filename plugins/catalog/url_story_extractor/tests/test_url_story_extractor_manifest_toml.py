@@ -29,11 +29,11 @@ def test_the_extractor_requires_fanficfare_4_62() -> None:
     assert UrlStoryExtractorPlugin.manifest.requirements == ("fanficfare>=4.62.0",)
 
 
-def test_the_extractor_is_version_1_3_0() -> None:
-    """The 2.22.1 release of the URL Story Extractor is 1.3.0."""
+def test_the_extractor_is_version_2_0_0() -> None:
+    """The 2.24.0 release of the URL Story Extractor is 2.0.0."""
     from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
-    assert UrlStoryExtractorPlugin.manifest.version == "1.3.0"
+    assert UrlStoryExtractorPlugin.manifest.version == "2.0.0"
 
 
 def test_the_extractor_declares_its_fanficfare_settings() -> None:
