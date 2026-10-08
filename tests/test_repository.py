@@ -162,3 +162,11 @@ def test_the_root_conftest_rule_flags_the_sdk(tmp_path: Path) -> None:
     # Check that offence is detected
     offences = plugin_test_import_offences(tmp_path)
     assert offences == ["conftest.py:2 imports ebookerr_sdk"]
+
+
+def test_the_release_job_installs_what_ci_checks_with() -> None:
+    """release.yml installs the dev group as ci.yml does, so a tag is checked as main was."""
+    workflows = ROOT / ".github" / "workflows"
+    install = "python -m pip install --group dev"
+    assert install in (workflows / "ci.yml").read_text(encoding="utf-8")
+    assert install in (workflows / "release.yml").read_text(encoding="utf-8")
