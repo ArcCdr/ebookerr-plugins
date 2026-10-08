@@ -23,6 +23,12 @@ def test_the_manifest_declares_the_converter_role() -> None:
     assert isinstance(DocxDownloadSourcePlugin(), Converting)
 
 
+def test_the_version_is_the_republished_one() -> None:
+    """The DOCX download is republished as 1.3.1; 1.2.0 and 1.3.0 never reached the catalogue."""
+    manifest = DocxDownloadSourcePlugin.manifest
+    assert manifest.version == "1.3.1"
+
+
 def test_the_source_receives_the_sign_in_of_any_site() -> None:
     """The Source receives the sign-in of the site it downloads from (auth_sites = [\"*\"])."""
     manifest = DocxDownloadSourcePlugin.manifest

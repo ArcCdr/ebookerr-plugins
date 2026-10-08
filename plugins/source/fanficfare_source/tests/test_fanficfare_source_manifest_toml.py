@@ -26,11 +26,18 @@ def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
     assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.62.0",)
 
 
-def test_the_source_is_version_2_0_0() -> None:
-    """The 2.24.0 release of the FanFicFare Source is 2.0.0."""
+def test_the_source_is_version_2_0_1() -> None:
+    """The 2.24.1 release of the FanFicFare Source is 2.0.1."""
     from fanficfare_source.plugin import FanFicFareSourcePlugin
 
-    assert FanFicFareSourcePlugin.manifest.version == "2.0.0"
+    assert FanFicFareSourcePlugin.manifest.version == "2.0.1"
+
+
+def test_the_plugin_glyph_is_history_edu() -> None:
+    """The Source's glyph is a scroll and quill, not the Stories page's auto_stories."""
+    from fanficfare_source.plugin import FanFicFareSourcePlugin
+
+    assert FanFicFareSourcePlugin.manifest.icon == "history_edu"
 
 
 def test_the_manifest_declares_its_fanficfare_settings() -> None:
