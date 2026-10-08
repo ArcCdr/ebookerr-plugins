@@ -1,8 +1,8 @@
 id = "komga_sync"
 name = "Komga Sync"
-version = "1.6.0"
+version = "1.7.0"
 type = "book"
-spi_version = "3.0"
+spi_version = "3.1"
 description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
 priority = 900
 accepts_list = true
@@ -29,7 +29,6 @@ write_read_state = true
 
 [[ui_triggers]]
 scope = "book_selection_action"
-icon = "sync"
 label = "Sync to Komga"
 description = "Push this book's metadata and cover to your library server."
 

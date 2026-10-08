@@ -1,3 +1,6 @@
+== 1.7.0 ==
+Its Sync to Komga button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
+
 == 1.6.0 ==
 Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.
 
