@@ -35,7 +35,7 @@ def test_trigger() -> None:
     assert len(m.ui_triggers) == 1
     trigger = m.ui_triggers[0]
     assert trigger.scope == "book_selection_action"
-    assert trigger.icon == "imagesmode"
+    assert trigger.icon == "image"
     assert trigger.label == "Generate cover candidates"
     assert trigger.min_books == 1
 

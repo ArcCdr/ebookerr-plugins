@@ -43,7 +43,7 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert "reader_url_template" not in data or data.get("reader_url_template") is None
 
     # Verify SPI version
-    assert data["spi_version"] == "3.0"
+    assert data["spi_version"] == "3.1"
 
 
 def test_the_manifest_declares_the_read_state_write_through() -> None:
@@ -52,4 +52,13 @@ def test_the_manifest_declares_the_read_state_write_through() -> None:
     role = manifest.roles.library_server
     assert role is not None
     assert role.write_read_state is True
-    assert manifest.spi_version == "3.0"
+    assert manifest.spi_version == "3.1"
+
+
+def test_the_sync_action_shows_the_plugin_glyph() -> None:
+    """The sync action carries no icon of its own, so it shows the plugin's glyph."""
+    manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
+    data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "icon" not in data["ui_triggers"][0]
+    manifest = KomgaSyncPlugin.manifest
+    assert manifest.ui_triggers[0].icon == "collections_bookmark"

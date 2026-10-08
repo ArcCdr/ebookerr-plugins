@@ -22,6 +22,6 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert role.reader_url_template == reader_url
     assert role.server_url_setting == "server"
     assert role.public_url_setting == "external_url"
-    assert manifest.spi_version == "3.0"
+    assert manifest.spi_version == "3.1"
     assert role.live_read_state is True
     assert role.write_read_state is True

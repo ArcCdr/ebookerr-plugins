@@ -135,7 +135,7 @@ class TestManifest:
     def test_manifest_version_and_group(self) -> None:
         """Manifest version is 1.6.0 with correct exclusive library_server role and events."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.version == "1.6.0"
+        assert plugin.manifest.version == "1.7.0"
         assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -155,7 +155,8 @@ class TestManifest:
         trigger = plugin.manifest.ui_triggers[0]
         # Check trigger properties
         assert trigger.scope == "book_selection_action"
-        assert trigger.icon == "sync"
+        assert trigger.icon == "local_library"
+        assert plugin.manifest.icon == "local_library"
         assert trigger.label == "Sync to Kavita"
 
     def test_the_manifest_declares_its_provider_and_delete_mode(self) -> None:

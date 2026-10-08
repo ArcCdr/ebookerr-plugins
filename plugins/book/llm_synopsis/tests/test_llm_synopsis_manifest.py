@@ -33,7 +33,7 @@ def test_trigger() -> None:
     assert len(m.ui_triggers) == 1
     trigger = m.ui_triggers[0]
     assert trigger.scope == "book_selection_action"
-    assert trigger.icon == "auto_awesome"
+    assert trigger.icon == "summarize"
     assert trigger.label == "Generate synopsis"
 
 
