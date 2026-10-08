@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-04T07:47:57Z",
+  "generated_at": "2026-10-08T18:18:14Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -21,7 +21,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/docx_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -38,12 +37,10 @@
             "docx"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": [
@@ -65,9 +62,31 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.3.0",
+          "published_at": "2026-10-08T18:18:09Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_reorder-2.3.0/epub_chapter_reorder-2.3.0.zip",
+          "sha256": "556b692988df00a0465ca7beb9e907c619e2cdbe43eacae2f7373f85ada4d790",
+          "size": 14675,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.2.0",
           "published_at": "2026-10-04T07:47:46Z",
@@ -80,7 +99,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [
@@ -88,7 +106,6 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -105,7 +122,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [
@@ -113,7 +129,6 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -133,9 +148,32 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-08T18:18:06Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_download_source-1.2.0/epub_download_source-1.2.0.zip",
+          "sha256": "4672fa812eb3f39a5504fd3aeacebc5c821188b166b86eb09c7c80eb9d00a818",
+          "size": 7193,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Its card now shows that it uses the sign-ins stored in Settings → Credentials for the sites it downloads from. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [
+            "epub"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:10:43Z",
@@ -150,12 +188,10 @@
             "epub"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -175,9 +211,30 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_merge",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.5.0",
+          "published_at": "2026-10-08T18:18:07Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_merge-2.5.0/epub_merge-2.5.0.zip",
+          "sha256": "16c9b65656f17ea801cecec43c39508a69902b727048450818923035c3bed11c",
+          "size": 54317,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "The help of \"Rewrite the book title with the chapter range\" now uses an invented example. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "merge_proposals"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "2.4.0",
           "published_at": "2026-10-04T07:47:53Z",
@@ -190,12 +247,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "merge_proposals"
             ]
@@ -214,12 +269,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "merge_proposals"
             ]
@@ -238,15 +291,11 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [],
             "deferred": false,
-            "catch_all": false,
-            "roles": [
-              "merge_proposals"
-            ]
+            "roles": []
           },
           "requirements": []
         },
@@ -262,15 +311,11 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [],
             "deferred": false,
-            "catch_all": false,
-            "roles": [
-              "merge_proposals"
-            ]
+            "roles": []
           },
           "requirements": []
         }
@@ -289,9 +334,31 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_normalize",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-08T18:18:14Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_normalize-1.2.0/epub_normalize-1.2.0.zip",
+          "sha256": "02b864f839c92dca8ad6ca469b736590632e7cc2c1169f99d94bfdeef1dfacc9",
+          "size": 30030,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:11:26Z",
@@ -304,7 +371,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [
@@ -312,7 +378,6 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -332,9 +397,33 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_validate",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.0",
+          "published_at": "2026-10-08T18:18:14Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_validate-1.3.0/epub_validate-1.3.0.zip",
+          "sha256": "0c807d728b1fe715216030b231152a72b421a5179acec889598e2b4837be598a",
+          "size": 6129,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": [
+              "checker"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.2.0",
           "published_at": "2026-10-03T12:47:58Z",
@@ -347,7 +436,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [
@@ -355,7 +443,6 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "checker"
             ]
@@ -374,7 +461,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": true,
             "events": [
@@ -382,10 +468,7 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
-            "roles": [
-              "checker"
-            ]
+            "roles": []
           },
           "requirements": []
         }
@@ -404,9 +487,34 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.0.0",
+          "published_at": "0001-01-01T00:00:00Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.0.0/fanficfare_source-2.0.0.zip",
+          "sha256": "35fa483036ea2c2dcf459321159e0cd3c9e9bf39b5771566b883a04796596548",
+          "size": 26756,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Set FanFicFare up in Settings → Plugins: Confirm adult content, Include images, Keep the summary's formatting, Use the first image as the cover, Tags to keep, and Advanced FanFicFare options for anything else, in FanFicFare's own format. Sign-ins come from Settings → Credentials — the username and password stored for the story's site — and update checks use them too. personal.ini is no longer used and is removed the first time the plugin runs: before updating, copy anything you changed in it into Advanced FanFicFare options. ebookerr now chooses every file name and folder. Its card shows that it uses your site sign-ins. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "fallback_source"
+            ]
+          },
+          "requirements": [
+            "fanficfare>=4.62.0"
+          ]
+        },
         {
           "version": "1.4.0",
           "published_at": "2026-10-04T07:47:55Z",
@@ -419,12 +527,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": true,
             "roles": [
               "fallback_source"
             ]
@@ -445,12 +551,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": true,
             "roles": [
               "fallback_source"
             ]
@@ -471,15 +575,11 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": true,
-            "roles": [
-              "fallback_source"
-            ]
+            "roles": []
           },
           "requirements": [
             "fanficfare>=4.58.1"
@@ -500,7 +600,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/file_meta_sync",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -515,7 +614,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -527,7 +625,6 @@
               "EpubModified"
             ],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -547,7 +644,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": "library_server",
       "deprecated": null,
       "releases": [
         {
@@ -562,7 +658,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -573,7 +668,6 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
             "roles": [
               "library_server"
             ]
@@ -592,7 +686,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -603,10 +696,7 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
-            "roles": [
-              "library_server"
-            ]
+            "roles": []
           },
           "requirements": []
         },
@@ -622,7 +712,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -633,10 +722,7 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
-            "roles": [
-              "library_server"
-            ]
+            "roles": []
           },
           "requirements": []
         }
@@ -655,7 +741,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/komga_sync",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": "library_server",
       "deprecated": null,
       "releases": [
         {
@@ -670,7 +755,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -681,7 +765,6 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
             "roles": [
               "library_server"
             ]
@@ -700,7 +783,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -711,10 +793,7 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
-            "roles": [
-              "library_server"
-            ]
+            "roles": []
           },
           "requirements": []
         },
@@ -730,7 +809,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -741,10 +819,7 @@
               "EpubModified"
             ],
             "deferred": true,
-            "catch_all": false,
-            "roles": [
-              "library_server"
-            ]
+            "roles": []
           },
           "requirements": []
         }
@@ -763,7 +838,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/literotica_stories",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -780,12 +854,10 @@
           ],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -805,7 +877,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_cover",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -820,7 +891,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -828,7 +898,6 @@
               "BookImported"
             ],
             "deferred": true,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -848,7 +917,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -863,7 +931,6 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [
@@ -871,7 +938,6 @@
               "BookImported"
             ],
             "deferred": true,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -891,7 +957,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/my_literotica",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -908,14 +973,12 @@
           ],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [
               "literotica.com"
             ],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -935,7 +998,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/patreon_stories",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -952,14 +1014,12 @@
           ],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [
               "patreon.com"
             ],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": []
@@ -979,7 +1039,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -996,12 +1055,10 @@
             "pdf"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "converter"
             ]
@@ -1024,12 +1081,10 @@
             "pdf"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": [
@@ -1051,7 +1106,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/rtf_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -1068,12 +1122,10 @@
             "rtf"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "converter"
             ]
@@ -1097,12 +1149,10 @@
             "rtf"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": [
@@ -1125,7 +1175,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/text_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -1142,12 +1191,10 @@
             "txt"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "converter"
             ]
@@ -1170,12 +1217,10 @@
             "txt"
           ],
           "capabilities": {
-            "network": false,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": []
           },
           "requirements": [
@@ -1197,7 +1242,6 @@
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/url_story_extractor",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
-      "exclusive_group": null,
       "deprecated": null,
       "releases": [
         {
@@ -1212,12 +1256,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "story_extractor"
             ]
@@ -1238,12 +1280,10 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
             "roles": [
               "story_extractor"
             ]
@@ -1264,15 +1304,11 @@
           "sites": [],
           "formats": [],
           "capabilities": {
-            "network": true,
             "auth_sites": [],
             "writes_epub": false,
             "events": [],
             "deferred": false,
-            "catch_all": false,
-            "roles": [
-              "story_extractor"
-            ]
+            "roles": []
           },
           "requirements": [
             "fanficfare>=4.58.1"
