@@ -1,8 +1,8 @@
 id = "epub_merge"
 name = "EPUB Merge"
-version = "2.5.0"
+version = "2.6.0"
 type = "epub"
-spi_version = "3.0"
+spi_version = "3.1"
 description = "Combines several books into one, moving every chapter into the first book and deleting the others. Run it from the Merge action; there is no undo."
 priority = 50
 accepts_list = true
@@ -36,7 +36,6 @@ help = "Rename the merged book to \"<series> <first>-<last>\" using the chapter 
 
 [[ui_triggers]]
 scope = "book_selection_action"
-icon = "merge"
 label = "Merge"
 min_books = 2
 description = "Combine multiple selected books into one."

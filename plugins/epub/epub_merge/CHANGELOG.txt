@@ -1,3 +1,6 @@
+== 2.6.0 ==
+Its Merge button takes the plugin's own icon from the plugin itself. Needs ebookerr 2.24.1 or later.
+
 == 2.5.0 ==
 The help of "Rewrite the book title with the chapter range" now uses an invented example. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
 
