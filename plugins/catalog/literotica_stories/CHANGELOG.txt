@@ -1,3 +1,6 @@
+== 2.4.0 ==
+Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
+
 == 2.3.0 ==
 Now runs on the plugin SDK; what it lists is unchanged. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
 

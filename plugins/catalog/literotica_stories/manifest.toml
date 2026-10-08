@@ -1,8 +1,8 @@
 id = "literotica_stories"
 name = "Literotica search"
-version = "2.3.0"
+version = "2.4.0"
 type = "catalog"
-spi_version = "3.0"
+spi_version = "3.1"
 entrypoint = "entrypoint.py"
 description = "Fetches stories with Literotica search"
 icon = "menu_book"
@@ -23,5 +23,4 @@ fields = [
 
 [[ui_triggers]]
 scope = "catalog_scan"
-icon = "sync"
 label = "Scan"

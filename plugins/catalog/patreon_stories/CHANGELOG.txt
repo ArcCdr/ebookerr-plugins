@@ -1,3 +1,6 @@
+== 2.4.0 ==
+Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
+
 == 2.3.0 ==
 Now runs on the plugin SDK and asks ebookerr for your patreon.com cookie sign-in from Settings → Credentials only when it needs it; a sign-in of another kind is refused with a message that says so. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
 

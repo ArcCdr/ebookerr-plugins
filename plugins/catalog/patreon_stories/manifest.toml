@@ -1,8 +1,8 @@
 id = "patreon_stories"
 name = "Patreon memberships"
-version = "2.3.0"
+version = "2.4.0"
 type = "catalog"
-spi_version = "3.0"
+spi_version = "3.1"
 entrypoint = "entrypoint.py"
 description = "Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file"
 complete_listing = true  # every scan returns every membership's posts or raises — a shrink is a lapsed membership, not a partial listing (EXT-D31)
@@ -23,5 +23,4 @@ fields = [
 
 [[ui_triggers]]
 scope = "catalog_scan"
-icon = "sync"
 label = "Scan"
