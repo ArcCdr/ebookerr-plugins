@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-08T18:18:14Z",
+  "generated_at": "2026-10-08T18:18:48Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -491,7 +491,7 @@
       "releases": [
         {
           "version": "2.0.0",
-          "published_at": "0001-01-01T00:00:00Z",
+          "published_at": "2026-10-08T18:18:19Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.0.0/fanficfare_source-2.0.0.zip",
           "sha256": "35fa483036ea2c2dcf459321159e0cd3c9e9bf39b5771566b883a04796596548",
           "size": 26756,
@@ -603,6 +603,33 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.2.0",
+          "published_at": "2026-10-08T18:18:23Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.2.0/file_meta_sync-2.2.0.zip",
+          "sha256": "7f26de39443ba8a45e8671ab200e2d29a6c9297f97d20172ce6d0483e51e1128",
+          "size": 11018,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Files beside your EPUBs are matched exactly: a file goes to the book whose file name it matches longest, so \"Book 2 cover.png\" belongs to \"Book 2\", not \"Book\", and in a folder holding a single book every image is offered as its cover, such as a cover.jpg. Now runs on the plugin SDK. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.1.0",
           "published_at": "2026-09-25T22:12:29Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.1.0/file_meta_sync-2.1.0.zip",
@@ -646,6 +673,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.6.0",
+          "published_at": "2026-10-08T18:18:24Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.6.0/kavita_sync-1.6.0.zip",
+          "sha256": "0d2c5c3d7a9c3be74b5ed2c38ed681432bd499795b38ee8fbc6251a0eb5630e2",
+          "size": 37850,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.4.0",
           "published_at": "2026-10-03T12:48:04Z",
@@ -744,6 +799,34 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.6.0",
+          "published_at": "2026-10-08T18:18:30Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.6.0/komga_sync-1.6.0.zip",
+          "sha256": "dedaece085c64c4592b56e03e1baa4a2733ef656a0d3cd2effd140285f67545d",
+          "size": 51955,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
+        {
           "version": "1.4.0",
           "published_at": "2026-10-03T12:48:05Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.4.0/komga_sync-1.4.0.zip",
@@ -841,6 +924,28 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.3.0",
+          "published_at": "2026-10-08T18:18:33Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/literotica_stories-2.3.0/literotica_stories-2.3.0.zip",
+          "sha256": "4433539dfc35271fb5b90c9fae26bea5b377e776fb3a6064a22b0a36f2375b23",
+          "size": 11449,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Now runs on the plugin SDK; what it lists is unchanged. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [
+            "literotica.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.2.0",
           "published_at": "2026-09-25T22:13:33Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/literotica_stories-2.2.0/literotica_stories-2.2.0.zip",
@@ -879,6 +984,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-08T18:18:40Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.2.0/llm_cover-1.2.0.zip",
+          "sha256": "325264fb43291b33b0318986acd2580516b774c1762fab9f3eb3dbfec78e7cb2",
+          "size": 8033,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:14:00Z",
@@ -920,6 +1048,29 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.2.0",
+          "published_at": "2026-10-08T18:18:44Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.2.0/llm_synopsis-1.2.0.zip",
+          "sha256": "108b04ecc3615dcb130e8e13f1aa37f5f7f2ccc23fc5a0cf8446fd412940bd80",
+          "size": 5437,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.0; it works as before. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:14:22Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.1.0/llm_synopsis-1.1.0.zip",
@@ -959,6 +1110,30 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.0",
+          "published_at": "2026-10-08T18:18:48Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/my_literotica-1.2.0/my_literotica-1.2.0.zip",
+          "sha256": "30d2ed3edebc67e2f885271a3506d226b8d3037327d25973e7a8620b6762222c",
+          "size": 12304,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Now runs on the plugin SDK and asks ebookerr for your literotica.com sign-in from Settings → Credentials only when it signs in. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [
+            "literotica.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "literotica.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:14:39Z",
