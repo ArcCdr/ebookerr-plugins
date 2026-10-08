@@ -626,7 +626,7 @@ def test_manifest_threshold_options_strict() -> None:
 
 
 def test_manifest_spi_3_0() -> None:
-    """Real manifest → spi_version == '3.0', version == '2.3.0'."""
+    """Real manifest → spi_version == '3.1', version == '2.4.0'."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest_data = tomllib.loads(manifest_path.read_text())
 
@@ -634,8 +634,9 @@ def test_manifest_spi_3_0() -> None:
 
     manifest = parse_manifest(manifest_data)
 
-    assert manifest.spi_version == "3.0"
-    assert manifest.version == "2.3.0"
+    assert manifest.spi_version == "3.1"
+    assert manifest.version == "2.4.0"
+    assert manifest.ui_triggers[0].icon == "menu_book"
 
 
 def test_literotica_scan_reports_once_per_search_url(monkeypatch) -> None:

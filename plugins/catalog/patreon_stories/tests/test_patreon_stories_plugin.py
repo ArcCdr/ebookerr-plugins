@@ -743,7 +743,8 @@ def test_manifest_parses_with_auth_sites() -> None:
     manifest = parse_manifest(manifest_data)
 
     assert manifest.auth_sites == ("patreon.com",)
-    assert manifest.spi_version == "3.0"
+    assert manifest.spi_version == "3.1"
+    assert manifest.ui_triggers[0].icon == "volunteer_activism"
 
     # Check settings_schema has recent_weeks field
     assert len(manifest.settings_schema.fields) == 1
@@ -772,7 +773,7 @@ def test_the_manifest_declares_a_complete_listing() -> None:
 
 
 def test_manifest_loads_via_loader() -> None:
-    """The staged manifest parses to the catalog patreon_stories, version 2.3.0."""
+    """The staged manifest parses to the catalog patreon_stories, version 2.4.0."""
     import tomllib
 
     from ebookerr_sdk.spi.manifest import parse_manifest
@@ -780,7 +781,7 @@ def test_manifest_loads_via_loader() -> None:
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest = parse_manifest(tomllib.loads(manifest_path.read_text(encoding="utf-8")))
     assert manifest.id == "patreon_stories"
-    assert manifest.version == "2.3.0"
+    assert manifest.version == "2.4.0"
 
 
 def test_build_story_includes_source_filename() -> None:
