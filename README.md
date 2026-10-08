@@ -7,7 +7,7 @@
 | Literotica search | `literotica_stories` | Catalog | 2.3.0 | Fetches stories with Literotica search |
 | Literotica - My Home | `my_literotica` | Catalog | 1.2.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
 | Patreon memberships | `patreon_stories` | Catalog | 2.3.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
-| URL Story Extractor | `url_story_extractor` | Catalog | 1.3.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
+| URL Story Extractor | `url_story_extractor` | Catalog | 2.0.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
 | DOCX download | `docx_download_source` | Source | 1.1.0 | Downloads a DOCX and converts it to EPUB in the library. |
 | EPUB download | `epub_download_source` | Source | 1.2.0 | Downloads a story EPUB from a direct download URL. |
 | FanFicFare | `fanficfare_source` | Source | 2.0.0 | Downloads stories from any site FanFicFare supports. |
