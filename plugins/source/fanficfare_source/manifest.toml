@@ -1,6 +1,6 @@
 id = "fanficfare_source"
 name = "FanFicFare"
-version = "2.0.0"
+version = "2.0.1"
 type = "source"
 spi_version = "3.0"
 description = "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first."
@@ -8,7 +8,7 @@ priority = 1000
 url_patterns = ["^https?://"]
 update_check = true
 run_timeout_s = 3600
-icon = "auto_stories"
+icon = "history_edu"
 author = "ArcCdr"
 license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source"

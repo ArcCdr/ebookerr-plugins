@@ -1,13 +1,13 @@
 id = "epub_download_source"
 name = "EPUB download"
-version = "1.2.0"
+version = "1.2.1"
 type = "source"
 spi_version = "3.0"
 description = "Downloads a story EPUB from a direct download URL."
 url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.epub(?:[?#]|$)"]
 update_check = true
 run_timeout_s = 900
-icon = "download"
+icon = "globe_book"
 author = "ArcCdr"
 license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source"

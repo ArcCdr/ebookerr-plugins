@@ -1,3 +1,6 @@
+== 2.0.1 ==
+Its icon is now a scroll and quill, so it no longer looks like the Stories page and the reader.
+
 == 2.0.0 ==
 Set FanFicFare up in Settings → Plugins: Confirm adult content, Include images, Keep the summary's formatting, Use the first image as the cover, Tags to keep, and Advanced FanFicFare options for anything else, in FanFicFare's own format. Sign-ins come from Settings → Credentials — the username and password stored for the story's site — and update checks use them too. personal.ini is no longer used and is removed the first time the plugin runs: before updating, copy anything you changed in it into Advanced FanFicFare options. ebookerr now chooses every file name and folder. Its card shows that it uses your site sign-ins. Updated for ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.
 
