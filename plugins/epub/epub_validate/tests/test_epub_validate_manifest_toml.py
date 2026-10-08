@@ -15,4 +15,4 @@ def test_the_manifest_declares_the_checker_role() -> None:
     """Manifest declares [roles.checker] and spi_version is 3.0."""
     manifest = EpubValidatePlugin.manifest
     assert manifest.roles.checker is True
-    assert manifest.spi_version == "3.0"
+    assert manifest.spi_version == "3.1"

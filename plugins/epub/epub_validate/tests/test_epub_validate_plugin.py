@@ -94,7 +94,7 @@ class TestManifestIdentity:
         assert len(m.ui_triggers) == 1
         trigger = m.ui_triggers[0]
         assert trigger.scope == "book_selection_action"
-        assert trigger.icon == "rule"
+        assert trigger.icon == "fact_check"
         assert trigger.label == "Validate"
         assert trigger.min_books == 1
 

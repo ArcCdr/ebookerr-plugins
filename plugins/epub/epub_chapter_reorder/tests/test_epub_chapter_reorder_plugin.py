@@ -60,15 +60,15 @@ class TestManifest:
         assert manifest.id == "epub_chapter_reorder"
         assert manifest.name == "Chapter Reorder"
 
-    def test_version_is_2_3_0(self) -> None:
-        assert EpubChapterReorderPlugin().manifest.version == "2.3.0"
+    def test_version_is_2_4_0(self) -> None:
+        assert EpubChapterReorderPlugin().manifest.version == "2.4.0"
 
     def test_declares_one_book_selection_trigger(self) -> None:
         manifest = EpubChapterReorderPlugin().manifest
         assert len(manifest.ui_triggers) == 1
         trigger = manifest.ui_triggers[0]
         assert trigger.scope == "book_selection_action"
-        assert trigger.icon == "low_priority"
+        assert trigger.icon == "reorder"
         assert trigger.label == "Chapters"
         assert trigger.min_books == 1
 

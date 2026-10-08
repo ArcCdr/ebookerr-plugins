@@ -66,7 +66,7 @@ class TestManifest:
         assert plugin.manifest.id == "epub_normalize"
         assert plugin.manifest.name == "EPUB Normalize"
         assert plugin.manifest.plugin_type is api.PluginType.EPUB
-        assert plugin.manifest.version == "1.2.0"
+        assert plugin.manifest.version == "1.3.0"
 
     def test_manifest_pipeline_position(self) -> None:
         plugin = EpubNormalizePlugin()
@@ -89,7 +89,7 @@ class TestManifest:
         assert len(triggers) == 1
         trigger = triggers[0]
         assert trigger.scope == "book_selection_action"
-        assert trigger.icon == "sweep"
+        assert trigger.icon == "format_paint"
         assert trigger.label == "Normalize styling"
         assert trigger.min_books == 1
 
