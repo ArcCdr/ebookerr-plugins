@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-09T07:15:16Z",
+  "generated_at": "2026-10-09T07:15:32Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -520,6 +520,31 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.4.0",
+          "published_at": "2026-10-09T07:15:18Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_validate-1.4.0/epub_validate-1.4.0.zip",
+          "sha256": "9b93362bb63b410c0a100067addcf41b30b16c5d6fd6ecbf24c18d3871a543b4",
+          "size": 6166,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Validate button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": [
+              "checker"
+            ]
+          },
+          "requirements": []
+        },
+        {
           "version": "1.3.0",
           "published_at": "2026-10-08T18:18:14Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_validate-1.3.0/epub_validate-1.3.0.zip",
@@ -812,13 +837,41 @@
       "description": "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time.",
       "author": "ArcCdr",
       "license": "MIT",
-      "icon": "library_books",
+      "icon": "local_library",
       "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/kavita_sync",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.7.0",
+          "published_at": "2026-10-09T07:15:19Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.7.0/kavita_sync-1.7.0.zip",
+          "sha256": "757c7db1078b0908c390acdcc685f271b5d40646afbd3f340e7e0fb65eba774e",
+          "size": 37891,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its icon is now a library, shown on its card and on its Sync to Kavita button. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.6.0",
           "published_at": "2026-10-08T18:18:24Z",
@@ -1098,6 +1151,28 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.4.0",
+          "published_at": "2026-10-09T07:15:18Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/literotica_stories-2.4.0/literotica_stories-2.4.0.zip",
+          "sha256": "231333d899db81581a2c8389c127d8cca880807c4b084c15bf5145b0e7e89947",
+          "size": 11481,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [
+            "literotica.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.3.0",
           "published_at": "2026-10-08T18:18:33Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/literotica_stories-2.3.0/literotica_stories-2.3.0.zip",
@@ -1158,6 +1233,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.0",
+          "published_at": "2026-10-09T07:15:21Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.3.0/llm_cover-1.3.0.zip",
+          "sha256": "de42c118f6ac3fea2099e113052796da32a19e5ac8a68eb18966a47d9c52d9c1",
+          "size": 8075,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Generate cover candidates button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.2.0",
           "published_at": "2026-10-08T18:18:40Z",
@@ -1222,6 +1320,29 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.3.0",
+          "published_at": "2026-10-09T07:15:24Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.3.0/llm_synopsis-1.3.0.zip",
+          "sha256": "8e10cb81b5ff6083ccd6e779d87388c41062a2b380c8504f458e73fdf2be6948",
+          "size": 5467,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Generate synopsis button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "1.2.0",
           "published_at": "2026-10-08T18:18:44Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.2.0/llm_synopsis-1.2.0.zip",
@@ -1284,6 +1405,30 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.0",
+          "published_at": "2026-10-09T07:15:26Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/my_literotica-1.3.0/my_literotica-1.3.0.zip",
+          "sha256": "c16c2c75b591345506d2421669975b54739450164f31e11094a1fe1c9b47149c",
+          "size": 12333,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [
+            "literotica.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "literotica.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.2.0",
           "published_at": "2026-10-08T18:18:48Z",
@@ -1349,6 +1494,30 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.4.0",
+          "published_at": "2026-10-09T07:15:32Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/patreon_stories-2.4.0/patreon_stories-2.4.0.zip",
+          "sha256": "55ee6aeb5ed66f982d590da417b155d019eb20401df3428e45e369fb3981c15c",
+          "size": 13678,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [
+            "patreon.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "patreon.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.3.0",
           "published_at": "2026-10-08T18:19:40Z",
