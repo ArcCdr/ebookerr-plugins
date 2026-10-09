@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-08T18:19:55Z",
+  "generated_at": "2026-10-09T07:15:16Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -23,6 +23,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.1",
+          "published_at": "2026-10-09T07:15:05Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/docx_download_source-1.3.1/docx_download_source-1.3.1.zip",
+          "sha256": "82a4ccc19f2322e70707e04bec2311f787dba4789a18e8336a31e61742472941",
+          "size": 6174,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Republished: 1.2.0 and 1.3.0 never reached the plugin catalogue. Converts DOCX files you add from your computer, uses the sign-ins stored in Settings → Credentials, and works with ebookerr's plugin interface 3.0. Needs ebookerr 2.24 or later.",
+          "sites": [],
+          "formats": [
+            "docx"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "python-docx>=1.1"
+          ]
+        },
         {
           "version": "1.1.0",
           "published_at": "2026-09-25T22:09:36Z",
@@ -64,6 +92,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.4.0",
+          "published_at": "2026-10-09T07:15:00Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_reorder-2.4.0/epub_chapter_reorder-2.4.0.zip",
+          "sha256": "a80d10dbc5b1f4a894e0c2296ebe9430e2d7a1c5d0ff1436bc3f39a46f8afe49",
+          "size": 14707,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Chapters button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.3.0",
           "published_at": "2026-10-08T18:18:09Z",
@@ -143,13 +194,37 @@
       "description": "Downloads a story EPUB from a direct download URL.",
       "author": "ArcCdr",
       "license": "MIT",
-      "icon": "download",
+      "icon": "globe_book",
       "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_download_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.2.1",
+          "published_at": "2026-10-09T07:15:06Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_download_source-1.2.1/epub_download_source-1.2.1.zip",
+          "sha256": "2e810216d26a41da545a2fc91dcfbc344e377a5de65c1e36df4fbb31827adf4f",
+          "size": 7247,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Its icon is now a book with a globe, so it no longer looks like the Install button.",
+          "sites": [],
+          "formats": [
+            "epub"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.2.0",
           "published_at": "2026-10-08T18:18:06Z",
@@ -213,6 +288,28 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.6.0",
+          "published_at": "2026-10-09T07:15:14Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_merge-2.6.0/epub_merge-2.6.0.zip",
+          "sha256": "e3009e459ac0808d67f312750749f4c3f43c0fdd8bbf5a2b8bc41faeb66a794b",
+          "size": 54341,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Updated for ebookerr's plugin interface 3.1; it works as before. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "merge_proposals"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "2.5.0",
           "published_at": "2026-10-08T18:18:07Z",
@@ -336,6 +433,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.0",
+          "published_at": "2026-10-09T07:15:10Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_normalize-1.3.0/epub_normalize-1.3.0.zip",
+          "sha256": "510c4e33bb465a33df583efa970318d35ae7aaf182e0adbb58b38e01c64873fc",
+          "size": 30069,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Normalize styling button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.2.0",
           "published_at": "2026-10-08T18:18:14Z",
@@ -482,13 +602,39 @@
       "description": "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first.",
       "author": "ArcCdr",
       "license": "MIT",
-      "icon": "auto_stories",
+      "icon": "history_edu",
       "homepage": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
       "source": "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source",
       "issues": "https://github.com/ArcCdr/ebookerr-plugins/issues",
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.0.1",
+          "published_at": "2026-10-09T07:15:14Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.0.1/fanficfare_source-2.0.1.zip",
+          "sha256": "d42e7520c7d7ae92c778133efa8cbe9e222b5d1485bd817cbc311a8b38cec8ac",
+          "size": 26808,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "Its icon is now a scroll and quill, so it no longer looks like the Stories page and the reader.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "fallback_source"
+            ]
+          },
+          "requirements": [
+            "fanficfare>=4.62.0"
+          ]
+        },
         {
           "version": "2.0.0",
           "published_at": "2026-10-08T18:18:19Z",
@@ -798,6 +944,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.7.0",
+          "published_at": "2026-10-09T07:15:16Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.7.0/komga_sync-1.7.0.zip",
+          "sha256": "645b2d56b5e257665523138b92a91e05c49caa1114991752fb989d3306b0fd70",
+          "size": 51988,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "Its Sync to Komga button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.6.0",
           "published_at": "2026-10-08T18:18:30Z",
