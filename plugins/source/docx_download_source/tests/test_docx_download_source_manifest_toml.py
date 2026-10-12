@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from docx_download_source.plugin import DocxDownloadSourcePlugin
 from ebookerr_sdk.spi import Converting
 
@@ -23,10 +25,11 @@ def test_the_manifest_declares_the_converter_role() -> None:
     assert isinstance(DocxDownloadSourcePlugin(), Converting)
 
 
-def test_the_version_is_the_republished_one() -> None:
-    """The DOCX download is republished as 1.3.1; 1.2.0 and 1.3.0 never reached the catalogue."""
-    manifest = DocxDownloadSourcePlugin.manifest
-    assert manifest.version == "1.3.1"
+def test_the_version_is_the_top_changelog_entry() -> None:
+    """The manifest version is the newest CHANGELOG entry's (a dependency release moves both)."""
+    changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.txt"
+    first_line = changelog.read_text(encoding="utf-8").splitlines()[0]
+    assert first_line == f"== {DocxDownloadSourcePlugin.manifest.version} =="
 
 
 def test_the_source_receives_the_sign_in_of_any_site() -> None:

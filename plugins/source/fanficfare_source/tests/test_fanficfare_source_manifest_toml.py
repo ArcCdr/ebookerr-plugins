@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -18,19 +19,22 @@ def test_the_manifest_declares_the_fallback_source_role() -> None:
 
 
 def test_the_source_answers_update_checks_and_is_the_catch_all() -> None:
-    """The manifest declares update_check and fallback_source role, and fanficfare requirement."""
+    """The manifest declares update_check and the fallback_source role, and pins FanFicFare."""
     from fanficfare_source.plugin import FanFicFareSourcePlugin
 
     assert FanFicFareSourcePlugin.manifest.update_check is True
     assert FanFicFareSourcePlugin.manifest.roles.fallback_source is True
-    assert FanFicFareSourcePlugin.manifest.requirements == ("fanficfare>=4.62.0",)
+    (requirement,) = FanFicFareSourcePlugin.manifest.requirements
+    assert re.fullmatch(r"fanficfare==\d+(\.\d+)+", requirement)
 
 
-def test_the_source_is_version_2_0_1() -> None:
-    """The 2.24.1 release of the FanFicFare Source is 2.0.1."""
+def test_the_version_is_the_top_changelog_entry() -> None:
+    """The manifest version is the newest CHANGELOG entry's (a dependency release moves both)."""
     from fanficfare_source.plugin import FanFicFareSourcePlugin
 
-    assert FanFicFareSourcePlugin.manifest.version == "2.0.1"
+    changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.txt"
+    first_line = changelog.read_text(encoding="utf-8").splitlines()[0]
+    assert first_line == f"== {FanFicFareSourcePlugin.manifest.version} =="
 
 
 def test_the_plugin_glyph_is_history_edu() -> None:

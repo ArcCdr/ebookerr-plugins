@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -22,18 +23,21 @@ def test_the_manifest_declares_the_story_extractor_role() -> None:
     assert data["spi_version"] == "3.0"
 
 
-def test_the_extractor_requires_fanficfare_4_62() -> None:
-    """The manifest requires FanFicFare 4.62.0 or later."""
+def test_the_extractor_pins_fanficfare_exactly() -> None:
+    """The manifest pins one exact FanFicFare version (a dependency release moves it)."""
     from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
-    assert UrlStoryExtractorPlugin.manifest.requirements == ("fanficfare>=4.62.0",)
+    (requirement,) = UrlStoryExtractorPlugin.manifest.requirements
+    assert re.fullmatch(r"fanficfare==\d+(\.\d+)+", requirement)
 
 
-def test_the_extractor_is_version_2_0_0() -> None:
-    """The 2.24.0 release of the URL Story Extractor is 2.0.0."""
+def test_the_version_is_the_top_changelog_entry() -> None:
+    """The manifest version is the newest CHANGELOG entry's (a dependency release moves both)."""
     from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
-    assert UrlStoryExtractorPlugin.manifest.version == "2.0.0"
+    changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.txt"
+    first_line = changelog.read_text(encoding="utf-8").splitlines()[0]
+    assert first_line == f"== {UrlStoryExtractorPlugin.manifest.version} =="
 
 
 def test_the_extractor_declares_its_fanficfare_settings() -> None:
