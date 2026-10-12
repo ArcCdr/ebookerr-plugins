@@ -1,0 +1,14 @@
+# Keeps the workflows' pinned actions current. The plugins' runtime requirements move through
+# dependency-watch.yml (exact pins, tested releases); the dev tools are ranges CI installs fresh.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

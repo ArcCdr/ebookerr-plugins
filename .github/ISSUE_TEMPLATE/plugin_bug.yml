@@ -1,0 +1,38 @@
+name: Plugin bug
+description: A first-party plugin does something wrong.
+labels: [bug]
+body:
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      description: Its name and version, as shown on its card in Settings → Plugins.
+    validations:
+      required: true
+  - type: input
+    id: ebookerr_version
+    attributes:
+      label: ebookerr version
+      description: Settings → About.
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: The lines of Settings → Logs around the problem.
+      render: text
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Before you send
+      options:
+        - label: I removed passwords, API keys and site sign-ins from the log lines.
+          required: true
