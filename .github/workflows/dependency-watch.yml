@@ -1,0 +1,109 @@
+name: dependency-watch
+
+# Once a day, look for newer releases of the tracked requirement pins (an exact `==` in a plugin's
+# manifest.toml) and keep one pull request per package up to date. CI checks each pull request;
+# dependency-release.yml merges and releases what passed. Needs the ebookerr-deps-bot GitHub App:
+# the DEPS_BOT_APP_ID variable and the DEPS_BOT_PRIVATE_KEY secret (the core's docs/RELEASE.md).
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      cooldown_days:
+        description: "Days a release must be public before it is taken"
+        required: false
+        default: "3"
+      package:
+        description: "Only this package (its canonical name, e.g. fanficfare)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the bot is configured
+        env:
+          APP_ID: ${{ vars.DEPS_BOT_APP_ID }}
+          HAS_KEY: ${{ secrets.DEPS_BOT_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$APP_ID" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Set the DEPS_BOT_APP_ID variable and the DEPS_BOT_PRIVATE_KEY secret (see docs/RELEASE.md in the core repository)."
+            exit 1
+          fi
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app
+        with:
+          app-id: ${{ vars.DEPS_BOT_APP_ID }}
+          private-key: ${{ secrets.DEPS_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Install the tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group dev
+      - name: Find the updates due
+        env:
+          COOLDOWN: ${{ inputs.cooldown_days || '3' }}
+          ONLY: ${{ inputs.package }}
+        run: python scripts/requirement_pins.py plan --cooldown-days "$COOLDOWN" ${ONLY:+--package "$ONLY"} > updates.json
+      - name: Open or refresh one pull request per update
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          bot="${SLUG}[bot]"
+          bot_id="$(gh api "/users/${bot}" --jq .id)"
+          git config user.name "$bot"
+          git config user.email "${bot_id}+${bot}@users.noreply.github.com"
+          gh label create dependency-release --color 0E8A16 \
+            --description "Merged and released by CI when the checks pass" --force
+          count="$(jq length updates.json)"
+          echo "${count} update(s) due"
+          for i in $(seq 0 $((count - 1))); do
+            name="$(jq -r ".[$i].name" updates.json)"
+            version="$(jq -r ".[$i].version" updates.json)"
+            display="$(jq -r ".[$i].display" updates.json)"
+            branch="$(jq -r ".[$i].branch" updates.json)"
+            title="$(jq -r ".[$i].title" updates.json)"
+            jq -r ".[$i].body" updates.json > body.md
+            if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+              git fetch origin "$branch"
+              others="$(git log --format=%ae "origin/main..origin/${branch}" | grep -vx "${bot_id}+${bot}@users.noreply.github.com" || true)"
+              if [ -n "$others" ]; then
+                echo "${branch} has commits by someone else: left alone"
+                continue
+              fi
+            fi
+            git switch -C "$branch" origin/main
+            python scripts/requirement_pins.py apply "$name" "$version" --display "$display"
+            git add -A plugins pyproject.toml
+            git commit -m "$title"
+            if git ls-remote --exit-code --heads origin "$branch" >/dev/null \
+              && git diff --quiet "origin/${branch}" HEAD; then
+              echo "${branch} is already up to date"
+            else
+              git push --force origin "$branch"
+            fi
+            if gh pr view "$branch" --json number >/dev/null 2>&1; then
+              gh pr edit "$branch" --title "$title" --body-file body.md
+            else
+              gh pr create --base main --head "$branch" --title "$title" --body-file body.md \
+                --label dependency-release
+            fi
+          done
