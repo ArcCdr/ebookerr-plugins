@@ -6,7 +6,8 @@ with its own interpreter so the plugins are checked against the SDK checkout bei
 Every step runs as ``sys.executable -m <tool>``: whichever environment runs this script supplies
 the tools and the SDK.
 
-The steps, in order: lint, format, types, then per plugin folder (``plugins/<type>/<id>/``) the
+The steps, in order: lint, format, types, the tracked requirement pins
+(``scripts/requirement_pins.py check``), then per plugin folder (``plugins/<type>/<id>/``) the
 SDK's ``pack check`` and that plugin's own tests, then the repository's own ``tests/`` when there
 are any. Every step runs even after a failure, so one run reports every problem; the exit code
 is 1 when any step failed.
@@ -75,6 +76,7 @@ def steps(root: Path, python: str) -> list[Step]:
         Step("lint", [python, "-m", "ruff", "check", "."]),
         Step("format", [python, "-m", "ruff", "format", "--check", "."]),
         Step("types", [python, "-m", "mypy"]),
+        Step("requirement pins", [python, "scripts/requirement_pins.py", "check"]),
     ]
     for folder in plugin_folders(root):
         rel = folder.relative_to(root).as_posix()
