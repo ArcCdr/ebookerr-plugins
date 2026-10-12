@@ -1,6 +1,6 @@
 id = "fanficfare_source"
 name = "FanFicFare"
-version = "2.0.1"
+version = "2.0.2"
 type = "source"
 spi_version = "3.0"
 description = "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first."
@@ -14,7 +14,7 @@ license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source"
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/fanficfare_source"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
-requirements = ["fanficfare>=4.62.0"]
+requirements = ["fanficfare==4.62.0"]
 auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 
