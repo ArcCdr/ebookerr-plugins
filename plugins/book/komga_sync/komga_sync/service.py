@@ -127,6 +127,7 @@ from ebookerr_sdk.spi import (
 )
 
 from komga_sync.protocol import KomgaClient
+from komga_sync.pushed_tags import PushedTags
 
 logger = logging.getLogger(__name__)
 
@@ -330,14 +331,20 @@ def _compose_tags(category: str | None, tags: str | None, desired_rating: int | 
     return _dedupe_ci(out + cats + others)
 
 
-def _komga_only_tags(current_tags: list[Any], category: str | None, tags: str | None) -> list[str]:
+def _komga_only_tags(
+    current_tags: list[Any],
+    category: str | None,
+    tags: str | None,
+    pushed: list[str] | None = None,
+) -> list[str]:
     """Import rule (Komga → lit, every sync): Komga tags not already known locally.
 
     Before composing the outgoing tag list, filters the current Komga tag list
     for tags that are: not rating-like (:func:`_is_rating_like`), not a category
     (case- and Unicode-form-insensitive, ``TXE-D3``), not already in ``tags``
-    (same fold), and free of the literal ``", "`` CSV separator — such a tag could not
-    round-trip the column encoding. The caller appends any surviving tags to
+    (same fold), not one this plugin pushed last time, and free of the literal
+    ``", "`` CSV separator — such a tag could not round-trip the column encoding.
+    The caller appends any surviving tags to
     ``tags`` for the apply path to persist; ``external_progress_at`` is
     **not** bumped by an import (it tracks reading-state changes only).
     :meth:`KomgaService.enrich` remains strictly read-only and never imports.
@@ -349,12 +356,14 @@ def _komga_only_tags(current_tags: list[Any], category: str | None, tags: str | 
         current_tags: The book's current tag list as read from Komga.
         category: The book's local ``category`` field (CSV).
         tags: The book's local ``tags`` field (CSV).
+        pushed: The tag list this plugin pushed to this book last time (``PushedTags``); a
+            Komga tag in it is ebookerr's own echo, never a Komga-only tag (EXP-276).
 
     Returns:
         Order-preserving, case-insensitively de-duplicated tags to add to
         ``tags``.
     """
-    known = _ci_set(_split_csv(category)) | _ci_set(_split_csv(tags))
+    known = _ci_set(_split_csv(category)) | _ci_set(_split_csv(tags)) | _ci_set(pushed or [])
     return _dedupe_ci(
         [
             t
@@ -753,6 +762,7 @@ class KomgaService:
         link_owner: LinkOwnerLookup | None = None,
         circuit: CircuitGuard | None = None,
         scan_requests: ScanLedger | None = None,
+        pushed_tags: PushedTags | None = None,
     ) -> None:
         """Wire the Komga client and sync configuration.
 
@@ -788,6 +798,9 @@ class KomgaService:
             scan_requests: The run's scan-request ledger, kept in the plugin's state
                 (``DFT-D21``, ``PMG-D32``); ``None`` requests a scan for every changed file,
                 as before.
+            pushed_tags: Per-book memory of the tags this plugin last pushed (``PushedTags``,
+                plugin state, EXP-276); ``None`` keeps no memory, so a tag pushed last time
+                can be imported back, as before.
         """
         self._client = client
         self._server_url = server_url
@@ -804,6 +817,7 @@ class KomgaService:
         self._link_owner = link_owner
         self._circuit = circuit
         self._scan_requests = scan_requests
+        self._pushed_tags = pushed_tags
         self._circuit_key = "provider:komga"
         self._circuit_label = "Komga"
         self._url_index: dict[str, str] | None = None  # url -> external_item_id; None = not fetched
@@ -1123,7 +1137,8 @@ class KomgaService:
         local = book.rating
         desired_rating, adopt_n, do_clear = self._resolve_rating(local, komga_tag)
 
-        imported = _komga_only_tags(current_tags, book.category, book.tags)
+        pushed = self._pushed_tags.recall(book.book_id) if self._pushed_tags else []
+        imported = _komga_only_tags(current_tags, book.category, book.tags, pushed)
         erotica = book.tags
         if imported:
             erotica = ", ".join(_split_csv(book.tags) + imported) or None
@@ -1151,6 +1166,8 @@ class KomgaService:
         metadata_pushed = self._push_book_metadata(
             komga_book_id, book, komga_book, desired_tags, ebookerr_url
         )
+        if self._pushed_tags is not None:
+            self._pushed_tags.remember(book.book_id, desired_tags)
         if series_id:
             self._push_series_metadata(series_id, book)
 

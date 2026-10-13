@@ -37,6 +37,7 @@ from ebookerr_sdk.spi import (
 from ebookerr_sdk.spi.manifest import package_manifest
 
 from komga_sync.client import RequestsKomgaClient
+from komga_sync.pushed_tags import PushedTags
 from komga_sync.service import KomgaService, SyncResult
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,8 @@ def _build_service(ctx: PluginContext) -> KomgaService:
     ``library_root`` (``SPI 2.15``) is what lets ``RPH-REST-3``'s EPUB-TOC-title fallback
     run (``EXP-194``). ``ctx.circuit`` (``SPI 2.21``) is forwarded straight through so an
     outage this plugin observes is remembered process-wide (``EXP-269``).
+    ``PushedTags(ctx)`` remembers the tags each sync pushed, so the next sync never imports
+    them back (EXP-276).
     """
     from ebookerr_sdk.providers.scan_ledger import ScanLedger
 
@@ -134,6 +137,7 @@ def _build_service(ctx: PluginContext) -> KomgaService:
         link_owner=getattr(ctx, "provider_link_owner", None),
         circuit=getattr(ctx, "circuit", None),
         scan_requests=ScanLedger(ctx),
+        pushed_tags=PushedTags(ctx),
     )
 
 
