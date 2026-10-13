@@ -286,15 +286,15 @@ def _add_date_published(patch: dict[str, Any], what: dict[str, Any]) -> None:
         pass
 
 
-def _add_series_fields(patch: dict[str, Any], what: dict[str, Any]) -> None:
-    """Add the series title and URL when the activity belongs to a series."""
+def _add_work_fields(patch: dict[str, Any], what: dict[str, Any]) -> None:
+    """Add the work's title and URL when the activity is one chapter of a multi-part story."""
     series = what.get("series")
     if isinstance(series, dict):
         meta = series.get("meta") or {}
         if meta.get("title"):
-            patch["series"] = meta["title"]
+            patch["work"] = meta["title"]
         if meta.get("id"):
-            patch["series_url"] = f"{SITE_BASE}/series/se/{meta['id']}"
+            patch["work_url"] = f"{SITE_BASE}/series/se/{meta['id']}"
 
 
 def map_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
@@ -334,7 +334,7 @@ def map_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
     _add_author_fields(patch, what)
     _add_category_and_tags(patch, what)
     _add_date_published(patch, what)
-    _add_series_fields(patch, what)
+    _add_work_fields(patch, what)
 
     custom = build_custom_fields(what, activity.get("when"))
     if custom:

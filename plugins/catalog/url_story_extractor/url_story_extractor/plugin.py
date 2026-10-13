@@ -186,7 +186,7 @@ def _enrich_part_metadata(
 ) -> StoryPatch:
     """Enrich a chapter row with parent work metadata.
 
-    Records the parent's title as the series and parent's URL as series_url, without
+    Records the parent work's title and URL as the row's work (``work``/``work_url``), without
     copying numeric or dated fields that belong to the parent.
 
     Args:
@@ -199,14 +199,14 @@ def _enrich_part_metadata(
     """
     parent_title = _clean_text(meta.get("title", ""))
     if parent_title:
-        changes["series"] = parent_title
+        changes["work"] = parent_title
     raw_parent = meta.get("storyUrl")
     if (
         isinstance(raw_parent, str)
         and raw_parent
         and normalise_url(raw_parent) != normalise_url(patch.url)
     ):
-        changes["series_url"] = raw_parent
+        changes["work_url"] = raw_parent
     return replace(patch, **changes)
 
 
@@ -265,7 +265,7 @@ def _apply_metadata(patch: StoryPatch, meta: dict[str, Any]) -> StoryPatch:
     The signal is whether meta["storyUrl"] differs from the story's own URL: if so, the
     metadata names the parent, and only certain fields are copied (author, category, tags).
     Everything else — title, dates, counts, status, description — would misrepresent the
-    chapter row, and stays untouched. The parent's title becomes the series instead.
+    chapter row, and stays untouched. The parent's title becomes the row's work instead.
 
     For a story's own metadata (same URL), all supported fields are applied: title, author,
     authorUrl→author_url, series, seriesUrl→series_url, description, category, genre→tags,
@@ -562,11 +562,12 @@ class UrlStoryExtractorPlugin:
                 if part:
                     parts += 1
                 ctx.logger.debug(
-                    'Enriched %s as a %s: title="%s", series="%s"',
+                    'Enriched %s as a %s: title="%s", series="%s", work="%s"',
                     patch.url,
                     "part" if part else "whole work",
                     enriched.title or "",
                     enriched.series or "-",
+                    enriched.work or "-",
                 )
 
             # One fetch is one step of this call's own work; the caller scales it if it is only a

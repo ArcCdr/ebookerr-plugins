@@ -85,6 +85,8 @@ def test_map_story_core_fields() -> None:
     assert result["site"] == "literotica.com"
     assert "series" not in result
     assert "series_url" not in result
+    assert "work" not in result
+    assert "work_url" not in result
     # Ensure no named vote/views/favorites/comments/language keys (only in custom)
     assert "votes" not in result
     assert "views" not in result
@@ -124,13 +126,25 @@ def test_map_story_custom_labels() -> None:
     }
 
 
-def test_map_story_series() -> None:
-    """map_story with series dict extracts series fields."""
+def test_map_story_work() -> None:
+    """map_story with a Story Series dict reports it as the story's work, not a series."""
     story_b = _FIXTURE_DATA["data"][1]
     result = _MODULE.map_story(story_b)
-    assert result["series"] == "Sample Tau"
-    assert result["series_url"] == "https://www.literotica.com/series/se/900000009"
+    assert result["work"] == "Sample Tau"
+    assert result["work_url"] == "https://www.literotica.com/series/se/900000009"
+    assert "series" not in result
+    assert "series_url" not in result
     assert result["custom"]["Series Parts"] == 2
+
+
+def test_the_story_patch_carries_the_work() -> None:
+    """The plugin's field allow-list passes the work through to the StoryPatch."""
+    from literotica_stories.plugin import _story_patch
+
+    patch = _story_patch(_MODULE.map_story(_FIXTURE_DATA["data"][1]))
+    assert patch.work == "Sample Tau"
+    assert patch.work_url == "https://www.literotica.com/series/se/900000009"
+    assert patch.series is None
 
 
 def test_map_story_without_url_returns_none() -> None:
@@ -626,7 +640,7 @@ def test_manifest_threshold_options_strict() -> None:
 
 
 def test_manifest_spi_3_0() -> None:
-    """Real manifest → spi_version == '3.1', version == '2.4.0'."""
+    """Real manifest → spi_version == '3.2', version == '2.5.0'."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest_data = tomllib.loads(manifest_path.read_text())
 
@@ -634,8 +648,8 @@ def test_manifest_spi_3_0() -> None:
 
     manifest = parse_manifest(manifest_data)
 
-    assert manifest.spi_version == "3.1"
-    assert manifest.version == "2.4.0"
+    assert manifest.spi_version == "3.2"
+    assert manifest.version == "2.5.0"
     assert manifest.ui_triggers[0].icon == "menu_book"
 
 

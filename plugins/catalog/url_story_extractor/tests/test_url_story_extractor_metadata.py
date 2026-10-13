@@ -965,8 +965,8 @@ class TestPartMetadataIsNotAppliedToTheRow:
         assert len(patches) == 1
         assert patches[0].title == "Sample Theta Ch. 02"
 
-    def test_a_part_records_the_parent_as_its_series(self) -> None:
-        """Assert the parent work is recorded as the series."""
+    def test_a_part_records_the_parent_as_its_work(self) -> None:
+        """Assert the parent work is recorded as the row's work, not its series."""
         pages = FakePages(
             urls_by_listing={self._LISTING: [self._CHAPTER]},
             metadata_by_url={self._CHAPTER: self._SERIES_META},
@@ -977,10 +977,11 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].series == "Sample Theta"
+        assert patches[0].work == "Sample Theta"
+        assert patches[0].series is None
 
-    def test_a_part_records_the_parent_url_as_its_series_url(self) -> None:
-        """Assert the parent URL is recorded as series_url."""
+    def test_a_part_records_the_parent_url_as_its_work_url(self) -> None:
+        """Assert the parent URL is recorded as work_url."""
         pages = FakePages(
             urls_by_listing={self._LISTING: [self._CHAPTER]},
             metadata_by_url={self._CHAPTER: self._SERIES_META},
@@ -991,7 +992,8 @@ class TestPartMetadataIsNotAppliedToTheRow:
         patches = plugin.extract_stories(self._LISTING, ctx)
 
         assert len(patches) == 1
-        assert patches[0].series_url == "https://www.literotica.com/series/se/900000003"
+        assert patches[0].work_url == "https://www.literotica.com/series/se/900000003"
+        assert patches[0].series_url is None
 
     def test_a_part_does_not_inherit_the_parent_chapter_count(self) -> None:
         """Assert the chapter count from parent metadata is not inherited."""
@@ -1254,7 +1256,8 @@ class TestMetadataFetchedIsRecorded:
             plugin.extract_stories("https://x.test/l", ctx)
 
         assert "as a part" in caplog.text
-        assert 'series="Sample Theta"' in caplog.text
+        assert 'work="Sample Theta"' in caplog.text
+        assert 'series="-"' in caplog.text
 
 
 class TestWholeWorkMetadataIsAppliedInFull:

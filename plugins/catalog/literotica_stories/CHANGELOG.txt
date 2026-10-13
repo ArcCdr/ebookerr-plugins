@@ -1,3 +1,6 @@
+== 2.5.0 ==
+A multi-part Literotica story is recorded as the story its chapters belong to, no longer as a series. Needs ebookerr 2.24.7.
+
 == 2.4.0 ==
 Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
 
