@@ -1,6 +1,6 @@
 id = "llm_synopsis"
 name = "Synopsis generator"
-version = "1.3.0"
+version = "1.3.1"
 type = "book"
 spi_version = "3.1"
 description = "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. Only books without a synopsis from the configured model are processed."
@@ -10,7 +10,7 @@ testable = true
 deferred = true
 long_running = true
 run_timeout_s = 1800
-icon = "summarize"
+icon = "checkbook"
 author = "ArcCdr"
 license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/llm_synopsis"

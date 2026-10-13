@@ -1,13 +1,13 @@
 id = "epub_chapter_reorder"
 name = "Chapter Reorder"
-version = "2.4.0"
+version = "2.4.1"
 type = "epub"
 spi_version = "3.1"
 description = "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched."
 events = ["EpubCreated", "EpubModified"]
 priority = 55
 run_timeout_s = 600
-icon = "reorder"
+icon = "low_priority"
 author = "ArcCdr"
 license = "MIT"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/epub_chapter_reorder"

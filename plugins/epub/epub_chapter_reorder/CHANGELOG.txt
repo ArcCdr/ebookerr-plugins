@@ -1,3 +1,6 @@
+== 2.4.1 ==
+A new icon: the Low priority arrows.
+
 == 2.4.0 ==
 Its Chapters button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
 
