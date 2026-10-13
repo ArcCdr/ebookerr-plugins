@@ -128,7 +128,7 @@ def _get_tags_string(tags_list: list[Any]) -> str:
 
 
 def _get_series_info(series: object) -> tuple[str | None, str | None]:
-    """Extract series name and URL from a series dict."""
+    """Extract the work's title and URL from Literotica's series object (one story's chapters)."""
     if not isinstance(series, dict):
         return None, None
     meta = series.get("meta", {})
@@ -363,11 +363,11 @@ def map_story(raw: dict[str, Any]) -> dict[str, Any] | None:
     except (KeyError, ValueError, TypeError):
         pass
 
-    # series
-    if series_name := _get_series_info(raw.get("series"))[0]:
-        patch["series"] = series_name
-    if series_url := _get_series_info(raw.get("series"))[1]:
-        patch["series_url"] = series_url
+    # Literotica's "Story Series" is the multi-part story this chapter belongs to: its work
+    if work_title := _get_series_info(raw.get("series"))[0]:
+        patch["work"] = work_title
+    if work_url := _get_series_info(raw.get("series"))[1]:
+        patch["work_url"] = work_url
 
     # site
     patch["site"] = "literotica.com"

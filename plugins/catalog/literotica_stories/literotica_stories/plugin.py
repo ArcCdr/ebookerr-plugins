@@ -34,6 +34,8 @@ _STORY_FIELDS: tuple[str, ...] = (
     "author_url",
     "series",
     "series_url",
+    "work",
+    "work_url",
     "description",
     "category",
     "tags",
