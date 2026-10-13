@@ -1,3 +1,6 @@
+== 2.1.0 ==
+A chapter row records the story it belongs to as its story, no longer as a series; a whole story keeps the series its site declares. Needs ebookerr 2.24.7.
+
 == 2.0.1 ==
 Uses FanFicFare 4.62.0, the version this release was tested with; newer FanFicFare releases arrive as updates of this plugin a few days after they are published.
 
