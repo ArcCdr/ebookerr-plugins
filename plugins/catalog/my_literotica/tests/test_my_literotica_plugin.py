@@ -57,7 +57,7 @@ def test_manifest_declares_catalog_plugin_with_site_auth() -> None:
     assert manifest.name == "Literotica - My Home"
     assert manifest.plugin_type.value == "catalog"
     assert manifest.auth_sites == ("literotica.com",)
-    assert manifest.spi_version == "3.1"
+    assert manifest.spi_version == "3.2"
     assert manifest.settings_schema.fields == ()
     assert manifest.ui_triggers[0].icon == "bookmarks"
 
@@ -758,15 +758,26 @@ def test_map_activity_core_fields() -> None:
     assert r["description"] == "A potion wears off at the worst moment."
     assert "series" not in r
     assert "series_url" not in r
+    assert "work" not in r
 
 
-def test_map_activity_series_fields() -> None:
-    """map_activity extracts series fields and series part count."""
+def test_map_activity_work_fields() -> None:
+    """map_activity reports a Story Series as the work, with its part count."""
     r = _MODULE.map_activity(_FIXTURE_DATA["data"][1])
-    assert r["series"] == "Sample Pi"
-    assert r["series_url"] == "https://www.literotica.com/series/se/900000008"
+    assert r["work"] == "Sample Pi"
+    assert r["work_url"] == "https://www.literotica.com/series/se/900000008"
+    assert "series" not in r
     assert r["custom"]["Series Parts"] == 2
     assert r["title"] == "Sample Pi Ch. 37"
+
+
+def test_the_story_patch_carries_the_work() -> None:
+    """The plugin's field allow-list passes the work through to the StoryPatch."""
+    from my_literotica.plugin import _story_patch
+
+    patch = _story_patch(_MODULE.map_activity(_FIXTURE_DATA["data"][1]))
+    assert patch.work == "Sample Pi"
+    assert patch.series is None
 
 
 def test_map_activity_poem_uses_the_poem_url() -> None:
