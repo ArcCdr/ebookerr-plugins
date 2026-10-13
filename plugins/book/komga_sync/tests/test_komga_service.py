@@ -32,7 +32,8 @@ from ebookerr_sdk.spi import (
     ReadPosition,
     ReadStateChanges,
 )
-from ebookerr_sdk.testing import make_book_view
+from ebookerr_sdk.testing import FakeContext, make_book_view
+from komga_sync.pushed_tags import PushedTags
 from komga_sync.service import (
     KomgaService,
     _book_patch,
@@ -244,6 +245,25 @@ class _EchoingKomga(FakeKomga):
         if self.progression_sequence:
             return self.progression_sequence.pop(0)
         return self.put_progressions[-1][1] if self.put_progressions else {}
+
+
+class _PatchingKomga(FakeKomga):
+    """Applies each book-metadata PATCH's tags to the book it serves, like a real Komga."""
+
+    def patch_book_metadata(self, komga_book_id: str, patch: dict[str, Any]) -> bool:
+        super().patch_book_metadata(komga_book_id, patch)
+        if "tags" in patch and self.book is not None:
+            self.book.setdefault("metadata", {})["tags"] = list(patch["tags"])
+        return True
+
+
+def _patching_client() -> _PatchingKomga:
+    """A linked Komga book with no tags yet, ready for several syncs."""
+    client = _PatchingKomga()
+    client.find_results = ["KB1"] * 8
+    client.book = komga_book(metadata={"tags": []}, pages=0, read={})
+    client.series = {"metadata": {}}
+    return client
 
 
 def komga_book(
@@ -8584,3 +8604,94 @@ def test_series_patch_prefers_the_publisher() -> None:
     # Falls back to site when publisher is unset
     patch = _series_patch(_blank_view(site="example.org"), {})
     assert patch["publisher"] == "example.org"
+
+
+@pytest.mark.pins("EXP-276")
+def test_a_category_change_never_leaves_the_previous_category_in_the_base_tags(
+    repo: _FakeBookRepository,
+) -> None:
+    """A category the plugin pushed last time is never imported back into ``tags``."""
+    client = _patching_client()
+    book = make_book(repo, category="Mind Control", eroticatags="Alpha, Beta, Gamma")
+    svc = service(client, pushed_tags=PushedTags(FakeContext()))
+    tags = book.tags
+    for category in ["Mind Control", "Paranormal", "Horror", None]:
+        result = svc.sync(book_to_view(book, category=category, tags=tags))
+        assert result.ok
+        tags = result.fields.get("tags", tags)
+    assert tags == "Alpha, Beta, Gamma"
+
+    n = len(client.book_patches)
+    result = svc.sync(book_to_view(book, category=None, tags=tags))
+    assert "tags" not in result.fields
+    assert all("tags" not in patch for _, patch in client.book_patches[n:])
+
+
+def test_a_tag_added_in_komga_still_imports_exactly_once(repo: _FakeBookRepository) -> None:
+    """A tag the user adds in Komga is imported once, then never again."""
+    client = _patching_client()
+    book = make_book(repo, category="Mind Control", eroticatags="Alpha, Beta, Gamma")
+    svc = service(client, pushed_tags=PushedTags(FakeContext()))
+    tags = book.tags
+    for category in ["Mind Control", "Paranormal", "Horror", None]:
+        result = svc.sync(book_to_view(book, category=category, tags=tags))
+        tags = result.fields.get("tags", tags)
+
+    client.book["metadata"]["tags"] = client.book["metadata"]["tags"] + ["zebra"]
+    result = svc.sync(book_to_view(book, category=None, tags=tags))
+    assert result.fields["tags"] == "Alpha, Beta, Gamma, zebra"
+
+    result = svc.sync(book_to_view(book, category=None, tags="Alpha, Beta, Gamma, zebra"))
+    assert "tags" not in result.fields
+
+
+def test_a_hand_typed_tag_equal_to_a_category_is_kept(repo: _FakeBookRepository) -> None:
+    """A tag the user typed that equals a category is never dropped or re-imported."""
+    client = _patching_client()
+    book = make_book(repo, category="Mind Control", eroticatags="Alpha, Beta, Gamma")
+    svc = service(client, pushed_tags=PushedTags(FakeContext()))
+    svc.sync(book_to_view(book, category="Mind Control", tags="Alpha, Beta, Gamma"))
+
+    result = svc.sync(book_to_view(book, category="Horror", tags="Alpha, Horror"))
+    assert "tags" not in result.fields
+
+
+def test_a_tag_removed_in_ebookerr_is_not_reimported_from_komga(
+    repo: _FakeBookRepository,
+) -> None:
+    """A tag removed in ebookerr stays removed even though Komga still holds it."""
+    client = _patching_client()
+    book = make_book(repo, category="Mind Control", eroticatags="Alpha, Beta, Gamma")
+    svc = service(client, pushed_tags=PushedTags(FakeContext()))
+    svc.sync(book_to_view(book, category="Mind Control", tags="Alpha, Beta, Gamma"))
+
+    result = svc.sync(book_to_view(book, category="Mind Control", tags="Alpha, Beta"))
+    assert "tags" not in result.fields
+    last_tags = client.book_patches[-1][1]["tags"]
+    assert {t.lower() for t in last_tags} == {"mind control", "alpha", "beta"}
+
+
+def test_without_a_memory_the_previous_category_is_still_imported(
+    repo: _FakeBookRepository,
+) -> None:
+    """With no memory (``None``), a previously pushed category is imported back as before."""
+    client = _patching_client()
+    book = make_book(repo, category="Mind Control", eroticatags="Alpha, Beta, Gamma")
+    svc = service(client)
+    result = svc.sync(book_to_view(book, category="Mind Control", tags="Alpha, Beta, Gamma"))
+    result = svc.sync(book_to_view(book, category="Paranormal", tags="Alpha, Beta, Gamma"))
+    assert result.fields["tags"].endswith("Mind Control")
+
+
+def test_pushed_tags_recall_reads_what_remember_wrote() -> None:
+    """``recall`` returns the tags ``remember`` stored for that book, and ``[]`` otherwise."""
+    memory = PushedTags(FakeContext())
+    assert memory.recall("b1") == []
+    memory.remember("b1", ["Horror", "alpha"])
+    assert memory.recall("b1") == ["Horror", "alpha"]
+    assert memory.recall("b2") == []
+
+
+def test_komga_only_tags_excludes_what_was_pushed() -> None:
+    """A Komga tag this plugin pushed last time is ebookerr's echo, never a Komga-only tag."""
+    assert _komga_only_tags(["Paranormal", "zebra"], "Horror", "alpha", ["paranormal"]) == ["zebra"]
