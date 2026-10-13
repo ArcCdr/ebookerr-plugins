@@ -271,8 +271,8 @@ class TestLiteroticaWithMetadata:
         patch = next(p for p in patches if p.url.endswith("sample-theta-ch-02"))
 
         assert patch.title == "Sample Theta Ch. 02"
-        assert patch.series == "Sample Theta"
-        assert patch.series_url == "https://www.literotica.com/series/se/900000003"
+        assert patch.work == "Sample Theta"
+        assert patch.work_url == "https://www.literotica.com/series/se/900000003"
         assert patch.num_chapters is None
         assert patch.date_published is None
 
