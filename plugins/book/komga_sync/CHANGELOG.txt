@@ -1,3 +1,6 @@
+== 1.8.0 ==
+Changing a book's category no longer leaves the old category behind as a tag after the next sync, and a tag you remove in ebookerr is no longer brought back from Komga. Tags added earlier this way stay until you remove them. Needs ebookerr 2.24.1 or later.
+
 == 1.7.0 ==
 Its Sync to Komga button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
 
