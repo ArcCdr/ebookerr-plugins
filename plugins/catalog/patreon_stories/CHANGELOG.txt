@@ -1,3 +1,6 @@
+== 2.5.0 ==
+A post no longer gets the campaign's name as its series; the campaign stays in the Campaign column.
+
 == 2.4.0 ==
 Its Scan button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
 

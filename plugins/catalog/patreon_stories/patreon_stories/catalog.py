@@ -562,7 +562,6 @@ def build_story(
         "site": "patreon.com",
         "date_published": post["published_at"],
         "story_id": str(post_id),
-        "series": campaign["name"],
         "description": description,
         "custom": custom,
         "metadata_fetched": True,
