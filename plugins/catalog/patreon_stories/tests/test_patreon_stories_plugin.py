@@ -194,7 +194,7 @@ def test_build_story_mapping() -> None:
     assert story["site"] == "patreon.com"
     assert story["date_published"] == "2026-07-15T10:00:00Z"
     assert story["story_id"] == "201"
-    assert story["series"] == "Demo Campaign"
+    assert "series" not in story
     assert "This is rich content" in story["description"]
     assert story["custom"]["Post Type"] == "text_post"
     assert story["custom"]["Campaign"] == "Demo Campaign"
@@ -781,7 +781,7 @@ def test_manifest_loads_via_loader() -> None:
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest = parse_manifest(tomllib.loads(manifest_path.read_text(encoding="utf-8")))
     assert manifest.id == "patreon_stories"
-    assert manifest.version == "2.4.0"
+    assert manifest.version == "2.5.0"
 
 
 def test_build_story_includes_source_filename() -> None:
