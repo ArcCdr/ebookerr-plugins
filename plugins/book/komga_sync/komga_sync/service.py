@@ -93,6 +93,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.metadata import sanitize, sanitize_multiline
 from ebookerr_sdk.domain.text_encoding import nfc
@@ -480,8 +481,8 @@ def _book_patch(
       sidecar adoption or EPUB backfill), and it is what a reader should see.
     - ``releaseDate`` — ``date_published`` rendered as a date-only ``YYYY-MM-DD``
       string (Komga's own form), only when local is truthy.
-    - ``authors`` — one ``{"name": ..., "role": "writer"}`` per ``" & "``-separated
-      sanitised name (``LIB-D6``), only when there is one.
+    - ``authors`` — one ``{"name": ..., "role": "writer"}`` per name ``split_authors`` reads
+      (``LIB-D6``), sanitised, only when there is one.
     - ``number`` / ``numberSort`` — the series number (``"2"``, ``"2.5"`` / ``2.5``),
       only when the book has one.
     - ``isbn`` — the book's ``isbn:`` identifier as a valid ISBN-13 (an ISBN-10 is
@@ -522,7 +523,7 @@ def _book_patch(
     release_date = book.date_published.date().isoformat() if book.date_published else None
     if release_date and release_date != current.get("releaseDate"):
         patch["releaseDate"] = release_date
-    names = [name for name in (sanitize(part) for part in (book.author or "").split(" & ")) if name]
+    names = [name for name in (sanitize(part) for part in split_authors(book.author)) if name]
     if names:
         desired_authors = [{"name": name, "role": "writer"} for name in names]
         current_authors = [

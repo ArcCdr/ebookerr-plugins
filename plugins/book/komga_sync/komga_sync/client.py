@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 import requests
+from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.text_encoding import nfc
 from ebookerr_sdk.download.availability import NO_ANSWER_ERRORS, is_unavailable_status
 from ebookerr_sdk.providers.connection import (
@@ -187,14 +188,16 @@ class RequestsKomgaClient:
 
         Calls ``POST /api/v1/books/list`` with a title-equality condition,
         scoped to the configured library when one is set, then filters the
-        returned page of matches by ``author`` client-side. The author
-        comparison is done in Unicode Normalization Form C, so a decomposed
-        name (macOS/SMB) matches its composed twin (``TXE-D3``).
+        returned page of matches client-side: every author
+        :func:`~ebookerr_sdk.domain.authors.split_authors` reads in *author*
+        must be among the book's metadata authors (Unicode NFC, ``TXE-D3``), in
+        any order.
 
         Args:
             title: Exact book title to match.
-            author: Author name that must appear among the book's metadata
-                authors, or ``None`` to skip author filtering.
+            author: Author text whose every name must appear among the book's
+                metadata authors, or ``None`` to skip author filtering. An empty
+                string matches nothing.
 
         Returns:
             The single matching book's id, or ``None`` if there is no match,
@@ -211,10 +214,14 @@ class RequestsKomgaClient:
         if not response.ok:
             return None
         payload = self._json(response) or {}
+        # The stored author text is one or more names joined by " & "; the SDK parser
+        # splits it, and a book matches when all of those names are among its authors.
+        wanted = split_authors(author) if author is not None else None
         matches: list[str] = []
         for book in payload.get("content", []):
-            names = [a.get("name") for a in book.get("metadata", {}).get("authors", [])]
-            if author is None or nfc(author) in {nfc(n) for n in names if n}:
+            authors = book.get("metadata", {}).get("authors", [])
+            names = {nfc(a.get("name")) for a in authors if a.get("name")}
+            if wanted is None or (wanted and all(nfc(name) in names for name in wanted)):
                 matches.append(str(book["id"]))
         return matches[0] if len(matches) == 1 else None
 
