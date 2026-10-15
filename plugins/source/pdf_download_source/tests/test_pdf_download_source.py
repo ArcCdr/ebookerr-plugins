@@ -227,7 +227,7 @@ class TestPullConversionError:
 
         ctx = FakeContext()
 
-        with pytest.raises(SourcePullError, match="PDF conversion failed"):
+        with pytest.raises(SourcePullError, match="This PDF is damaged and can't be converted"):
             plugin.pull(url, work_dir, None, ctx)
 
 
@@ -501,5 +501,5 @@ class TestConvert:
         work_dir = tmp_path / "work"
         work_dir.mkdir()
 
-        with pytest.raises(SourcePullError, match="PDF conversion failed"):
+        with pytest.raises(SourcePullError, match="This PDF is damaged and can't be converted"):
             PdfDownloadSourcePlugin().convert(broken_pdf, work_dir, FakeContext())

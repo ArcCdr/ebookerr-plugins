@@ -10,6 +10,7 @@ from ebookerr_sdk.epub.build import DocumentConversionError
 from ebookerr_sdk.epub.document import EpubDocument
 from pdf_download_source.pdf_to_epub import (
     PdfConversionError,
+    PdfRefusedError,
     convert_pdf_to_epub,
 )
 
@@ -216,11 +217,11 @@ def test_convert_pdf_no_headings_no_full_text_parasite(tmp_path: Path) -> None:
 
 
 def test_convert_empty_pdf_raises(tmp_path: Path) -> None:
-    """Blank-page PDF (no text) raises PdfConversionError."""
+    """Blank-page PDF (no text) raises PdfRefusedError."""
     pdf_path = _make_pdf(tmp_path, ["", ""])  # Two blank pages
     epub_path = tmp_path / "output.epub"
 
-    with pytest.raises(PdfConversionError, match="no text content found in PDF"):
+    with pytest.raises(PdfRefusedError, match="This PDF has no text to convert"):
         convert_pdf_to_epub(pdf_path, epub_path)
 
 

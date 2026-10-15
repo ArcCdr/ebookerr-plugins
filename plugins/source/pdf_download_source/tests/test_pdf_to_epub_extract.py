@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pymupdf
 import pytest
-from pdf_download_source.pdf_to_epub import PdfConversionError, extract_pdf_book
+from pdf_download_source.pdf_to_epub import PdfRefusedError, extract_pdf_book
 
 
 def _make_pdf(
@@ -154,9 +154,9 @@ def test_extract_skips_page_numbers(tmp_path: Path) -> None:
 
 
 def test_extract_invalid_pdf_raises(tmp_path: Path) -> None:
-    """Non-PDF file → PdfConversionError."""
+    """Non-PDF file → PdfRefusedError."""
     bad_pdf = tmp_path / "not_a_pdf.pdf"
     bad_pdf.write_text("This is not a PDF file.")
 
-    with pytest.raises(PdfConversionError, match="cannot open PDF"):
+    with pytest.raises(PdfRefusedError, match="^This PDF is damaged and can't be converted\\.$"):
         extract_pdf_book(bad_pdf)

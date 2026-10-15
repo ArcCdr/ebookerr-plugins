@@ -3,16 +3,29 @@
 from __future__ import annotations
 
 import logging
+import zipfile
 from pathlib import Path
 
 import pymupdf
 import pytest
 from ebookerr_sdk.epub.build import DocumentConversionError
+from ebookerr_sdk.spi import SourcePullError
 from pdf_download_source.pdf_to_epub import (
+    PDF_DAMAGED,
+    PDF_LOCKED,
     PdfConversionError,
+    PdfRefusedError,
     _extract_first_line,
     convert_pdf_to_epub,
 )
+from pdf_download_source.plugin import PdfDownloadSourcePlugin
+
+
+class _FakeContext:
+    """Minimal plugin context for the convert stage."""
+
+    def check_cancelled(self) -> None:
+        """No-op cancellation check."""
 
 
 def _make_minimal_pdf(
@@ -144,3 +157,77 @@ def test_the_pdf_filename_fallback_is_logged_at_debug(
         convert_pdf_to_epub(pdf_path, epub_path)
 
     assert any("PDF title fell back to the filename" in record.message for record in caplog.records)
+
+
+@pytest.mark.pins("EXP-297")
+def test_a_password_protected_pdf_is_refused_with_a_reason_that_names_the_password(
+    tmp_path: Path,
+) -> None:
+    """An encrypted PDF is refused with the fixed password sentence, and no EPUB is written."""
+    pdf_path = tmp_path / "locked.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Secret text", fontsize=11)
+    doc.save(
+        pdf_path,
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
+        owner_pw="owner",
+        user_pw="user",
+    )
+    doc.close()
+    epub_path = tmp_path / "out.epub"
+
+    with pytest.raises(PdfRefusedError) as exc:
+        convert_pdf_to_epub(pdf_path, epub_path)
+
+    assert str(exc.value) == PDF_LOCKED
+    assert "password" in str(exc.value)
+    assert exc.value.user_facing is True
+    assert not epub_path.exists()
+
+    work = tmp_path / "work"
+    work.mkdir()
+    with pytest.raises(SourcePullError) as pull_exc:
+        PdfDownloadSourcePlugin().convert(pdf_path, work, _FakeContext())  # type: ignore[arg-type]
+
+    assert PDF_LOCKED in str(pull_exc.value)
+    assert "/" not in str(pull_exc.value)
+    assert "Error" not in str(pull_exc.value)
+
+
+@pytest.mark.pins("EXP-303")
+def test_an_outlined_pdf_chapter_does_not_repeat_its_heading_as_body_text(tmp_path: Path) -> None:
+    """An outlined chapter's body starts after its heading line, not with a copy of it."""
+    pdf_path = tmp_path / "outlined.pdf"
+    doc = pymupdf.open()
+    for i in (1, 2, 3):
+        page = doc.new_page()
+        page.insert_text((72, 72), f"Chapter {i}: Heading {i}", fontsize=18)
+        page.insert_text((72, 120), f"Paragraph 1 of chapter {i}.", fontsize=11)
+    doc.set_toc([[1, f"Chapter {i}: Heading {i}", i] for i in (1, 2, 3)])
+    doc.save(pdf_path)
+    doc.close()
+    epub_path = tmp_path / "out.epub"
+
+    convert_pdf_to_epub(pdf_path, epub_path)
+
+    with zipfile.ZipFile(epub_path) as archive:
+        chapter = archive.read("OEBPS/chapter_002.xhtml").decode("utf-8")
+
+    assert "<h1>Chapter 2: Heading 2</h1>" in chapter
+    assert "<p>Paragraph 1 of chapter 2.</p>" in chapter
+    assert "<p>Chapter 2: Heading 2</p>" not in chapter
+
+
+@pytest.mark.pins("EXP-297")
+def test_a_damaged_pdf_is_refused_without_the_librarys_message(tmp_path: Path) -> None:
+    """Bytes that are not a readable PDF are refused with the fixed damaged sentence."""
+    pdf_path = tmp_path / "damaged.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n" + bytes(range(256)) * 16)
+
+    with pytest.raises(PdfRefusedError) as exc:
+        convert_pdf_to_epub(pdf_path, tmp_path / "out.epub")
+
+    assert str(exc.value) == PDF_DAMAGED
+    assert "/" not in str(exc.value)
+    assert "Failed to open" not in str(exc.value)
