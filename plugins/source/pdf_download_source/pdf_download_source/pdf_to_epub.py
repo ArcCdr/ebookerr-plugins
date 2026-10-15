@@ -5,10 +5,12 @@ format. This module handles metadata preservation, chapter structure
 detection, and cover image extraction from PDF files.
 
 Public names: ``PdfConversionError`` is raised when PDF extraction fails;
-``extract_pdf_book`` returns a ``Book`` with metadata, chapters, and paragraph
-text; ``convert_pdf_to_epub`` writes an EPUB file with metadata, chapters, and a
-cover image, and returns a ``ConversionResult`` that also carries the first line
-of document text, a title-fallback candidate (EXP-224).
+``PdfRefusedError`` is its user-facing subclass for a damaged, password-protected or
+textless PDF, whose message is one of the fixed sentences ``PDF_DAMAGED``, ``PDF_LOCKED``
+and ``PDF_NO_TEXT``; ``extract_pdf_book`` returns a ``Book`` with metadata, chapters, and
+paragraph text; ``convert_pdf_to_epub`` writes an EPUB file with metadata, chapters, and a
+cover image, and returns a ``ConversionResult`` that also carries the first line of
+document text, a title-fallback candidate (EXP-224).
 
 Chapter detection follows this order: attempt to extract chapters from the
 PDF's table of contents via ``_extract_chapters_from_toc``, fall back to
@@ -42,6 +44,20 @@ class PdfConversionError(DocumentConversionError):
     pass
 
 
+class PdfRefusedError(PdfConversionError):
+    """A PDF this converter cannot use, for a cause the user can act on (EXP-297).
+
+    Its message is one fixed sentence; ``user_facing`` tells the SDK stage to show it as is.
+    """
+
+    user_facing = True
+
+
+PDF_DAMAGED = "This PDF is damaged and can't be converted."
+PDF_LOCKED = "This PDF is password-protected — remove the password and add it again."
+PDF_NO_TEXT = "This PDF has no text to convert."
+
+
 def extract_pdf_book(pdf_path: Path) -> Book:
     """Extract text and chapters from a PDF file.
 
@@ -52,12 +68,18 @@ def extract_pdf_book(pdf_path: Path) -> Book:
         Book with metadata, chapters, and paragraph text.
 
     Raises:
-        PdfConversionError: If the PDF cannot be opened or parsed.
+        PdfRefusedError: If the PDF is damaged or password-protected.
+        PdfConversionError: If the PDF cannot be parsed.
     """
     try:
         doc = pymupdf.open(pdf_path)  # type: ignore[no-untyped-call]
     except (pymupdf.FileDataError, RuntimeError) as exc:
-        raise PdfConversionError(f"cannot open PDF: {exc}") from exc
+        logger.debug("PDF %s could not be opened: %s", pdf_path.name, exc)
+        raise PdfRefusedError(PDF_DAMAGED) from exc
+    if doc.needs_pass:
+        doc.close()  # type: ignore[no-untyped-call]
+        logger.debug("PDF %s needs a password", pdf_path.name)
+        raise PdfRefusedError(PDF_LOCKED)
 
     try:
         # Extract metadata
@@ -90,6 +112,8 @@ def _extract_chapters_from_toc(
 ) -> tuple[Chapter, ...]:
     """Extract chapters defined by TOC entries.
 
+    Each chapter's paragraphs leave out the heading line that its TOC entry names.
+
     Args:
         doc: PyMuPDF document.
         toc: Simple TOC list [[level, title, page], ...].
@@ -115,7 +139,9 @@ def _extract_chapters_from_toc(
         else:
             end_page = doc.page_count
 
-        paragraphs = _extract_paragraphs_from_range(doc, start_page, end_page, title)
+        paragraphs = _extract_paragraphs_from_range(
+            doc, start_page, end_page, title, exclude_heading=True
+        )
         chapters.append(Chapter(title, paragraphs, True))
 
     return tuple(chapters)
@@ -300,12 +326,13 @@ def convert_pdf_to_epub(
         whether the title was a filename fallback (``title_from_filename``, EXP-224).
 
     Raises:
-        PdfConversionError: If the PDF cannot be converted or has no text content.
+        PdfRefusedError: If the PDF is damaged, password-protected or has no text content.
+        PdfConversionError: If the PDF cannot be converted.
     """
     book = extract_pdf_book(pdf_path)
 
     if not book.chapters:
-        raise PdfConversionError("no text content found in PDF")
+        raise PdfRefusedError(PDF_NO_TEXT)
 
     # Treat default/placeholder titles from PDF extractors as "no title"
     meaningful_book_title = book.title if book.title and book.title.lower() != "untitled" else None
