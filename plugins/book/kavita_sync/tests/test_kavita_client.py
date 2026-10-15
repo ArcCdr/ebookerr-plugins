@@ -362,6 +362,93 @@ def test_find_chapter_matches_the_library_relative_path() -> None:
     assert result.total_pages == 150
 
 
+def _fake_retitled_book(
+    file_path: str, file_id: int, volume_files: list[dict[str, object]]
+) -> None:
+    """Fake Kavita's answers for a book whose chapter title no longer holds the file stem."""
+    _auth()
+    responses.add(
+        responses.GET,
+        f"{BASE}/api/Search/search",
+        json={
+            "chapters": [],
+            "files": [
+                {
+                    "id": file_id,
+                    "filePath": file_path,
+                    "pages": 150,
+                    "format": 3,
+                    "extension": ".epub",
+                }
+            ],
+            "series": [],
+        },
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        f"{BASE}/api/Search/series-for-mangafile",
+        json={"id": 5, "libraryId": 3},
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        f"{BASE}/api/Series/volumes",
+        json=[
+            {
+                "id": 10,
+                "minNumber": 1,
+                "seriesId": 5,
+                "chapters": [{"id": 42, "volumeId": 10, "pages": 150, "files": volume_files}],
+            }
+        ],
+        status=200,
+    )
+
+
+@responses.activate
+@pytest.mark.pins("EXP-313")
+def test_find_chapter_matches_the_file_when_the_chapter_title_no_longer_holds_the_stem() -> None:
+    """A retitled book is found through the search's files group and its series' volumes."""
+    _fake_retitled_book(
+        "/data/lib/Foo/foo-story.epub",
+        99,
+        [{"id": 99, "filePath": "/data/lib/Foo/foo-story.epub"}],
+    )
+
+    result = _client().find_chapter("Foo/foo-story.epub")
+
+    assert result == KavitaRef(
+        chapter_id=42, volume_id=10, series_id=5, library_id=3, total_pages=150
+    )
+    assert responses.calls[-1].request.params == {"seriesId": "5"}
+
+
+@responses.activate
+def test_find_chapter_by_file_refuses_a_same_named_file_in_another_folder() -> None:
+    """A files entry sharing only the basename under another folder is not the book (EXP-149)."""
+    _fake_retitled_book(
+        "/data/lib/Bar/foo-story.epub",
+        98,
+        [{"id": 98, "filePath": "/data/lib/Bar/foo-story.epub"}],
+    )
+
+    assert _client().find_chapter("Foo/foo-story.epub") is None
+    assert not [c for c in responses.calls if "/api/Series/volumes" in c.request.url]
+
+
+@responses.activate
+def test_find_chapter_by_file_needs_a_chapter_holding_it() -> None:
+    """A matched file that no chapter of its series holds is not found."""
+    _fake_retitled_book(
+        "/data/lib/Foo/foo-story.epub",
+        99,
+        [{"id": 77, "filePath": "/data/lib/Foo/other.epub"}],
+    )
+
+    assert _client().find_chapter("Foo/foo-story.epub") is None
+
+
 @responses.activate
 def test_find_chapter_matches_a_decomposed_server_path() -> None:
     """find_chapter matches a server path in decomposed Unicode against a composed name (TXE-D3)."""
