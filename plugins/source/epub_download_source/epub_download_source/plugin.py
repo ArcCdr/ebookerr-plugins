@@ -27,11 +27,10 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 import requests
-from ebookerr_sdk.domain.dates import parse_datetime
+from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.epub_hash import epub_content_hash
-from ebookerr_sdk.domain.epub_metadata import language_name
+from ebookerr_sdk.domain.epub_metadata import epub_book_fields
 from ebookerr_sdk.domain.ids import make_book_id
-from ebookerr_sdk.domain.metadata import sanitize
 from ebookerr_sdk.download.check import (
     check_download_update,
     download_failure_message,
@@ -312,10 +311,13 @@ class EpubDownloadSourcePlugin:
         ctx.report(40.0)
 
         meta = self._read_epub_metadata(work_dir)
-        author = sanitize(meta.author) or "Unknown"
-        title = sanitize(meta.title) or Path(filename).stem
+        fields, dropped = epub_book_fields(meta, source_url=url, file_name=filename)
+        for name in dropped:
+            logger.debug("Pulled EPUB names itself as its %s: %s", name.removesuffix("_url"), url)
+        names = split_authors(fields["author"])
+        title = fields["title"] or Path(filename).stem
 
-        output_filename = f"{_safe_component(author)}/{filename}"
+        output_filename = f"{_safe_component(names[0] if names else 'Unknown')}/{filename}"
         output_path = work_dir / output_filename
         output_path.parent.mkdir(parents=True, exist_ok=True)
         (work_dir / "download.part").rename(output_path)
@@ -339,7 +341,7 @@ class EpubDownloadSourcePlugin:
             custom_values["content_hash"] = CustomValueWrite(value=new_hash, value_type="str")
             return BookPatch(book_id=make_book_id(url), upsert=False, custom_values=custom_values)
 
-        fields = self._build_fields(url, meta, title, author, output_filename)
+        fields = self._build_fields(url, fields, output_filename)
         logger.info('Downloaded EPUB "%s" (%d bytes) from %s', title, downloaded_size, url)
         ctx.report(60.0)
 
@@ -394,27 +396,26 @@ class EpubDownloadSourcePlugin:
     def _build_fields(
         self,
         url: str,
-        meta: Any,
-        title: str,
-        author: str,
+        mapped: dict[str, Any],
         output_filename: str,
     ) -> dict[str, Any]:
-        """Build BookPatch fields from metadata.
+        """Build the BookPatch fields.
 
-        The EPUB's ``dc:date`` values are parsed into timezone-aware UTC datetimes
-        here; an unparseable value is omitted rather than stored.
+        The shared EPUB mapping (``epub_book_fields``) plus this door's own (story URL, staged
+        path, format, Auto-Pull off).
+
+        Args:
+            url: The download URL, stored as the story URL.
+            mapped: The fields :func:`~ebookerr_sdk.domain.epub_metadata.epub_book_fields`
+                read from the file.
+            output_filename: The staged path relative to the work directory.
+
+        Returns:
+            The fields with every ``None`` value dropped.
         """
         fields = {
-            "title": title,
-            "author": author,
+            **mapped,
             "story_url": url,
-            "site": urlsplit(url).hostname,
-            "description": sanitize(meta.description),
-            "language": language_name(meta.language) or "English",
-            "date_published": parse_datetime(meta.date_published),
-            "date_updated": parse_datetime(meta.date_updated),
-            "status": sanitize(meta.status),
-            "num_chapters": meta.chapter_count,
             "output_filename": output_filename,
             "format": "epub",
             "auto_pull": 0,

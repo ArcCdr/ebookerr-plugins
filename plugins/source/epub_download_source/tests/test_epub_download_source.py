@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 import requests
 import responses
+from ebookerr_sdk.domain.epub_metadata import epub_book_fields
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.spi import (
     ChapterLink,
@@ -721,13 +722,9 @@ class TestBuildFieldsParsesDates:
             chapter_count=1,
         )
 
-        fields = plugin._build_fields(
-            "https://example.com/download.epub",
-            meta,
-            "Test Title",
-            "Test Author",
-            "Test Author/download.epub",
-        )
+        url = "https://example.com/download.epub"
+        mapped, _ = epub_book_fields(meta, source_url=url)
+        fields = plugin._build_fields(url, mapped, "Test Author/download.epub")
 
         assert fields["date_published"] == datetime(2026, 5, 10, tzinfo=UTC)
 
@@ -748,13 +745,9 @@ class TestBuildFieldsParsesDates:
             chapter_count=1,
         )
 
-        fields = plugin._build_fields(
-            "https://example.com/download.epub",
-            meta,
-            "Test Title",
-            "Test Author",
-            "Test Author/download.epub",
-        )
+        url = "https://example.com/download.epub"
+        mapped, _ = epub_book_fields(meta, source_url=url)
+        fields = plugin._build_fields(url, mapped, "Test Author/download.epub")
 
         assert fields["date_updated"] == datetime(2026, 5, 11, 8, 0, tzinfo=UTC)
 
@@ -775,13 +768,9 @@ class TestBuildFieldsParsesDates:
             chapter_count=1,
         )
 
-        fields = plugin._build_fields(
-            "https://example.com/download.epub",
-            meta,
-            "Test Title",
-            "Test Author",
-            "Test Author/download.epub",
-        )
+        url = "https://example.com/download.epub"
+        mapped, _ = epub_book_fields(meta, source_url=url)
+        fields = plugin._build_fields(url, mapped, "Test Author/download.epub")
 
         assert "date_published" not in fields
 
@@ -802,13 +791,9 @@ class TestBuildFieldsParsesDates:
             chapter_count=1,
         )
 
-        fields = plugin._build_fields(
-            "https://example.com/download.epub",
-            meta,
-            "Test Title",
-            "Test Author",
-            "Test Author/download.epub",
-        )
+        url = "https://example.com/download.epub"
+        mapped, _ = epub_book_fields(meta, source_url=url)
+        fields = plugin._build_fields(url, mapped, "Test Author/download.epub")
 
         assert "date_published" not in fields
 
@@ -831,7 +816,8 @@ class TestBuildFieldsParsesDates:
 
         url = "https://example.com/download.epub"
         output_filename = "Test Author/download.epub"
-        fields = plugin._build_fields(url, meta, "Test Title", "Test Author", output_filename)
+        mapped, _ = epub_book_fields(meta, source_url=url)
+        fields = plugin._build_fields(url, mapped, output_filename)
 
         assert fields["title"] == "Test Title"
         assert fields["author"] == "Test Author"
@@ -1078,7 +1064,7 @@ def _pull_epub_with(tmp_path: Path, build_epub: Any, url: str, *, publisher: str
         headers={"Content-Type": "application/epub+zip"},
     )
     work_dir = tmp_path / "work"
-    work_dir.mkdir()
+    work_dir.mkdir(parents=True)
     patch = EpubDownloadSourcePlugin(session=requests.Session()).pull(
         url, work_dir, None, FakeContext()
     )

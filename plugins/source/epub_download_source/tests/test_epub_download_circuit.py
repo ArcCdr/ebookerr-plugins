@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from ebookerr_sdk.domain.epub_metadata import EpubMetadata
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.spi import (
     BookView,
@@ -15,6 +16,20 @@ from ebookerr_sdk.spi import (
     SourcePullError,
 )
 from epub_download_source.plugin import EpubDownloadSourcePlugin
+
+
+def _epub_metadata() -> EpubMetadata:
+    """The metadata a downloaded EPUB reads back as: a title and an author, nothing else."""
+    return EpubMetadata(
+        source_url=None,
+        title="Test Title",
+        author="Test Author",
+        language=None,
+        date_published=None,
+        date_updated=None,
+        publisher=None,
+        chapter_count=1,
+    )
 
 
 @pytest.fixture
@@ -329,7 +344,7 @@ def test_a_successful_pull_resets_the_count(
                 stack.enter_context(
                     patch(
                         "epub_download_source.plugin.EpubDownloadSourcePlugin._read_epub_metadata",
-                        return_value=MagicMock(author="Test Author", title="Test Title"),
+                        return_value=_epub_metadata(),
                     )
                 )
                 stack.enter_context(
@@ -457,7 +472,7 @@ def test_two_hosts_keep_two_breakers(
         stack.enter_context(
             patch(
                 "epub_download_source.plugin.EpubDownloadSourcePlugin._read_epub_metadata",
-                return_value=MagicMock(author="Test Author", title="Test Title"),
+                return_value=_epub_metadata(),
             )
         )
         stack.enter_context(
