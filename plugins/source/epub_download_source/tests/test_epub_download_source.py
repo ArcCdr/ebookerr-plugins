@@ -1058,3 +1058,47 @@ class TestEpubDownloadSourceContentTypeMismatch:
 
         with pytest.raises(ContentTypeMismatchError):
             plugin.pull(url, work_dir, None, ctx)
+
+
+def _pull_epub_with(tmp_path: Path, build_epub: Any, url: str, *, publisher: str) -> dict[str, Any]:
+    """Pull a three-creator EPUB with *publisher* and an ISBN from *url*; return the fields."""
+    from ebookerr_sdk.epub import EpubDocument
+
+    epub_path = build_epub([("Chapter 1", "http://example.com/ch1")])
+    doc = EpubDocument.open(epub_path)
+    doc.opf.set_creators(["Alexander Hamilton", "James Madison", "John Jay"])
+    doc.opf.set_publisher(publisher)
+    doc.opf.set_typed_identifiers([("isbn", "9780451528810")])
+    doc.save()
+    responses.add(
+        responses.GET,
+        url,
+        body=epub_path.read_bytes(),
+        status=200,
+        headers={"Content-Type": "application/epub+zip"},
+    )
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    patch = EpubDownloadSourcePlugin(session=requests.Session()).pull(
+        url, work_dir, None, FakeContext()
+    )
+    return patch.fields
+
+
+@pytest.mark.pins("EXP-319")
+@responses.activate
+def test_a_multi_creator_epub_keeps_every_creator_publisher_and_identifier(
+    tmp_path: Path, build_epub: Any
+) -> None:
+    """A pulled EPUB with three creators, a publisher and an ISBN keeps all of them;
+    the site is never its publisher."""
+    url = "https://example.org/books/f.epub"
+    fields = _pull_epub_with(tmp_path, build_epub, url, publisher="J. & A. McLean")
+    assert fields["author"] == "Alexander Hamilton & James Madison & John Jay"
+    assert fields["publisher"] == "J. & A. McLean"
+    assert fields["identifiers"] == "isbn:9780451528810"
+    assert fields["output_filename"].startswith("Alexander Hamilton/")
+
+    responses.reset()
+    sited = _pull_epub_with(tmp_path / "again", build_epub, url, publisher="example.org")
+    assert "publisher" not in sited
