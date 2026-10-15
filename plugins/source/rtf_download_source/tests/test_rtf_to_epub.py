@@ -76,8 +76,8 @@ def test_every_par_becomes_its_own_paragraph_and_info_names_the_book(tmp_path: P
             chapter = archive.read(f"OEBPS/chapter_{n:03d}.xhtml").decode("utf-8")
             assert chapter.count("<p>") == 5
     report = validate_epub(out)
-    assert report.valid
-    assert report.findings == []
+    assert report.status == "valid"
+    assert report.findings == ()
 
 
 def test_an_rtf_without_info_falls_back_as_before(tmp_path: Path) -> None:
