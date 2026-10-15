@@ -195,7 +195,7 @@ class TestPullEmptyTextMapsToSourcePullError:
 
         ctx = FakeContext()
 
-        with pytest.raises(SourcePullError, match="Text conversion failed"):
+        with pytest.raises(SourcePullError, match="^This text file has no text to convert\\.$"):
             plugin.pull(url, work_dir, None, ctx)
 
 
@@ -376,5 +376,5 @@ class TestConvert:
         work_dir = tmp_path / "work"
         work_dir.mkdir()
 
-        with pytest.raises(SourcePullError, match="Text conversion failed"):
+        with pytest.raises(SourcePullError, match="^This text file has no text to convert\\.$"):
             TextDownloadSourcePlugin().convert(source, work_dir, FakeContext())
