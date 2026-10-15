@@ -186,7 +186,7 @@ class TestPullEmptyRtfMapsToSourcePullError:
 
         ctx = FakeContext()
 
-        with pytest.raises(SourcePullError, match="RTF conversion failed"):
+        with pytest.raises(SourcePullError, match="This RTF file"):
             plugin.pull(url, work_dir, None, ctx)
 
 
@@ -334,5 +334,5 @@ class TestConvert:
         work_dir = tmp_path / "work"
         work_dir.mkdir()
 
-        with pytest.raises(SourcePullError, match="RTF conversion failed"):
+        with pytest.raises(SourcePullError, match="This RTF file"):
             RtfDownloadSourcePlugin().convert(source, work_dir, FakeContext())
