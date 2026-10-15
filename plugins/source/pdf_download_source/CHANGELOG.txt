@@ -1,3 +1,6 @@
+== 1.4.0 ==
+A PDF it cannot convert now says why in one sentence — damaged, password-protected, or without text — instead of a technical error. A chapter from a PDF's outline no longer repeats its heading as its first paragraph.
+
 == 1.3.1 ==
 Uses pymupdf 1.28.2, the version this release was tested with; newer pymupdf releases arrive as updates of this plugin a few days after they are published.
 
