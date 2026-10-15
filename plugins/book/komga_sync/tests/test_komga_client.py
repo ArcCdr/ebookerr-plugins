@@ -184,6 +184,36 @@ def test_find_book_id_author_mismatch() -> None:
 
 
 @responses.activate
+@pytest.mark.pins("EXP-324")
+def test_find_book_id_matches_a_multi_author_book() -> None:
+    """A co-written book is found by its authors in any order; a book by one of them only is not."""
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/v1/books/list",
+        json={
+            "content": [
+                {
+                    "id": "multi1",
+                    "metadata": {
+                        "authors": [
+                            {"name": "Ada Marsh", "role": "writer"},
+                            {"name": "Teo Lind", "role": "writer"},
+                        ]
+                    },
+                },
+                {
+                    "id": "solo1",
+                    "metadata": {"authors": [{"name": "Ada Marsh", "role": "writer"}]},
+                },
+            ],
+            "totalElements": 2,
+        },
+        status=200,
+    )
+    assert _client().find_book_id("Harbour", "Teo Lind & Ada Marsh") == "multi1"
+
+
+@responses.activate
 def test_find_book_id_sends_library_id_condition() -> None:
     responses.add(
         responses.POST,
