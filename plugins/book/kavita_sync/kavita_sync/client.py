@@ -247,6 +247,24 @@ class RequestsKavitaClient:
             return ConnectionTestResult("ok", "Connected.")
         return ConnectionTestResult("rejected", "Kavita refused the API key.")
 
+    @staticmethod
+    def _same_file(output_filename: str, file_path: str) -> bool:
+        """Whether Kavita's *file_path* ends with the book's library-relative path (``EXP-149``).
+
+        Both sides are compared in Unicode Normalization Form C, case-insensitively and on the
+        whole relative path, never on the basename alone.
+
+        Args:
+            output_filename: The book's library-relative path, ``"Author/Title.epub"``.
+            file_path: A file path as Kavita reports it.
+
+        Returns:
+            ``True`` when *file_path* ends with the book's relative path.
+        """
+        suffix = "/" + nfc(output_filename.replace("\\", "/")).casefold().lstrip("/")
+        normalised = "/" + nfc(file_path.replace("\\", "/")).casefold().lstrip("/")
+        return normalised.endswith(suffix)
+
     def _find_matching_file(
         self, output_filename: str, chapters: list[dict[str, Any]]
     ) -> tuple[dict[str, Any], dict[str, Any]] | None:
@@ -265,15 +283,13 @@ class RequestsKavitaClient:
         Returns:
             The matching ``(chapter, file)`` pair, or ``None`` when no file matches.
         """
-        suffix = "/" + nfc(output_filename.replace("\\", "/")).casefold().lstrip("/")
         basename = nfc(Path(output_filename).name).casefold()
         near_miss: str | None = None
         for chapter in chapters:
             for file in chapter.get("files", []):
                 file_path = str(file.get("filePath", ""))
-                normalised = "/" + nfc(file_path.replace("\\", "/")).casefold().lstrip("/")
                 if (
-                    normalised.endswith(suffix)
+                    self._same_file(output_filename, file_path)
                     and chapter.get("id")
                     and chapter.get("volumeId")
                     and file.get("id")
@@ -380,7 +396,10 @@ class RequestsKavitaClient:
         """Find a chapter by output filename.
 
         The match is on the book's library-relative path (case-insensitively), not on the
-        basename. On a non-2xx answer or bad JSON, returns None; a transport failure raises
+        basename. When no chapter's title still holds the file name (the book was retitled or
+        moved to another series), the search's ``files`` group — filled for an admin user's
+        key — finds the file by its path, and the chapter is the one of its series that holds
+        that file. On a non-2xx answer or bad JSON, returns None; a transport failure raises
         ``ProviderUnreachable``.
 
         Returns:
@@ -413,9 +432,8 @@ class RequestsKavitaClient:
             return None
 
         match = self._find_matching_file(output_filename, data.get("chapters", []))
-        if not match:
-            logger.debug("Kavita: no chapter matches %s", output_filename)
-            return None
+        if match is None:
+            return self._find_by_file(output_filename, data, headers, query, stem)
 
         chapter, file = match
         file_id = cast(int, file.get("id"))
@@ -438,6 +456,102 @@ class RequestsKavitaClient:
             ref.chapter_id,
         )
         return ref
+
+    def _find_by_file(
+        self,
+        output_filename: str,
+        data: dict[str, Any],
+        headers: dict[str, str],
+        query: str,
+        stem: str,
+    ) -> KavitaRef | KavitaSeriesUnresolved | None:
+        """Find the book through the search answer's ``files`` group when no chapter matched.
+
+        Kavita fills ``chapters`` by chapter title and ``files`` by file path, so a retitled
+        or re-seried book is found only by the latter. A ``files`` entry carries no chapter
+        id: the chapter is the one of the file's series that holds it.
+
+        Args:
+            output_filename: The book's library-relative path, ``"Author/Title.epub"``.
+            data: Kavita's search answer.
+            headers: HTTP headers with auth token.
+            query: The filename stem (basename without extension).
+            stem: The searched filename (basename with extension).
+
+        Returns:
+            The chapter/volume/series; ``None`` when no file or chapter matches;
+            ``KavitaSeriesUnresolved`` when the file matched but its series did not.
+
+        Raises:
+            ProviderUnreachable: On any ``requests.RequestException``.
+        """
+        file_id: int | None = None
+        for file in data.get("files", []):
+            if file.get("id") and self._same_file(output_filename, str(file.get("filePath", ""))):
+                file_id = cast(int, file["id"])
+                break
+        if file_id is None:
+            logger.debug("Kavita: no chapter or file matches %s", output_filename)
+            return None
+
+        series_ids = self._get_series_ids(file_id, headers, data.get("series", []), query, stem)
+        if isinstance(series_ids, KavitaSeriesUnresolved):
+            return series_ids
+        series_id, library_id = series_ids
+
+        held = self._chapter_holding(series_id, file_id, headers)
+        if held is None:
+            logger.debug(
+                "Kavita: file %s matched but no chapter of series %s holds it", file_id, series_id
+            )
+            return None
+        volume, chapter = held
+        ref = KavitaRef(
+            chapter_id=cast(int, chapter.get("id")),
+            volume_id=cast(int, chapter.get("volumeId") or volume.get("id")),
+            series_id=series_id,
+            library_id=library_id,
+            total_pages=cast(int, chapter.get("pages", 0)),
+        )
+        logger.debug(
+            "Kavita chapter matched by its file for %s (series=%s, chapter=%s)",
+            output_filename,
+            ref.series_id,
+            ref.chapter_id,
+        )
+        return ref
+
+    def _chapter_holding(
+        self, series_id: int, file_id: int, headers: dict[str, str]
+    ) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """Find the ``(volume, chapter)`` of a series that holds a file.
+
+        Args:
+            series_id: The Kavita series ID.
+            file_id: The Kavita file ID.
+            headers: HTTP headers with auth token.
+
+        Returns:
+            The first ``(volume, chapter)`` pair holding the file; ``None`` on a non-2xx
+            answer, bad JSON or when no chapter holds it.
+
+        Raises:
+            ProviderUnreachable: On any ``requests.RequestException``.
+        """
+        response = self._send(
+            "GET", "/api/Series/volumes", params={"seriesId": series_id}, headers=headers
+        )
+        if response.status_code != 200:
+            return None
+        try:
+            volumes = cast("list[dict[str, Any]]", response.json())
+        except ValueError:
+            return None
+        for volume in volumes:
+            for chapter in volume.get("chapters", []):
+                if any(file.get("id") == file_id for file in chapter.get("files", [])):
+                    return volume, chapter
+        return None
 
     def get_progress(self, chapter_id: int) -> dict[str, Any]:
         """Get reading progress for a chapter.
