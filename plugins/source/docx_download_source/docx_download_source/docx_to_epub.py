@@ -6,7 +6,9 @@ detection via document heading styles, and cover image extraction from DOCX
 files.
 
 Public names: ``DocxConversionError`` is raised when DOCX extraction fails;
-``extract_docx_book`` returns a ``Book`` with metadata, chapters, and paragraph
+``DocxRefusedError`` is its user-facing subclass, raised with one sentence
+(``DOCX_DAMAGED`` or ``DOCX_NO_TEXT``) when the document cannot be opened or holds no
+text (EXP-297); ``extract_docx_book`` returns a ``Book`` with metadata, chapters, and paragraph
 text; ``convert_docx_to_epub`` writes an EPUB file with metadata, chapters, and an
 optional cover image, and returns a ``ConversionResult`` that also carries the
 first paragraph of document text, a title-fallback candidate (EXP-224).
@@ -35,10 +37,23 @@ from ebookerr_sdk.epub.build import (
 logger = logging.getLogger(__name__)
 
 
+DOCX_DAMAGED = "This Word document is damaged and can't be converted."
+DOCX_NO_TEXT = "This Word document has no text to convert."
+
+
 class DocxConversionError(DocumentConversionError):
     """Raised when DOCX extraction fails."""
 
     pass
+
+
+class DocxRefusedError(DocxConversionError):
+    """A Word document this converter cannot use, for a cause the user can act on (EXP-297).
+
+    Its message is one fixed sentence; ``user_facing`` tells the SDK stage to show it as is.
+    """
+
+    user_facing = True
 
 
 def extract_docx_book(docx_path: Path) -> Book:
@@ -51,12 +66,14 @@ def extract_docx_book(docx_path: Path) -> Book:
         Book with metadata, chapters, and paragraph text.
 
     Raises:
-        DocxConversionError: If the DOCX cannot be opened or has no text content.
+        DocxRefusedError: The DOCX cannot be opened (``DOCX_DAMAGED``) or has no text
+            content (``DOCX_NO_TEXT``).
     """
     try:
         document = docx.Document(str(docx_path))
     except Exception as exc:
-        raise DocxConversionError(f"cannot open DOCX: {exc}") from exc
+        logger.debug("DOCX %s could not be opened: %s", docx_path.name, exc)
+        raise DocxRefusedError(DOCX_DAMAGED) from exc
 
     # Extract metadata
     title = document.core_properties.title or None
@@ -108,7 +125,7 @@ def extract_docx_book(docx_path: Path) -> Book:
 
     # Check that we have at least some content
     if not chapters_list:
-        raise DocxConversionError("no text content found in DOCX")
+        raise DocxRefusedError(DOCX_NO_TEXT)
 
     # Build Chapter objects
     chapters = tuple(
@@ -179,7 +196,8 @@ def convert_docx_to_epub(
         whether the title was a filename fallback (``title_from_filename``, EXP-224).
 
     Raises:
-        DocxConversionError: If the DOCX cannot be converted or has no text content.
+        DocxRefusedError: The DOCX cannot be opened (``DOCX_DAMAGED``) or has no text
+            content (``DOCX_NO_TEXT``).
     """
     book = extract_docx_book(docx_path)
 
