@@ -12,6 +12,12 @@ from typing import Any
 import pytest
 import requests
 import responses
+from docx_download_source.docx_to_epub import (
+    DOCX_DAMAGED,
+    DOCX_NO_TEXT,
+    DocxRefusedError,
+    convert_docx_to_epub,
+)
 from docx_download_source.plugin import DocxDownloadSourcePlugin
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.epub import EpubDocument
@@ -182,7 +188,7 @@ class TestPullConversionError:
 
         ctx = FakeContext()
 
-        with pytest.raises(SourcePullError, match="DOCX conversion failed"):
+        with pytest.raises(SourcePullError, match="This Word document"):
             plugin.pull(url, work_dir, None, ctx)
 
 
@@ -397,5 +403,32 @@ class TestConvert:
         broken = tmp_path / "broken.docx"
         broken.write_bytes(b"not a docx")
 
-        with pytest.raises(SourcePullError, match="DOCX conversion failed"):
+        with pytest.raises(SourcePullError, match="This Word document"):
             DocxDownloadSourcePlugin().convert(broken, tmp_path / "work", FakeContext())
+
+
+def test_a_damaged_docx_is_refused_with_a_sentence(tmp_path: Path) -> None:
+    """A DOCX python-docx cannot open is refused with one user-facing sentence (EXP-297)."""
+    broken = tmp_path / "broken.docx"
+    broken.write_bytes(b"PK\x03\x04 not a real zip")
+
+    with pytest.raises(DocxRefusedError) as exc:
+        convert_docx_to_epub(broken, tmp_path / "out.epub")
+
+    assert str(exc.value) == DOCX_DAMAGED
+    assert exc.value.user_facing is True
+    assert "/" not in str(exc.value)
+
+
+def test_an_empty_docx_is_refused_with_a_sentence(tmp_path: Path) -> None:
+    """A DOCX with no paragraph text is refused with one user-facing sentence (EXP-297)."""
+    import docx
+
+    empty = tmp_path / "empty.docx"
+    docx.Document().save(str(empty))
+
+    with pytest.raises(DocxRefusedError) as exc:
+        convert_docx_to_epub(empty, tmp_path / "out.epub")
+
+    assert str(exc.value) == DOCX_NO_TEXT
+    assert exc.value.user_facing is True
