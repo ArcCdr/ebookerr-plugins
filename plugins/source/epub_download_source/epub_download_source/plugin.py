@@ -314,10 +314,12 @@ class EpubDownloadSourcePlugin:
         fields, dropped = epub_book_fields(meta, source_url=url, file_name=filename)
         for name in dropped:
             logger.debug("Pulled EPUB names itself as its %s: %s", name.removesuffix("_url"), url)
+        # A pulled book always has an author: a file naming none is by "Unknown".
+        fields["author"] = fields["author"] or "Unknown"
         names = split_authors(fields["author"])
         title = fields["title"] or Path(filename).stem
 
-        output_filename = f"{_safe_component(names[0] if names else 'Unknown')}/{filename}"
+        output_filename = f"{_safe_component(names[0])}/{filename}"
         output_path = work_dir / output_filename
         output_path.parent.mkdir(parents=True, exist_ok=True)
         (work_dir / "download.part").rename(output_path)
