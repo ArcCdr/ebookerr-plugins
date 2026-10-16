@@ -8416,7 +8416,7 @@ def test_read_state_changes_first_call_records_the_baseline() -> None:
     svc = service(client, library_id="L1")
     changes = svc.read_state_changes(None)
     assert changes == ReadStateChanges(marker="2026-09-28T18:50:49+00:00")
-    assert client.progress_calls == [("L1", 0, 50)]
+    assert client.progress_calls == [("L1", 0, 100)]
 
 
 def test_the_baseline_of_an_unread_library_is_the_epoch() -> None:
@@ -8483,12 +8483,12 @@ def test_read_state_changes_reads_the_next_page_while_every_book_is_newer() -> N
     """When a page is full of newer books, the scan continues to the next page."""
     client = FakeKomga()
     client.progress_pages = [
-        _newer_rows(0, 50),
-        _newer_rows(50, 1) + [_read("B051", "2026-09-28T09:00:00Z")],
+        _newer_rows(0, 100),
+        _newer_rows(100, 1) + [_read("B101", "2026-09-28T09:00:00Z")],
     ]
     svc = service(client, library_id="L1")
     changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
-    assert len(changes.items) == 51
+    assert len(changes.items) == 101
     assert [call[1] for call in client.progress_calls] == [0, 1]
 
 
@@ -8497,13 +8497,13 @@ def test_read_state_changes_stops_after_five_full_pages(
 ) -> None:
     """After reading five full pages, the scan stops even if more exist."""
     client = FakeKomga()
-    client.progress_pages = [_newer_rows(50 * p, 50) for p in range(6)]
+    client.progress_pages = [_newer_rows(100 * p, 100) for p in range(6)]
     svc = service(client, library_id="L1")
     with caplog.at_level(logging.DEBUG, logger="komga_sync.service"):
-        changes = svc.read_state_changes("2026-09-28T10:00:00+00:00")
-    assert len(changes.items) == 250
+        changes = svc.read_state_changes("2026-09-28T00:00:00+00:00")
+    assert len(changes.items) == 500
     assert len(client.progress_calls) == 5
-    assert "more than 250 reading changes" in caplog.text
+    assert "more than 500 reading changes" in caplog.text
 
 
 def test_read_state_changes_raises_when_komga_is_unreachable() -> None:
@@ -8549,6 +8549,96 @@ def test_read_state_changes_is_read_only() -> None:
     assert client.put_progressions == []
     assert client.analyze_calls == []
     assert client.scan_calls == 0
+
+
+def test_the_check_lists_one_page_of_100() -> None:
+    """Each check lists one page of the 100 books read most recently (EXP-344)."""
+    client = FakeKomga()
+    svc = service(client, library_id="L1")
+    svc.read_state_changes(None)
+    assert client.progress_calls == [("L1", 0, 100)]
+
+
+@pytest.mark.pins("EXP-344")
+def test_a_book_marked_unread_is_reported_at_the_next_check(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A book the last check listed with progress, now shown without progress, is reported."""
+    from komga_sync.listed_progress import ListedProgress
+
+    client = FakeKomga()
+    svc = service(client, library_id="L1", listed_progress=ListedProgress(FakeContext()))
+    client.progress_pages = [
+        [_read("B1", "2026-09-28T18:50:49Z"), _read("B2", "2026-09-28T12:00:00Z")]
+    ]
+    assert svc.read_state_changes("2026-09-28T10:00:00+00:00").items == ("B1", "B2")
+
+    client.progress_pages = [[_read("B2", "2026-09-28T12:00:00Z")]]
+    client.book = {"id": "B1", "readProgress": None}
+    with caplog.at_level(logging.INFO, logger="komga_sync.service"):
+        changes = svc.read_state_changes("2026-09-28T18:50:49+00:00")
+    assert changes.items == ("B1",)
+    assert changes.marker == "2026-09-28T18:50:49+00:00"
+    assert "Komga live read state: 1 book(s) marked unread since the last check" in caplog.text
+
+
+def test_a_book_pushed_down_the_listing_is_not_reported() -> None:
+    """A remembered book that newer reading pushed off the listing still has progress."""
+    from komga_sync.listed_progress import ListedProgress
+
+    client = FakeKomga()
+    svc = service(client, library_id="L1", listed_progress=ListedProgress(FakeContext()))
+    client.progress_pages = [
+        [_read("B1", "2026-09-28T18:50:49Z"), _read("B2", "2026-09-28T12:00:00Z")]
+    ]
+    svc.read_state_changes("2026-09-28T10:00:00+00:00")
+
+    client.progress_pages = [[_read("B2", "2026-09-28T12:00:00Z")]]
+    client.book = {
+        "id": "B1",
+        "readProgress": {"page": 3, "completed": False, "lastModified": "2026-09-28T09:00:00Z"},
+    }
+    changes = svc.read_state_changes("2026-09-28T18:50:49+00:00")
+    assert changes.items == ()
+    assert client.get_book_calls == 1
+
+
+def test_without_a_memory_no_book_is_looked_up() -> None:
+    """With no listed-progress memory, a vanished book is not looked up (EXP-344)."""
+    client = FakeKomga()
+    svc = service(client, library_id="L1")
+    client.progress_pages = [
+        [_read("B1", "2026-09-28T18:50:49Z"), _read("B2", "2026-09-28T12:00:00Z")]
+    ]
+    svc.read_state_changes("2026-09-28T10:00:00+00:00")
+    client.progress_pages = [[_read("B2", "2026-09-28T12:00:00Z")]]
+    client.book = {"id": "B1", "readProgress": None}
+    changes = svc.read_state_changes("2026-09-28T18:50:49+00:00")
+    assert changes.items == ()
+    assert client.get_book_calls == 0
+
+
+@pytest.mark.pins("EXP-344")
+def test_an_unreachable_lookup_keeps_the_remembered_books() -> None:
+    """A lookup that Komga cannot answer loses no remembered book; the next check reports it."""
+    from komga_sync.listed_progress import ListedProgress
+
+    client = FakeKomga()
+    svc = service(client, library_id="L1", listed_progress=ListedProgress(FakeContext()))
+    client.progress_pages = [
+        [_read("B1", "2026-09-28T18:50:49Z"), _read("B2", "2026-09-28T12:00:00Z")]
+    ]
+    svc.read_state_changes("2026-09-28T10:00:00+00:00")
+
+    client.progress_pages = [[_read("B2", "2026-09-28T12:00:00Z")]]
+    client.book = {"id": "B1", "readProgress": None}
+    client.die_after_get_book_calls = 0
+    with pytest.raises(ProviderUnreachable):
+        svc.read_state_changes("2026-09-28T18:50:49+00:00")
+
+    client.die_after_get_book_calls = None
+    changes = svc.read_state_changes("2026-09-28T18:50:49+00:00")
+    assert changes.items == ("B1",)
 
 
 def _linked(repo: _FakeBookRepository, item_id: str = "KB1") -> BookView:
