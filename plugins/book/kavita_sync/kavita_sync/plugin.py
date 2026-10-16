@@ -150,6 +150,7 @@ def _build_service(
     re-index a changed file before the sync's read-position work is marked stale
     (``CHC-D12``).
     """
+    from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
     from ebookerr_sdk.providers.scan_ledger import ScanLedger
 
     settings = ctx.settings
@@ -173,6 +174,7 @@ def _build_service(
         link_owner=getattr(ctx, "provider_link_owner", None),
         circuit=getattr(ctx, "circuit", None),
         scan_requests=ScanLedger(ctx),
+        capture_warnings=CaptureWarnings(ctx),
     )
 
 

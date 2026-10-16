@@ -48,7 +48,9 @@ The sync, for one freshly-downloaded book (:meth:`KavitaService.sync`):
    (:func:`~ebookerr_sdk.providers.anchoring.capture_position`, ``RPH-FACT-6``)
    for the caller to change-gate and store (``RPH-ARCH-3``); the captured chapter's title and
    key come from the joined chapter table, not from Kavita's own (often title-less) TOC
-   (``RPH-ANC-7``).
+   (``RPH-ANC-7``). A captured position is dated with Kavita's own ``lastModifiedUtc`` (now,
+   when Kavita has none or the sync itself just wrote the bookmark), and a book whose chapters
+   cannot be captured is warned about once (``CaptureWarnings``).
 
 The service reports Kavita's own fresh finished flag on every sync/enrich — Kavita has no
 completion flag of its own, so "finished" is ``pageNum >= total pages`` (``RPH-FACT-7``),
@@ -110,6 +112,7 @@ from ebookerr_sdk.providers.anchoring import (
     reanchor_bookmark,
     restore_to_target,
 )
+from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import file_changed_since_attempt
 from ebookerr_sdk.providers.link_refusal import LinkOwnerLookup, LinkRefusal
@@ -154,6 +157,18 @@ def _kavita_instant(value: object) -> datetime | None:
     if not isinstance(value, str) or value.startswith(_NO_DATE_PREFIX):
         return None
     return parse_datetime(value)
+
+
+def _position_time(progress: Mapping[str, Any], now: datetime) -> str:
+    """When Kavita says the reader was at *progress*'s page (``RPH-MOD-1``), as UTC ISO-8601.
+
+    Kavita's own ``lastModifiedUtc``, never later than *now*; *now* when Kavita gives no real
+    date (missing, unreadable, or its year-1 "never").
+    """
+    stamp = _kavita_instant(progress.get("lastModifiedUtc"))
+    if stamp is None or stamp > now:
+        return now.isoformat()
+    return stamp.astimezone(UTC).isoformat()
 
 
 def _stored_ref(book: BookView) -> KavitaRef | None:
@@ -327,6 +342,7 @@ class KavitaService:
         link_owner: LinkOwnerLookup | None = None,
         circuit: CircuitGuard | None = None,
         scan_requests: ScanLedger | None = None,
+        capture_warnings: CaptureWarnings | None = None,
     ) -> None:
         """Wire the Kavita client and sync configuration.
 
@@ -361,6 +377,8 @@ class KavitaService:
             scan_requests: The run's scan-request ledger, kept in the plugin's state
                 (``DFT-D21``, ``PMG-D32``); ``None`` scans every time; when set, skips a scan if
                 an earlier request already covers this file's change time.
+            capture_warnings: The per-item memory that makes a capture failure a WARNING once
+                (``CaptureWarnings``, SPI 3.5); ``None`` warns every time.
         """
         self._client = client
         self._enabled = enabled
@@ -380,6 +398,7 @@ class KavitaService:
         self._conn_ok_until: float = 0.0
         self._outage_logged = False
         self._scan_requests = scan_requests
+        self._capture_warnings = capture_warnings
         # Per-call memo of the KavitaRef this call resolved, keyed by str(chapter_id): the SPI 2.19
         # anchoring primitives need volume/series/library ids and the page total, and none of that
         # is in the TOC. Cleared at the top of _sync_reachable/_enrich_reachable.
@@ -649,10 +668,11 @@ class KavitaService:
             str(ref.chapter_id),
             join=self._build_join(book, ref.chapter_id),
             stored=book.read_position,
-            captured_at=self._now().isoformat(),
+            captured_at=_position_time(progress, self._now()),
             provider_name="Kavita",
             book_title=book.title,
             provider_finished=fields["external_read_completed"] == 1,
+            warnings=self._capture_warnings,
         )
 
         return SyncResult(
@@ -883,6 +903,7 @@ class KavitaService:
                 len(join.unanchored_ordinals),
             )
 
+        wrote_bookmark = False
         restore_attempted = False
         restore_landed = False
         reanchor_notice: str | None = None
@@ -903,6 +924,7 @@ class KavitaService:
                 book_title=book.title,
                 provider_name="Kavita",
             )
+            wrote_bookmark = outcome.written
             restore_landed = outcome.action in (REANCHOR_WRITTEN, REANCHOR_ALREADY)
             reanchor_notice = outcome.notice
             if outcome.written:
@@ -928,6 +950,7 @@ class KavitaService:
                 provider_name="Kavita",
                 provider_finished=provider_finished,
             )
+            wrote_bookmark = outcome.written
             reanchor_notice = outcome.notice
             if outcome.written:
                 page_num = int(self._client.get_progress(ref.chapter_id).get("pageNum", 0))
@@ -954,15 +977,20 @@ class KavitaService:
         if stale:
             read_position: ReadPosition | None = None
         else:
+            # A bookmark ebookerr itself just wrote is dated now, so a restored position is the
+            # newest entry (RPH-REST-8).
             read_position = capture_position(
                 self,
                 str(ref.chapter_id),
                 join=join,
                 stored=book.read_position,
-                captured_at=self._now().isoformat(),
+                captured_at=self._now().isoformat()
+                if wrote_bookmark
+                else _position_time(progress, self._now()),
                 provider_name="Kavita",
                 book_title=book.title,
                 provider_finished=fields["external_read_completed"] == 1,
+                warnings=self._capture_warnings,
             )
 
         logger.info('Kavita sync finished for "%s": %s', book.title, ", ".join(sorted(fields)))
@@ -1132,10 +1160,11 @@ class KavitaService:
             str(ref.chapter_id),
             join=self._build_join(book, ref.chapter_id),
             stored=book.read_position,
-            captured_at=self._now().isoformat(),
+            captured_at=_position_time(progress, self._now()),
             provider_name="Kavita",
             book_title=book.title,
             provider_finished=fields["external_read_completed"] == 1,
+            warnings=self._capture_warnings,
         )
         logger.debug(
             'Kavita refresh of "%s" (chapter=%s): page %s of %s',
