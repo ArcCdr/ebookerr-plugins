@@ -7708,7 +7708,7 @@ def test_a_capture_is_stamped_with_the_servers_progress_time(repo: _FakeBookRepo
     client.find_results = ["KB1"]
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA, read=read)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
-    client.progression_sequence = [{}, _CAPTURED_PROGRESSION]
+    client.progression_sequence = [_CAPTURED_PROGRESSION]  # enrich takes no sync-start snapshot
     result = service(client, now=lambda: FIXED_NOW).enrich(view)
     assert result.read_position is not None
     assert result.read_position.captured_at == "2026-06-12T11:58:55+00:00"
