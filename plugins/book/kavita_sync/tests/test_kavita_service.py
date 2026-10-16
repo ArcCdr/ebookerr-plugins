@@ -11,6 +11,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ConnectionTestResult, ProviderUnreachable
 from ebookerr_sdk.spi import (
     BookView,
@@ -22,7 +23,7 @@ from ebookerr_sdk.spi import (
     ReadPosition,
     ReadStateChanges,
 )
-from ebookerr_sdk.testing import make_book_view
+from ebookerr_sdk.testing import FakeContext, make_book_view
 from kavita_sync.client import KavitaRef, KavitaSeriesUnresolved
 from kavita_sync.service import KavitaService
 
@@ -4053,3 +4054,134 @@ def test_read_state_changes_is_read_only() -> None:
     assert client.rate_series_calls == []
     assert client.scan_folder_calls == []
     assert client.scan_library_calls == []
+
+
+# ---------------------------------------------------------------------------
+# Capture dating and capture warnings (EXP-336, EXP-351)
+# ---------------------------------------------------------------------------
+
+
+def _capturable(stamp: str | None) -> tuple[FakeKavita, BookView]:
+    """A linked book on TOC_FIXTURE at page 4 of 10, Kavita's progress stamped *stamp*."""
+    client = FakeKavita()
+    client.find_chapter_result = _ref(chapter_id=11, total_pages=10)
+    client.get_progress_result = {"pageNum": 4}
+    if stamp is not None:
+        client.get_progress_result["lastModifiedUtc"] = stamp
+    client.book_chapters_result = TOC_FIXTURE
+    view = make_book_view(
+        book_id="b1",
+        external=ExternalLink(provider="kavita", item_id="11", collection_id="7", library_id="1"),
+        progress=ExternalProgress(position=4, total=10),
+        chapter_table=TOC_FIXTURE_CHAPTERS,
+    )
+    return client, view
+
+
+@pytest.mark.pins("EXP-336")
+def test_a_capture_is_stamped_with_the_servers_progress_time() -> None:
+    """A capture is dated with Kavita's own lastModifiedUtc on every read path (EXP-336)."""
+    for method in ("enrich", "sync", "refresh"):
+        client, view = _capturable("2026-07-02T11:58:55Z")
+        result = getattr(service(client, now=lambda: FIXED_NOW), method)(view)
+
+        assert result.read_position is not None
+        assert result.read_position.captured_at == "2026-07-02T11:58:55+00:00"
+
+
+def test_a_capture_without_a_kavita_date_is_stamped_now() -> None:
+    """Kavita's missing or year-1 date falls back to the moment of the read."""
+    for stamp in (None, "0001-01-01T00:00:00"):
+        client, view = _capturable(stamp)
+
+        result = service(client, now=lambda: FIXED_NOW).refresh(view)
+
+        assert result.read_position is not None
+        assert result.read_position.captured_at == "2026-07-02T12:00:00+00:00"
+
+
+def test_a_capture_stamp_from_the_future_is_clamped_to_now() -> None:
+    """A Kavita date later than the read is clamped to the read's own time."""
+    client, view = _capturable("2026-07-02T12:30:00Z")
+
+    result = service(client, now=lambda: FIXED_NOW).refresh(view)
+
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-07-02T12:00:00+00:00"
+
+
+class _Saving(FakeKavita):
+    """A Kavita whose bookmark write moves its progress row to the saved page, dated 11:00."""
+
+    def save_progress(self, ref: KavitaRef, page_num: int) -> bool:
+        super().save_progress(ref, page_num)
+        self.get_progress_result = {"pageNum": page_num, "lastModifiedUtc": "2026-07-02T11:00:00Z"}
+        return True
+
+
+def test_a_capture_after_writing_the_bookmark_is_stamped_now() -> None:
+    """A position ebookerr just wrote is dated now, so it is the newest entry (RPH-REST-8)."""
+    client = _Saving()
+    client.find_chapter_result = _ref(chapter_id=11, total_pages=100)
+    client.get_progress_result = {"pageNum": 50, "lastModifiedUtc": "2026-07-02T11:00:00Z"}
+    client.book_chapters_result = [{"page": 1, "title": "Ch 1"}, {"page": 2, "title": "Ch 2"}]
+    view = make_book_view(
+        book_id="b1",
+        external=ExternalLink(provider="kavita", item_id="11", collection_id="7", library_id="1"),
+        progress=ExternalProgress(position=50, total=100),
+        chapter_table=_chapters("Ch 1", "Ch 2"),
+        read_position=ReadPosition(
+            captured_at="2026-01-01T00:00:00+00:00",
+            chapter_index=2,
+            chapter_progress=0.5,
+            chapter_title="Ch 2",
+        ),
+    )
+    target = ReadPosition(
+        captured_at="2026-01-01T00:00:00+00:00",
+        chapter_index=1,
+        chapter_progress=0.0,
+        chapter_title="Ch 1",
+        total_chapters=2,
+    )
+
+    result = service(client, now=lambda: FIXED_NOW).sync(view, restore_target=target)
+
+    assert result.restore_landed is True
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-07-02T12:00:00+00:00"
+
+
+@pytest.mark.pins("EXP-351")
+def test_a_book_kavita_cannot_capture_is_warned_about_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A chapter table that does not describe the file warns once, then logs DEBUG (EXP-351)."""
+    client = FakeKavita()
+    client.find_chapter_result = _ref(chapter_id=11, total_pages=10)
+    client.get_progress_result = {"pageNum": 4}
+    client.book_chapters_result = TOC_FIXTURE
+    view = make_book_view(
+        book_id="b1",
+        external=ExternalLink(provider="kavita", item_id="11", collection_id="7", library_id="1"),
+        progress=ExternalProgress(position=4, total=10),
+        chapter_table=_chapters("Not in Kavita"),
+    )
+    svc = service(client, now=lambda: FIXED_NOW, capture_warnings=CaptureWarnings(FakeContext()))
+
+    with caplog.at_level(logging.DEBUG, logger="ebookerr_sdk.providers.anchoring"):
+        for _ in range(3):
+            svc.refresh(view)
+
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "does not describe the file on disk" in r.getMessage()
+    ]
+    debugs = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG and "does not describe the file on disk" in r.getMessage()
+    ]
+    assert len(warnings) == 1
+    assert len(debugs) == 2
