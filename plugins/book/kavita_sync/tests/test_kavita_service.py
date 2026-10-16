@@ -3957,8 +3957,24 @@ def test_nothing_newer_keeps_the_marker() -> None:
     assert result == ReadStateChanges(marker=m)
 
 
-def test_a_newer_date_reports_every_listed_series_with_pages_read() -> None:
-    """A newer date → report all series with pages_read > 0 and return new marker."""
+@pytest.mark.pins("EXP-344")
+def test_a_series_reset_to_unread_is_reported_as_changed() -> None:
+    """A series just marked unread (0 pages read) is reported when the page's date moved."""
+    m = "2026-09-28T18:50:49+00:00"
+    client = FakeKavita()
+    client.recent_series = [
+        _series(7, 3, "2026-09-28T19:00:00"),
+        _series(8, 0, "2026-09-28T19:00:00"),
+    ]
+    svc = service(client)
+
+    result = svc.read_state_changes(m)
+
+    assert result == ReadStateChanges(collections=("7", "8"), marker="2026-09-28T19:00:00+00:00")
+
+
+def test_a_newer_date_reports_every_listed_series() -> None:
+    """A newer date → report every listed series and return the new marker."""
     m = "2026-09-28T18:50:49+00:00"
     client = FakeKavita()
     client.recent_series = [
@@ -3970,7 +3986,9 @@ def test_a_newer_date_reports_every_listed_series_with_pages_read() -> None:
 
     result = svc.read_state_changes(m)
 
-    assert result == ReadStateChanges(collections=("7", "9"), marker="2026-09-28T19:00:00+00:00")
+    assert result == ReadStateChanges(
+        collections=("7", "8", "9"), marker="2026-09-28T19:00:00+00:00"
+    )
 
 
 def test_year_one_dates_are_not_stamps() -> None:
