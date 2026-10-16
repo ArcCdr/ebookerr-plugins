@@ -20,6 +20,7 @@ from unittest.mock import patch
 import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
+from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ConnectionTestResult, ProviderUnreachable
 from ebookerr_sdk.providers.link_refusal import LinkRefusal
 from ebookerr_sdk.spi import (
@@ -4636,7 +4637,8 @@ def test_a_restored_position_survives_the_provider_losing_its_progression(
     assert r1.read_position is not None
 
     # Verify timestamps: restore stamp strictly earlier than capture
-    assert envelope["modified"] < r1.read_position.captured_at
+    # the capture is dated with the restore's own write time (RPH-REST-8)
+    assert envelope["modified"] <= r1.read_position.captured_at
 
     # Persist what the plugin would store
     repo.update_fields(
@@ -7666,6 +7668,126 @@ def test_capture_uses_the_chapter_tables_title(repo: _FakeBookRepository) -> Non
     assert result.read_position is not None
     assert result.read_position.chapter_title == "Chapter Two"
     assert result.read_position.chapter_key == "file0002.xhtml"
+
+
+def _capturing_view(repo: _FakeBookRepository) -> BookView:
+    """A book linked to Komga item KB1 whose chapter table names the two fixture chapters."""
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    stored = repo.get(book.book_id)
+    assert stored is not None
+    return book_to_view(
+        stored,
+        chapter_table=_chapters(
+            ("file0001.xhtml", "Chapter One"), ("file0002.xhtml", "Chapter Two")
+        ),
+    )
+
+
+_CAPTURED_PROGRESSION: dict[str, Any] = {
+    "locator": {"href": "OEBPS/file0002.xhtml", "locations": {"progression": 0.3}},
+    "modified": "2026-06-12T11:57:00Z",
+}
+
+
+@pytest.mark.pins("EXP-336")
+def test_a_capture_is_stamped_with_the_servers_progress_time(repo: _FakeBookRepository) -> None:
+    """Every capture site dates the position with Komga's own time of it (EXP-336)."""
+    read = {"page": 2, "completed": False, "lastModified": "2026-06-12T11:58:55Z"}
+    view = _capturing_view(repo)
+
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA, read=read)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.progression_sequence = [{}, _CAPTURED_PROGRESSION]
+    result = service(client, now=lambda: FIXED_NOW).sync(view)
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T11:58:55+00:00"
+
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA, read=read)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.progression_sequence = [{}, _CAPTURED_PROGRESSION]
+    result = service(client, now=lambda: FIXED_NOW).enrich(view)
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T11:58:55+00:00"
+
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA, read=read)
+    client.progression_sequence = [_CAPTURED_PROGRESSION]
+    result = service(client, now=lambda: FIXED_NOW).refresh(view)
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T11:58:55+00:00"
+
+
+def test_the_newer_komga_stamp_dates_the_capture(repo: _FakeBookRepository) -> None:
+    """When the progression is newer than readProgress.lastModified, the progression dates it."""
+    client = FakeKomga()
+    client.book = komga_book(
+        metadata=MATCHING_BOOK_METADATA,
+        read={"page": 2, "completed": False, "lastModified": "2026-06-12T11:58:55Z"},
+    )
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.progression_sequence = [
+        {},
+        {**_CAPTURED_PROGRESSION, "modified": "2026-06-12T11:59:30Z"},
+    ]
+
+    result = service(client, now=lambda: FIXED_NOW).sync(_capturing_view(repo))
+
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T11:59:30+00:00"
+
+
+def test_a_komga_capture_with_no_stamp_or_a_future_one_is_dated_now(
+    repo: _FakeBookRepository,
+) -> None:
+    """Without a usable Komga stamp the capture is dated now, never later than now."""
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.progression_sequence = [{}, {**_CAPTURED_PROGRESSION, "modified": None}]
+    result = service(client, now=lambda: FIXED_NOW).sync(_capturing_view(repo))
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T12:00:00+00:00"
+
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    client.progression_sequence = [
+        {},
+        {**_CAPTURED_PROGRESSION, "modified": "2026-06-12T13:00:00Z"},
+    ]
+    result = service(client, now=lambda: FIXED_NOW).sync(_capturing_view(repo))
+    assert result.read_position is not None
+    assert result.read_position.captured_at == "2026-06-12T12:00:00+00:00"
+
+
+@pytest.mark.pins("EXP-351")
+def test_a_book_komga_cannot_capture_is_warned_about_once(
+    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A chapter table that does not describe the file warns once, then logs DEBUG (EXP-351)."""
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    stored = repo.get(book.book_id)
+    assert stored is not None
+    view = book_to_view(stored, chapter_table=_chapters(("file9999.xhtml", "Not on disk")))
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.progression_sequence = [_CAPTURED_PROGRESSION] * 3
+    svc = service(client, now=lambda: FIXED_NOW, capture_warnings=CaptureWarnings(FakeContext()))
+
+    with caplog.at_level(logging.DEBUG, logger="ebookerr_sdk.providers.anchoring"):
+        for _ in range(3):
+            svc.refresh(view)
+
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "does not describe the file on disk" in r.getMessage()
+    ]
+    assert len(warnings) == 1
 
 
 def test_restore_target_is_delivered_through_the_join(repo: _FakeBookRepository) -> None:

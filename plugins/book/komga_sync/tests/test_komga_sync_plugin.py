@@ -2500,6 +2500,22 @@ def test_build_service_binds_a_scan_ledger_to_the_run() -> None:
     assert service._scan_requests._ctx is ctx
 
 
+def test_build_service_binds_capture_warnings_to_the_run() -> None:
+    """_build_service creates a CaptureWarnings bound to the plugin's context (EXP-351, PMG-D32)."""
+    from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
+    from komga_sync.plugin import _build_service
+
+    ctx = _FakeCtx(
+        settings={"server": "http://komga", "api_key": "key"},
+    )
+
+    with mock.patch("komga_sync.plugin.RequestsKomgaClient"):
+        service = _build_service(ctx)
+
+    assert isinstance(service._capture_warnings, CaptureWarnings)
+    assert service._capture_warnings._ctx is ctx
+
+
 # ---------------------------------------------------------------------------
 # TASK-45 — epub_kept flag on BookDeleted (SCS-D27)
 # ---------------------------------------------------------------------------
