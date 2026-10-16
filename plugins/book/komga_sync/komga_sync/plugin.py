@@ -38,6 +38,7 @@ from ebookerr_sdk.spi import (
 from ebookerr_sdk.spi.manifest import package_manifest
 
 from komga_sync.client import RequestsKomgaClient
+from komga_sync.listed_progress import ListedProgress
 from komga_sync.pushed_tags import PushedTags
 from komga_sync.service import KomgaService, SyncResult
 
@@ -109,7 +110,9 @@ def _build_service(ctx: PluginContext) -> KomgaService:
     run (``EXP-194``). ``ctx.circuit`` (``SPI 2.21``) is forwarded straight through so an
     outage this plugin observes is remembered process-wide (``EXP-269``).
     ``PushedTags(ctx)`` remembers the tags each sync pushed, so the next sync never imports
-    them back (EXP-276). ``CaptureWarnings(ctx)`` makes a capture failure a WARNING once per
+    them back (EXP-276). ``ListedProgress(ctx)`` remembers the books the last minute check listed
+    with progress, so a book marked unread in Komga is reported at the next check (EXP-344).
+    ``CaptureWarnings(ctx)`` makes a capture failure a WARNING once per
     book rather than on every read (EXP-351).
     """
     from ebookerr_sdk.providers.scan_ledger import ScanLedger
@@ -140,6 +143,7 @@ def _build_service(ctx: PluginContext) -> KomgaService:
         circuit=getattr(ctx, "circuit", None),
         scan_requests=ScanLedger(ctx),
         pushed_tags=PushedTags(ctx),
+        listed_progress=ListedProgress(ctx),
         capture_warnings=CaptureWarnings(ctx),
     )
 

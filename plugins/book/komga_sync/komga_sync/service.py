@@ -128,6 +128,7 @@ from ebookerr_sdk.spi import (
     ReadStateChanges,
 )
 
+from komga_sync.listed_progress import ListedProgress
 from komga_sync.protocol import KomgaClient
 from komga_sync.pushed_tags import PushedTags
 
@@ -135,8 +136,8 @@ logger = logging.getLogger(__name__)
 
 _CONN_OK_TTL_S = 60.0
 
-_LIVE_PAGE_SIZE = 50
-"""Books per reading-change page (``LIB-D14``)."""
+_LIVE_PAGE_SIZE = 100
+"""Books per reading-change page (``LIB-D14``): one request lists the 100 newest reads."""
 
 _LIVE_MAX_PAGES = 5
 """Reading-change pages one live check reads at most; beyond them the full sync catches up."""
@@ -788,6 +789,7 @@ class KomgaService:
         scan_requests: ScanLedger | None = None,
         pushed_tags: PushedTags | None = None,
         capture_warnings: CaptureWarnings | None = None,
+        listed_progress: ListedProgress | None = None,
     ) -> None:
         """Wire the Komga client and sync configuration.
 
@@ -828,6 +830,9 @@ class KomgaService:
                 can be imported back, as before.
             capture_warnings: The per-item memory that makes a capture failure a WARNING once
                 (``CaptureWarnings``, SPI 3.5); ``None`` warns every time.
+            listed_progress: The memory of what the last minute check listed with progress
+                (``ListedProgress``, plugin state, EXP-344); ``None`` notices no book marked
+                unread.
         """
         self._client = client
         self._server_url = server_url
@@ -846,6 +851,7 @@ class KomgaService:
         self._scan_requests = scan_requests
         self._pushed_tags = pushed_tags
         self._capture_warnings = capture_warnings
+        self._listed_progress = listed_progress
         self._circuit_key = "provider:komga"
         self._circuit_label = "Komga"
         self._url_index: dict[str, str] | None = None  # url -> external_item_id; None = not fetched
@@ -1689,7 +1695,9 @@ class KomgaService:
         """Report the books whose reading state changed since *marker* (``LIB-D14``).
 
         Reads the configured library's books newest reading change first and walks them until a
-        book has no progress or a change not newer than *marker*. The next marker is the newest
+        book has no progress or a change not newer than *marker*. A book the previous check listed
+        with progress and Komga now shows unread (a mark-unread deletes the progress,
+        ``ListedProgress``) is reported too. The next marker is the newest
         change's instant (UTC ISO-8601), or *marker* when nothing is newer, so a marker never
         moves back. Without a marker (or with an unreadable one) the call only records the
         baseline: the newest change, or ``_EPOCH_MARKER`` when nobody has read anything yet, so
@@ -1711,7 +1719,8 @@ class KomgaService:
             logger.debug("Komga live read state: not configured; nothing reported")
             return ReadStateChanges(marker=marker)
         previous = parse_datetime(marker) if marker is not None else None
-        newest, items = self._scan_progress_changes(previous, self._library_id)
+        newest, items, listed = self._scan_progress_changes(previous, self._library_id)
+        reset = self._marked_unread(self._library_id, listed)
         if previous is None:
             if marker is not None:
                 logger.debug("Komga live read state: marker %r unreadable; new baseline", marker)
@@ -1719,7 +1728,10 @@ class KomgaService:
             return ReadStateChanges(marker=baseline)
         next_marker = newest.isoformat() if newest is not None and newest > previous else marker
         logger.debug("Komga live read state: %d book(s) changed since %s", len(items), marker)
-        return ReadStateChanges(items=tuple(items), marker=next_marker)
+        return ReadStateChanges(
+            items=tuple(items + [book_id for book_id in reset if book_id not in items]),
+            marker=next_marker,
+        )
 
     def refresh(self, book: BookView) -> SyncResult:
         """Read one linked book's reading state back by its stored Komga id (``LIB-D14``).
@@ -1844,23 +1856,25 @@ class KomgaService:
 
     def _scan_progress_changes(
         self, previous: datetime | None, library_id: str
-    ) -> tuple[datetime | None, list[str]]:
+    ) -> tuple[datetime | None, list[str], list[str]]:
         """Scan and collect books with reading changes after *previous* (``LIB-D14``).
 
-        Returns the newest change's timestamp and the list of book ids changed since *previous*.
+        Returns the newest change's timestamp, the list of book ids changed since *previous*,
+        and the ids the first page listed with progress (``listed``, EXP-344).
 
         Args:
             previous: The marker's timestamp, or ``None`` for a baseline scan.
             library_id: The Komga library id.
 
         Returns:
-            A tuple of (newest timestamp, book ids).
+            A tuple of (newest timestamp, changed book ids, listed book ids with progress).
 
         Raises:
             ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
         """
         newest: datetime | None = None
         items: list[str] = []
+        listed: list[str] = []
         try:
             with self._guard():
                 for page in range(_LIVE_MAX_PAGES):
@@ -1869,6 +1883,11 @@ class KomgaService:
                     )
                     if not rows:
                         break
+                    if page == 0:
+                        # The first page is what the next check remembers as "listed with progress".
+                        listed = [
+                            str(row["id"]) for row in rows if _progress_stamp(row) is not None
+                        ]
                     done, first_ts = self._process_progress_rows(rows, previous, items)
                     if newest is None and first_ts is not None:
                         newest = first_ts
@@ -1882,7 +1901,46 @@ class KomgaService:
                     )
         except CircuitOpenError as exc:
             raise ProviderUnreachable("circuit open") from exc
-        return newest, items
+        return newest, items, listed
+
+    def _marked_unread(self, library_id: str, listed: list[str]) -> list[str]:
+        """The books the last check listed with progress that Komga now shows unread (EXP-344).
+
+        A remembered book missing from *listed* is looked up; it is returned when Komga shows it
+        with no progress (a book only pushed down the listing by newer reading still has progress
+        and is not returned). *listed* is remembered for the next check once every lookup
+        answered, so an unreachable Komga loses no remembered book.
+
+        Args:
+            library_id: The Komga library id.
+            listed: The ids the first listing page showed with progress.
+
+        Returns:
+            The ids Komga now shows unread, in the order they were remembered.
+
+        Raises:
+            ProviderUnreachable: Komga did not answer, or its circuit breaker is open.
+        """
+        if self._listed_progress is None:
+            return []
+        still = set(listed)
+        reset: list[str] = []
+        try:
+            with self._guard():
+                for book_id in self._listed_progress.recall(library_id):
+                    if book_id in still:
+                        continue
+                    found = self._client.get_book(book_id)
+                    if found is not None and _progress_stamp(found) is None:
+                        reset.append(book_id)
+        except CircuitOpenError as exc:
+            raise ProviderUnreachable("circuit open") from exc
+        self._listed_progress.remember(library_id, listed)
+        if reset:
+            logger.info(
+                "Komga live read state: %d book(s) marked unread since the last check", len(reset)
+            )
+        return reset
 
     def _process_progress_rows(
         self,
