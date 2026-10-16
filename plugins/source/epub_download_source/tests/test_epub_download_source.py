@@ -388,6 +388,32 @@ class TestPullMissingAuthor:
 
         assert patch.fields["output_filename"].startswith("Unknown/")
 
+    @responses.activate
+    def test_pull_missing_author_stores_unknown_author(
+        self, tmp_path: Path, build_epub: Any
+    ) -> None:
+        """A pulled EPUB with no creator is stored with the author ``Unknown``, not none."""
+        epub_path = build_epub(
+            [("Chapter 1", "http://example.com/ch1")],
+            author="",
+        )
+        url = "https://example.com/download.epub"
+        responses.add(
+            responses.GET,
+            url,
+            body=epub_path.read_bytes(),
+            status=200,
+            headers={"Content-Type": "application/epub+zip"},
+        )
+
+        plugin = EpubDownloadSourcePlugin(session=requests.Session())
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+
+        patch = plugin.pull(url, work_dir, None, FakeContext())
+
+        assert patch.fields["author"] == "Unknown"
+
 
 class TestPullLogsInfo:
     @responses.activate
