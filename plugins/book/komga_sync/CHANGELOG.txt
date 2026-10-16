@@ -1,3 +1,6 @@
+== 1.10.0 ==
+A reading position read back from Komga now carries the time you were there, not the time ebookerr noticed it, so reading done while ebookerr was closed keeps its order and its day. Marking a book unread in Komga reaches ebookerr within a minute while a page is open, for the 100 books read most recently. A book whose chapters Komga cannot match is reported in the log once instead of every minute. Needs ebookerr 2.24.11 or later.
+
 == 1.9.0 ==
 A book with several authors is now found in Komga by its authors in any order, so its link no longer breaks when Komga lists them differently, and its authors are read with ebookerr's own rule for "&". Needs ebookerr 2.24.10 or later.
 
