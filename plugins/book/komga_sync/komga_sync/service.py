@@ -114,6 +114,7 @@ from ebookerr_sdk.providers.anchoring import (
     reanchor_bookmark,
     restore_to_target,
 )
+from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import file_changed_since_attempt
 from ebookerr_sdk.providers.link_refusal import LinkOwnerLookup, LinkRefusal
@@ -257,6 +258,28 @@ def _progress_stamp(row: Mapping[str, Any]) -> datetime | None:
     if not isinstance(progress, Mapping):
         return None
     return parse_datetime(progress.get("lastModified"))
+
+
+def _position_time(
+    progression: Mapping[str, Any], komga_book: Mapping[str, Any], now: datetime
+) -> str:
+    """When Komga says the reader was at this position (``RPH-MOD-1``), as UTC ISO-8601.
+
+    The newer of the progression's ``modified`` and the book's ``readProgress.lastModified``,
+    never later than *now*; *now* when Komga gives neither.
+    """
+    read = komga_book.get("readProgress")
+    stamps = [
+        stamp
+        for stamp in (
+            parse_datetime(progression.get("modified")),
+            parse_datetime(read.get("lastModified")) if isinstance(read, Mapping) else None,
+        )
+        if stamp is not None
+    ]
+    if not stamps:
+        return now.isoformat()
+    return min(max(stamps), now).astimezone(UTC).isoformat()
 
 
 _STAR_FULL = "★"  # U+2605 BLACK STAR
@@ -764,6 +787,7 @@ class KomgaService:
         circuit: CircuitGuard | None = None,
         scan_requests: ScanLedger | None = None,
         pushed_tags: PushedTags | None = None,
+        capture_warnings: CaptureWarnings | None = None,
     ) -> None:
         """Wire the Komga client and sync configuration.
 
@@ -802,6 +826,8 @@ class KomgaService:
             pushed_tags: Per-book memory of the tags this plugin last pushed (``PushedTags``,
                 plugin state, EXP-276); ``None`` keeps no memory, so a tag pushed last time
                 can be imported back, as before.
+            capture_warnings: The per-item memory that makes a capture failure a WARNING once
+                (``CaptureWarnings``, SPI 3.5); ``None`` warns every time.
         """
         self._client = client
         self._server_url = server_url
@@ -819,6 +845,7 @@ class KomgaService:
         self._circuit = circuit
         self._scan_requests = scan_requests
         self._pushed_tags = pushed_tags
+        self._capture_warnings = capture_warnings
         self._circuit_key = "provider:komga"
         self._circuit_label = "Komga"
         self._url_index: dict[str, str] | None = None  # url -> external_item_id; None = not fetched
@@ -2457,6 +2484,8 @@ class KomgaService:
         make :meth:`read_bookmark`'s cache lookup see a permanently-empty bookmark instead of
         Komga's real one.
 
+        The capture is dated with Komga's own time of the position (``_position_time``).
+
         Passes ``komga_book``'s own ``readProgress.completed`` as ``capture_position``'s
         ``provider_finished`` (``RPH-SRC-4``): the caller passes the just-refreshed record,
         never the pre-sync ``book`` view, so a book Komga reports complete on this very sync
@@ -2483,10 +2512,11 @@ class KomgaService:
                 komga_book_id,
                 join=join,
                 stored=book.read_position,
-                captured_at=self._now().isoformat(),
+                captured_at=_position_time(progression, komga_book, self._now()),
                 provider_name="Komga",
                 book_title=book.title,
                 provider_finished=provider_finished,
+                warnings=self._capture_warnings,
             )
             if book is not None
             else None
@@ -2539,7 +2569,7 @@ class KomgaService:
             return snapshot
         # Guard (EXP-123): never replay a locator that predates a *different* position the app has
         # since recorded. A record captured from this very locator is not newer progress — the
-        # restore that wrote it and the capture that read it back are milliseconds apart — so a
+        # capture that read a restore back carries that restore's own `modified` — so a
         # same-chapter record never vetoes the replay. Timestamps are compared as aware datetimes:
         # Komga stamps `modified` in its own offset, the app stamps `captured_at` in UTC.
         newest = book.read_position

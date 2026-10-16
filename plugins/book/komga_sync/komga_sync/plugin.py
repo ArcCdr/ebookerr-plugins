@@ -18,6 +18,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ProviderUnreachable
 from ebookerr_sdk.providers.link_attempt import LINK_ERROR_FIELD, link_attempt_fields
 from ebookerr_sdk.providers.restore_marker import restore_marker_patch
@@ -108,7 +109,8 @@ def _build_service(ctx: PluginContext) -> KomgaService:
     run (``EXP-194``). ``ctx.circuit`` (``SPI 2.21``) is forwarded straight through so an
     outage this plugin observes is remembered process-wide (``EXP-269``).
     ``PushedTags(ctx)`` remembers the tags each sync pushed, so the next sync never imports
-    them back (EXP-276).
+    them back (EXP-276). ``CaptureWarnings(ctx)`` makes a capture failure a WARNING once per
+    book rather than on every read (EXP-351).
     """
     from ebookerr_sdk.providers.scan_ledger import ScanLedger
 
@@ -138,6 +140,7 @@ def _build_service(ctx: PluginContext) -> KomgaService:
         circuit=getattr(ctx, "circuit", None),
         scan_requests=ScanLedger(ctx),
         pushed_tags=PushedTags(ctx),
+        capture_warnings=CaptureWarnings(ctx),
     )
 
 
