@@ -255,3 +255,19 @@ def test_logs_debug_per_chapter(caplog: pytest.LogCaptureFixture) -> None:
         assert "-> " in record.message
         # Check that the filename is mentioned
         assert any(p.filename in record.message for book in books for p in plan_chapters([book]))
+
+
+def test_the_survivors_chapters_come_first() -> None:
+    """A merge lists the survivor's chapters first (the core's fold relies on it, RPH-STR-2)."""
+    survivor = _book(3, "Chapter 1", "Chapter 2", "Chapter 3")
+    absorbed = _book(1, "Chapter 1", "Chapter 2")
+    planned = plan_chapters([survivor, absorbed])
+
+    assert [p.book_index for p in planned] == [survivor.index] * 3 + [absorbed.index] * 2
+    assert [p.label for p in planned] == [
+        "Chapter 1",
+        "Chapter 2",
+        "Chapter 3",
+        "Chapter 1",
+        "Chapter 2",
+    ]
