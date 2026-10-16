@@ -70,9 +70,10 @@ open breaker skips the call, and ``attempted=True`` for every other outcome (unr
 not found, or success) — the caller logs ``message`` and carries on either way.
 The live read-state lane (LIB-D14) uses two read-only calls: read_state_changes(marker)
 (the series read most recently; Kavita 0.8.7 stamps the whole page with one date, so a
-change reports every listed series with pages read) and refresh(book) (stored ids and page
-total; no search, rating, scan or write). Every read-back carries Kavita's lastModifiedUtc as
-external_progress_modified, so the core applies read state newest-first (LIB-D16).
+change reports every listed series, one just marked unread included) and refresh(book)
+(stored ids and page total; no search, rating, scan or write). Every read-back carries
+Kavita's lastModifiedUtc as external_progress_modified, so the core applies read state
+newest-first (LIB-D16).
 A reading client's write-through (RDG-D4) is write_position(book, target): the stored ids
 gate it, the file's chapter is resolved again with find_chapter (a progress write needs the
 chapter's real volume id, which the stored link does not keep), Kavita's chapter table is
@@ -1070,8 +1071,9 @@ class KavitaService:
 
         One listing of the series read most recently. Kavita 0.8.7 stamps every row with the
         page's newest reading date, so the check compares that one date with *marker*: not
-        newer → nothing; newer → every listed series with pages read is reported as a changed
-        collection, and the date becomes the marker. Without a marker (or with an unreadable one)
+        newer → nothing; newer → every listed series is reported as a changed collection, a
+        series just marked unread included (Kavita stamps the whole page with one date), and
+        the date becomes the marker. Without a marker (or with an unreadable one)
         the call only records the baseline — the newest date, or ``_EPOCH_MARKER`` when nothing
         has been read yet, so the first reading change is reported. Read-only.
 
@@ -1108,11 +1110,8 @@ class KavitaService:
             )
         if newest is None or newest <= previous:
             return ReadStateChanges(marker=marker)
-        collections = tuple(
-            str(row["id"])
-            for row in rows
-            if isinstance(row.get("id"), int) and int(row.get("pagesRead") or 0) > 0
-        )
+        # Every listed row carries the page's date, so each one is a candidate, pages read or not.
+        collections = tuple(str(row["id"]) for row in rows if isinstance(row.get("id"), int))
         logger.debug("Kavita live read state: %d series read since %s", len(collections), marker)
         return ReadStateChanges(collections=collections, marker=newest.isoformat())
 
