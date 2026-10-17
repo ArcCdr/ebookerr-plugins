@@ -2591,6 +2591,65 @@ def test_read_bookmark_maps_the_page_onto_the_containing_anchor() -> None:
     assert bookmark.progression == pytest.approx(0.5)
 
 
+@pytest.mark.pins("EXP-362")
+def test_read_bookmark_states_the_range_its_page_stands_for() -> None:
+    """read_bookmark's covers is the progress range a write would put on the same page."""
+    client = FakeKavita()
+    client.book_chapters_result = BACKWARD_TOC
+    ref = _ref(chapter_id=11, total_pages=60)
+
+    client.get_progress_result = {"pageNum": 45}
+    bookmark = _anchoring_service(client, ref).read_bookmark("11")
+    assert bookmark is not None
+    assert bookmark.covers == pytest.approx((0.45, 0.55))
+
+    client.get_progress_result = {"pageNum": 40}
+    bookmark = _anchoring_service(client, ref).read_bookmark("11")
+    assert bookmark is not None
+    assert bookmark.covers[0] == 0.0
+    assert bookmark.covers[1] == pytest.approx(0.05)
+
+    client.get_progress_result = {"pageNum": 49}
+    bookmark = _anchoring_service(client, ref).read_bookmark("11")
+    assert bookmark is not None
+    assert bookmark.covers[1] == 1.0
+
+
+def test_a_one_page_chapter_stands_for_the_whole_chapter() -> None:
+    """A one-page chapter's stored page covers progress 0.0 to 1.0."""
+    client = FakeKavita()
+    client.book_chapters_result = [
+        {"title": "Front", "page": 0},
+        {"title": "Ch 1", "page": 1},
+        {"title": "Ch 2", "page": 2},
+        {"title": "Ch 3", "page": 3},
+    ]
+    client.get_progress_result = {"pageNum": 2}
+    ref = _ref(chapter_id=11, total_pages=4)
+
+    bookmark = _anchoring_service(client, ref).read_bookmark("11")
+
+    assert bookmark is not None
+    assert bookmark.covers == (0.0, 1.0)
+    assert bookmark.progression == 0.0
+
+
+def test_every_progress_in_the_range_is_written_onto_that_page() -> None:
+    """Every progress inside read_bookmark's covers for page 45 is written as page 45."""
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
+
+    anchor = ProviderAnchor("40", "Sample Beta - Ch 4", 4)
+    for progression in (0.46, 0.5, 0.54):
+        client = FakeKavita()
+        client.book_chapters_result = BACKWARD_TOC
+        svc = service(client)
+        svc._ref_cache["11"] = _ref(chapter_id=11, total_pages=60)
+
+        svc.place_bookmark("11", anchor, ProviderBookmark("40", None, progression, {}))
+
+        assert client.save_progress_calls[-1][1] == 45
+
+
 def test_read_bookmark_reports_no_bookmark_at_page_zero() -> None:
     """read_bookmark returns None when pageNum <= 0."""
     client = FakeKavita()
