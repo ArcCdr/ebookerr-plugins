@@ -266,6 +266,48 @@ def _span_from(anchors: Sequence[ProviderAnchor], start: int, total_pages: int) 
     return max(1, (min(later) - start) if later else (total_pages - start))
 
 
+def _page_bounds(
+    anchors: Sequence[ProviderAnchor], start: int, total_pages: int
+) -> tuple[int, int]:
+    """The page span of the anchor at *start* and the last page a bookmark there may land on.
+
+    A chapter followed by another ends on its own last page, never the next chapter's first
+    (``RPH-ANC-7``); the last chapter may end on the book's last page.
+
+    Args:
+        anchors: The book's anchors.
+        start: The anchor's first page.
+        total_pages: The book's page total.
+
+    Returns:
+        ``(span, max_page)``.
+    """
+    span = _span_from(anchors, start, total_pages)
+    has_later_anchor = any(int(a.ref) > start for a in anchors)
+    return span, (start + span - 1 if has_later_anchor else start + span)
+
+
+def _page_covers(page_num: int, start: int, span: int, max_page: int) -> tuple[float, float]:
+    """The in-chapter progress range a write puts on page *page_num* (``RPH-SRC-5``).
+
+    The inverse of ``place_bookmark``'s rule ``max(start, min(max_page, start + round(p * span)))``:
+    every progress in the range lands on that page.
+
+    Args:
+        page_num: The page Kavita stores.
+        start: The chapter anchor's first page.
+        span: The chapter's page span.
+        max_page: The last page a bookmark in this chapter may land on.
+
+    Returns:
+        ``(low, high)``, both ends included, within ``0.0..1.0``.
+    """
+    offset = min(page_num, max_page) - start
+    low = 0.0 if offset <= 0 else (offset - 0.5) / span
+    high = 1.0 if page_num >= max_page else (offset + 0.5) / span
+    return max(0.0, low), min(1.0, high)
+
+
 class KavitaService:
     """Business rules of the Kavita sync for one book and one library server.
 
@@ -1436,6 +1478,7 @@ class KavitaService:
         start page — which means a Kavita bookmark always resolves except when there is
         none. Kavita reaches the core's re-anchor branch only via "the provider holds no
         bookmark", never via "the bookmark points at something gone".
+        ``covers`` is the progress range a write would put on that same page (``RPH-SRC-5``).
 
         Args:
             item_id: The provider's own id for the book (keyed by str(chapter_id)).
@@ -1458,12 +1501,13 @@ class KavitaService:
         if containing is None:
             return None
         start = int(containing.ref)
-        span = _span_from(anchors, start, ref.total_pages)
+        span, max_page = _page_bounds(anchors, start, ref.total_pages)
         return ProviderBookmark(
             ref=containing.ref,
             title=containing.title,
             progression=min(1.0, max(0.0, (page_num - start) / span)),
             raw={"pageNum": page_num},
+            covers=_page_covers(page_num, start, span, max_page),
         )
 
     def place_bookmark(
@@ -1493,14 +1537,12 @@ class KavitaService:
         if anchor.ref not in {a.ref for a in anchors}:
             return False
         start = int(anchor.ref)
-        span = _span_from(anchors, start, ref.total_pages)
+        span, max_page = _page_bounds(anchors, start, ref.total_pages)
         # For non-last chapters, clamp to avoid crossing into the next chapter's first page.
         # For the last chapter, clamp to the total pages. "Last" is asked of the anchor list
         # itself (fresh from the TOC), never inferred from ref.total_pages: Kavita's search
         # index — find_chapter's own source — can still report a book's pre-merge page count
         # after its chapter list has already grown, understating total_pages.
-        has_later_anchor = any(int(a.ref) > start for a in anchors)
-        max_page = start + span - 1 if has_later_anchor else start + span
         page = max(start, min(max_page, start + int(round(bookmark.progression * span))))
         logger.debug(
             "Kavita page for chapter %s: starts at %d, span %d, progress %.2f -> page=%d",
