@@ -86,7 +86,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -707,6 +707,31 @@ def _chapter_table(
                 if title:
                     titles[href] = title
     return hrefs, [titles.get(h) for h in hrefs]
+
+
+def _position_covers(
+    chapter: Sequence[Mapping[str, Any]], progression: float
+) -> tuple[float, float] | None:
+    """The in-chapter progress range a write puts on the position nearest *progression*.
+
+    ``place_bookmark`` writes the chapter's position whose progression is nearest the requested
+    one, so every progress closer to that position than to its neighbours lands on it
+    (``RPH-SRC-5``).
+
+    Args:
+        chapter: The chapter's entries of Komga's positions table.
+        progression: The stored progress in the chapter.
+
+    Returns:
+        ``(low, high)``, both ends included, or ``None`` when the chapter has no position.
+    """
+    marks = sorted(float((loc.get("locations") or {}).get("progression") or 0.0) for loc in chapter)
+    if not marks:
+        return None
+    at = min(range(len(marks)), key=lambda i: abs(marks[i] - progression))
+    low = 0.0 if at == 0 else (marks[at - 1] + marks[at]) / 2
+    high = 1.0 if at == len(marks) - 1 else (marks[at] + marks[at + 1]) / 2
+    return low, high
 
 
 class KomgaService:
@@ -2441,7 +2466,8 @@ class KomgaService:
         Implements the anchoring contract. Returns the parsed bookmark, or ``None``
         when Komga's progression carries no locator href at all. A bookmark whose
         ``ref`` the current anchor list no longer contains is a *dead* bookmark and
-        is returned normally.
+        is returned normally. ``covers`` is the progress range a write would put on
+        the same position (``RPH-SRC-5``).
 
         Args:
             item_id: The Komga book id.
@@ -2458,11 +2484,16 @@ class KomgaService:
             return None
         locations = locator.get("locations") or {}
         title = locator.get("title")
+        progress = float(locations.get("progression") or 0.0)
         return ProviderBookmark(
             ref=href,
             title=title if isinstance(title, str) and title else None,
-            progression=float(locations.get("progression") or 0.0),
+            progression=progress,
             raw=progression,
+            covers=_position_covers(
+                [loc for loc in self._positions_for(item_id) if loc.get("href") == href],
+                progress,
+            ),
         )
 
     def place_bookmark(
