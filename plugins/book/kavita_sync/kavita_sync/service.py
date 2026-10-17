@@ -1194,9 +1194,9 @@ class KavitaService:
         Returns:
             The status (one of ``READ_STATE_WRITE_STATUSES``) and, for ``written`` or
             ``already``, the read-back; ``None`` otherwise. ``rejected`` without stored ids
-            or when Kavita no longer finds the file; ``stale`` when Kavita re-indexed the file
-            under another chapter (the next sync relinks it) or its chapter table does not
-            describe the file on disk.
+            or when Kavita no longer finds the file; ``moved`` when Kavita now files the book
+            under another chapter than the stored link (the next sync relinks it); ``stale``
+            when Kavita's chapter table does not describe the file on disk.
 
         Raises:
             ProviderUnreachable: Kavita is not configured, did not answer its probe, or its
@@ -1230,7 +1230,7 @@ class KavitaService:
         if not isinstance(ref, KavitaRef):
             return "rejected", None
         if ref.chapter_id != stored.chapter_id:
-            return "stale", None
+            return "moved", None
         self._ref_cache[str(ref.chapter_id)] = ref
         page_num = int(self._client.get_progress(ref.chapter_id).get("pageNum", 0))
         provider_finished = ref.total_pages > 0 and page_num >= ref.total_pages
