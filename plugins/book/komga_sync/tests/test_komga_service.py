@@ -7096,6 +7096,77 @@ def test_read_bookmark_reports_the_progression_href_and_progress() -> None:
     assert result.progression == pytest.approx(0.42)
 
 
+@pytest.mark.pins("EXP-362")
+def test_read_bookmark_states_the_range_its_position_stands_for() -> None:
+    """read_bookmark() covers the progress range between the neighbouring positions (EXP-362)."""
+
+    client = FakeKomga()
+    client.progression_sequence = [
+        {
+            "locator": {
+                "href": "OEBPS/file0002.xhtml",
+                "title": "Ch 2",
+                "locations": {"progression": 0.5},
+            }
+        }
+    ]
+    result = service(client).read_bookmark("KB1")
+
+    assert result is not None
+    assert result.covers == pytest.approx((0.25, 1.0))
+
+    low_client = FakeKomga()
+    low_client.progression_sequence = [
+        {
+            "locator": {
+                "href": "OEBPS/file0002.xhtml",
+                "title": "Ch 2",
+                "locations": {"progression": 0.0},
+            }
+        }
+    ]
+    low = service(low_client).read_bookmark("KB1")
+
+    assert low is not None
+    assert low.covers == pytest.approx((0.0, 0.25))
+
+
+def test_a_bookmark_on_a_chapter_without_positions_states_no_range() -> None:
+    """read_bookmark() states no covered range when its chapter has no position."""
+
+    client = FakeKomga()
+    client.positions = []
+    client.progression_sequence = [
+        {
+            "locator": {
+                "href": "OEBPS/file0002.xhtml",
+                "title": "Ch 2",
+                "locations": {"progression": 0.5},
+            }
+        }
+    ]
+    result = service(client).read_bookmark("KB1")
+
+    assert result is not None
+    assert result.covers is None
+
+
+def test_every_progress_in_the_range_is_written_onto_that_position() -> None:
+    """Every progress inside a bookmark's covered range is written onto the same position."""
+    from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
+
+    anchor = ProviderAnchor("OEBPS/file0002.xhtml", "Sample Beta - Ch 2", 2)
+    for progression in (0.3, 0.5, 0.9):
+        client = FakeKomga()
+        client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+        client.series = {"metadata": MATCHING_SERIES_METADATA}
+        bookmark = ProviderBookmark("OEBPS/file0002.xhtml", None, progression, {})
+
+        assert service(client).place_bookmark("KB1", anchor, bookmark) is True
+        _, payload = client.put_progressions[0]
+        assert payload["locator"]["locations"]["position"] == 5
+
+
 def test_read_bookmark_reports_no_bookmark_without_an_href() -> None:
     """read_bookmark() returns None when progression carries no locator href."""
     client = FakeKomga()
