@@ -148,12 +148,12 @@ def test_a_bookmark_already_at_the_target_is_not_rewritten() -> None:
     assert result.fields["external_read_position"] == 2
 
 
-def test_a_file_reindexed_under_another_chapter_is_stale() -> None:
-    """Kavita now files the book under chapter 12: stale (the next sync relinks), no write."""
+def test_a_file_reindexed_under_another_chapter_is_moved() -> None:
+    """Kavita now files the book under chapter 12: moved (the next sync relinks), no write."""
     client = _client()
     client.find_chapter_result = _ref(chapter_id=12, total_pages=4)
 
-    assert service(client).write_position(_view(), _TARGET) == ("stale", None)
+    assert service(client).write_position(_view(), _TARGET) == ("moved", None)
     assert client.save_progress_calls == []
 
 

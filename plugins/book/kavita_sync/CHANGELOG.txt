@@ -1,3 +1,6 @@
+== 1.10.0 ==
+A reading position saved while Kavita filed the book under a new entry now says so and asks you to try again after the next sync, instead of saying Kavita has not read the file yet. A place you saved in a chapter is no longer read back as an earlier place, so you no longer get a false "moved back" warning after reading in ebookerr or KOReader. Needs ebookerr 2.24.13 or later.
+
 == 1.9.0 ==
 A reading position read back from Kavita now carries the time you were there, not the time ebookerr noticed it, so reading done while ebookerr was closed keeps its order and its day. Marking a book unread in Kavita reaches ebookerr within a minute while a page is open. A book whose chapters Kavita cannot match is reported in the log once instead of every minute. Needs ebookerr 2.24.11 or later.
 
