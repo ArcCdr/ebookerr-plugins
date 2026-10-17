@@ -13,8 +13,8 @@ def display_title(record_title: str | None, *, epub_title: str | None = None) ->
     """Return the title to show a user for one book.
 
     Args:
-        record_title: The book record's title (``BookView.title``, already override-merged by
-            the core).
+        record_title: The book record's title (``BookView.title``, which already holds the user's
+            edit).
         epub_title: A title read from the EPUB's own metadata (NCX ``docTitle`` or OPF
             ``dc:title``), used only when the record carries no usable title.
 

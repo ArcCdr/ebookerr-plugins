@@ -227,7 +227,7 @@ def merge_text(
 
     Args:
         book_id: The book identifier (used as fallback for book_label).
-        db_value: The app's current value for this field (merged with overrides).
+        db_value: The app's current value for this field (the user's edit, if there is one).
         file_path: Path to the sidecar text file.
         synced_hash: Hash of the value that was last synced; None on first sync.
         logs: List to append log entries to.

@@ -7,7 +7,7 @@ the FanFicFare JSON or the chapter ``<meta name="chapterurl">`` headers, since t
 EPUB alone is self-sufficient.
 
 Book titles for log lines are resolved by ``epub_chapter_reorder.book_display.display_title``,
-preferring the caller's override-merged title, falling back to
+preferring the caller's record title (which already holds the user's edit), falling back to
 :func:`~ebookerr_sdk.epub.titles.resolve_book_title` (NCX ``<docTitle>`` over OPF
 ``<dc:title>``); chapter titles by :func:`~ebookerr_sdk.epub.titles.resolve_nav_title`,
 preferring ``<navLabel>`` over XHTML title. Each chapter's number is derived by the shared
@@ -282,7 +282,7 @@ def reorder_epub(
             as a refusal, falling through to the automatic order. Keys of title-page,
             front-matter and back-matter rows may appear in the stored order; they are
             counted as matched and placed by their zone.
-        display_title: The book record's user-facing title (already override-merged). Used
+        display_title: The book record's user-facing title (it already holds the user's edit). Used
             for every log line this function emits; the EPUB's own metadata title stands in
             only when this is ``None`` or blank, so a renamed book is never reported under
             a name the user cannot find.
