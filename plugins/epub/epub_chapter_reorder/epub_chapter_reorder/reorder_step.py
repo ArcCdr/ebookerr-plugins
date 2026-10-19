@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ebookerr_sdk.domain.chapter_number import special_section_number
@@ -257,11 +257,16 @@ def _spine_order(doc: EpubDocument, nav_points: list[NavPoint], desired: list[st
     return order
 
 
+UNUSABLE_TOC_SKIP = "table of contents cannot be reordered safely"
+"""The skip reported for a book whose table of contents has no entry or repeats one (EXP-395)."""
+
+
 def reorder_epub(
     epub_path: Path,
     *,
     manual_order: Sequence[str] | None = None,
     display_title: str | None = None,
+    on_skip: Callable[[str], None] | None = None,
 ) -> bool:
     """Reorder EPUB chapters into chronological order; return True if the file changed.
 
@@ -286,6 +291,8 @@ def reorder_epub(
             for every log line this function emits; the EPUB's own metadata title stands in
             only when this is ``None`` or blank, so a renamed book is never reported under
             a name the user cannot find.
+        on_skip: Called with :data:`UNUSABLE_TOC_SKIP` when the table of contents is unusable,
+            so the caller can report the book as skipped (``EXP-395``).
 
     Returns:
         True if the EPUB was rewritten, False if it was already in order or the table
@@ -306,6 +313,8 @@ def reorder_epub(
             len(current),
             len(set(current)),
         )
+        if on_skip is not None:
+            on_skip(UNUSABLE_TOC_SKIP)
         return False
 
     automatic = _desired_order(current, titles, numbers)

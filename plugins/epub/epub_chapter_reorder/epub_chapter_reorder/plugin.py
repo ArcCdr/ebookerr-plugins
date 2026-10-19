@@ -27,6 +27,7 @@ import json
 import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from functools import partial
 
 from ebookerr_sdk.domain.text_encoding import unicode_identity
 from ebookerr_sdk.epub import EpubDocument, EpubError
@@ -69,6 +70,10 @@ _FIXED_REASON_BY_ROLE: dict[ChapterRole, str] = {
     ChapterRole.FRONT: "Front matter always stays before the chapters",
     ChapterRole.BACK: "Back matter always stays after the chapters",
 }
+
+
+UNREADABLE_FAILURE = "the EPUB file could not be read — it may be damaged"
+"""The failure an unreadable book reports to the run; trying again cannot help (EXP-395)."""
 
 
 def _zone_lock(entry: ChapterEntry) -> tuple[bool, str]:
@@ -531,8 +536,9 @@ class EpubChapterReorderPlugin:
 
         Returns:
             One ``BookPatch(fields={"num_chapters": ...})`` per EPUB that was actually
-            reordered; already-ordered EPUBs contribute nothing. A malformed EPUB is
-            skipped (logged as a warning) rather than failing the whole batch.
+            reordered; already-ordered EPUBs contribute nothing. A book whose table of contents
+            cannot be reordered safely is reported as a skip; a malformed EPUB is reported as a
+            failure that is not retryable (logged as a warning) and the batch goes on (EXP-395).
         """
         patches: list[BookPatch] = []
         total = len(items)
@@ -543,10 +549,11 @@ class EpubChapterReorderPlugin:
                     patch = self._process_headed(item, ctx)
                 except EpubError:
                     logger.warning(
-                        "Chapter editor skipped for %s (malformed EPUB)",
+                        "Chapter editor failed for %s (malformed EPUB)",
                         item.epub_path,
                         exc_info=True,
                     )
+                    ctx.report_failure(item.book.book_id, UNREADABLE_FAILURE, retryable=False)
                     patch = None
                 if patch is not None:
                     patches.append(patch)
@@ -566,13 +573,15 @@ class EpubChapterReorderPlugin:
                     item.epub_path,
                     manual_order=stored or None,
                     display_title=item.book.title,
+                    on_skip=partial(ctx.report_skip, item.book.book_id),
                 )
             except EpubError:
                 logger.warning(
-                    "Chapter-reorder skipped for %s (malformed EPUB)",
+                    "Chapter-reorder failed for %s (malformed EPUB)",
                     item.epub_path,
                     exc_info=True,
                 )
+                ctx.report_failure(item.book.book_id, UNREADABLE_FAILURE, retryable=False)
                 ctx.report((i + 1) / total * 100.0 if total else 100.0)
                 continue
             if changed:
