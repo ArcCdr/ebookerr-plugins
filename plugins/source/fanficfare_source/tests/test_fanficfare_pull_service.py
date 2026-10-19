@@ -734,8 +734,17 @@ def test_an_update_still_missing_site_chapters_is_rejected(tmp_path: Path) -> No
             chapters_after=3,
             site_chapters=4,
             distinct_urls_after=3,
-            site_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3", "http://test1.com?sid=1&chapter=4"),
-            written_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3"),
+            site_urls=(
+                "http://test1.com?sid=1&chapter=1",
+                "http://test1.com?sid=1&chapter=2",
+                "http://test1.com?sid=1&chapter=3",
+                "http://test1.com?sid=1&chapter=4",
+            ),
+            written_urls=(
+                "http://test1.com?sid=1&chapter=1",
+                "http://test1.com?sid=1&chapter=2",
+                "http://test1.com?sid=1&chapter=3",
+            ),
         )
     )
 
@@ -819,7 +828,11 @@ def test_an_update_missing_a_site_chapter_is_rejected(tmp_path: Path) -> None:
 def test_an_update_without_a_removed_chapter_is_accepted(tmp_path: Path) -> None:
     """An update that dropped a removed chapter (before 4, site 3, after 3) is accepted."""
     prior = prior_view()
-    urls = ("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3")
+    urls = (
+        "http://test1.com?sid=1&chapter=1",
+        "http://test1.com?sid=1&chapter=2",
+        "http://test1.com?sid=1&chapter=3",
+    )
     gateway = FakeGateway(
         _created(
             outcome="updated",
