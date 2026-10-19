@@ -10,7 +10,9 @@ from ebookerr_sdk.spi import (
     InvocationMode,
     PluginEventType,
     PluginType,
+    SiteCredential,
 )
+from ebookerr_sdk.testing import FakeCore, make_request, run_wire
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 
@@ -436,3 +438,33 @@ class TestScan:
         assert len(pages.calls) == 3
         # Only one fetch because of cap
         assert len(pages.metadata_calls) == 1
+
+
+@pytest.mark.pins("EXP-383")
+def test_a_failed_login_never_puts_the_username_in_the_log_or_the_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A listing the site refuses fails with a sentence naming the site; no line names the user."""
+    from fanficfare import exceptions
+
+    def lister(url: str, configuration: Any, normalize: bool) -> dict[str, Any]:
+        raise exceptions.FailedToLogin(url, "reader")
+
+    monkeypatch.setattr("url_story_extractor.pages.get_urls_from_page", lister)
+    core = FakeCore(
+        credentials_by_host={"www.example.org": SiteCredential("basic", "reader", "pw")}
+    )
+    settings = {"extract_urls": ["https://www.example.org/list"]}
+
+    with caplog.at_level(logging.DEBUG):
+        terminal, _frames = run_wire(
+            UrlStoryExtractorPlugin(), make_request("scan", settings=settings), core=core
+        )
+
+    assert terminal["ok"] is False
+    assert terminal["error"] == (
+        "could not list stories at https://www.example.org/list: example.org refused the stored "
+        "sign-in — check it in Settings → Credentials"
+    )
+    assert [line for line in terminal["logs"] if "reader" in line["message"]] == []
+    assert "reader" not in caplog.text

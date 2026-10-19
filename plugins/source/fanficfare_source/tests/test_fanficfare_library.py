@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from ebookerr_sdk.spi import SiteCredential
 from fanficfare.adapters import adapter_test1
 from fanficfare.epubutils import get_update_data
 from fanficfare_source.library import (
@@ -22,7 +23,7 @@ from fanficfare_source.protocol import UNREADABLE_MESSAGE, UNRECOGNISED_MESSAGE
 
 STORY = "http://test1.com?sid=1001"
 STORED = "Test Story 1001.epub"
-LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
+NO_SIGN_IN = "test1.com needs a sign-in and none is stored — add one in Settings → Credentials"
 _VALID_ENTRIES = (
     "valid_entries:title,author_list,authorId_list,authorUrl_list,category_list,genre_list,"
     "status,datePublished,dateUpdated,numWords,description"
@@ -357,21 +358,38 @@ def test_a_missing_story_fails_with_its_reason(
     assert result.outcome == "failed"
     assert result.error == "story not found: http://test1.com?sid=666"
     assert (
-        logging.DEBUG,
-        "FanFicFare failed for http://test1.com?sid=666: "
-        "story not found: http://test1.com?sid=666 (StoryDoesNotExist)",
+        logging.WARNING,
+        "FanFicFare failed for http://test1.com?sid=666: story not found: http://test1.com?sid=666 "
+        "(StoryDoesNotExist: Story does not exist: (http://test1.com?sid=666))",
     ) in [(record.levelno, record.getMessage()) for record in caplog.records]
 
 
-def test_a_refused_login_fails_with_its_reason(tmp_path: Path) -> None:
-    """A site that refuses the login says so in the result (LIB-D25)."""
+def test_a_login_with_no_stored_sign_in_says_none_is_stored(tmp_path: Path) -> None:
+    """A site that needs a sign-in, with none stored, says so and names the site (EXP-383)."""
     work = tmp_path / "w"
     work.mkdir()
     result = FanFicFareLibraryGateway({}).download(
         "http://test1.com?sid=668", work_dir=work, staged_filename=None
     )
     assert result.outcome == "failed"
-    assert result.error == LOGIN_SENTENCE
+    assert result.error == NO_SIGN_IN
+
+
+def test_a_refused_stored_sign_in_says_so_and_never_logs_the_username(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A stored sign-in the site refuses reads as refused; its username reaches no log line."""
+    work = tmp_path / "w"
+    work.mkdir()
+    gateway = FanFicFareLibraryGateway(
+        {}, credentials=lambda url: SiteCredential("basic", "reader", "pw")
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = gateway.download("http://test1.com?sid=668", work_dir=work, staged_filename=None)
+    assert result.error == (
+        "test1.com refused the stored sign-in — check it in Settings → Credentials"
+    )
+    assert "reader" not in caplog.text
 
 
 def test_an_unsupported_site_fails_with_its_reason(tmp_path: Path) -> None:

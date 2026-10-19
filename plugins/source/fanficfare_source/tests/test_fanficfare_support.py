@@ -15,13 +15,14 @@ from fanficfare_source.fff_support import (
     config_sections,
     failure_message,
     is_outage,
+    masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
 )
 
 URL = "http://test1.com?sid=1"
 STORY = "http://test1.com?sid=1001"
-LOGIN_SENTENCE = "the site refused the login — check this site's sign-in in Settings → Credentials"
+LOGIN_SENTENCE = "test1.com refused the stored sign-in — check it in Settings → Credentials"
 ADULT_SENTENCE = (
     'the site asks you to confirm you are an adult — turn on "Confirm adult content" in '
     "this plugin's settings"
@@ -155,7 +156,7 @@ def test_broken_advanced_options_never_leak_their_text(caplog) -> None:  # type:
         (exceptions.HTTPErrorFFF(URL, 503, "Service Unavailable"), "the site answered HTTP 503"),
         (
             exceptions.FailedToDownload("Error downloading Chapter: x!"),
-            "download failed: Error downloading Chapter: x!",
+            "the download from test1.com failed",
         ),
         (requests.exceptions.ConnectionError(), "the site could not be reached"),
         (requests.exceptions.ReadTimeout(), "the site could not be reached"),
@@ -207,3 +208,26 @@ def test_a_failure_message_never_carries_a_dotted_class_path() -> None:
 def test_is_outage(exc: BaseException, expected: bool) -> None:
     """Verify is_outage correctly identifies site outages."""
     assert is_outage(exc) == expected
+
+
+@pytest.mark.pins("EXP-383")
+def test_a_login_failure_names_the_site_and_says_whether_a_sign_in_was_stored() -> None:
+    """A refused sign-in and a missing one read apart, each naming the site, never the username."""
+    story = "https://www.example.org/s/1"
+    refused = failure_message(exceptions.FailedToLogin(story, "reader"), story)
+    missing = failure_message(exceptions.FailedToLogin(URL, ""), URL)
+    assert refused == "example.org refused the stored sign-in — check it in Settings → Credentials"
+    assert missing == (
+        "test1.com needs a sign-in and none is stored — add one in Settings → Credentials"
+    )
+
+
+def test_fanficfares_own_text_has_the_username_masked() -> None:
+    """The text kept for the log names the username FanFicFare tried as ``***``."""
+    assert masked_text(exceptions.FailedToLogin(URL, "reader")) == (
+        "Failed to Login for URL: (http://test1.com?sid=1) with username: (***)"
+    )
+    assert masked_text(exceptions.FailedToLogin(URL, "")) == (
+        "Failed to Login for URL: (http://test1.com?sid=1) with username: ()"
+    )
+    assert masked_text(ValueError("no username here")) == "no username here"

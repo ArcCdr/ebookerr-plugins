@@ -96,7 +96,10 @@ class TestListStoryUrls:
         mock_lister = MagicMock(side_effect=RuntimeError("boom"))
         gateway = FanFicFarePagesGateway({}, lister=mock_lister)
 
-        match_pattern = r"could not list stories at https://x\.test/authors/jane: boom"
+        match_pattern = (
+            r"could not list stories at https://x\.test/authors/jane: FanFicFare failed "
+            r"\(RuntimeError\)"
+        )
         with pytest.raises(ListingError, match=match_pattern) as info:
             gateway.list_story_urls("https://x.test/authors/jane")
 
