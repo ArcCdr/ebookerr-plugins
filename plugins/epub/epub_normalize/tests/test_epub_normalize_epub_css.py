@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+import tinycss2
 from ebookerr_sdk.epub.document import EpubDocument
 from epub_normalize.normalize import (
     NormalizeOptions,
@@ -329,3 +330,39 @@ class TestPackageReexports:
 
         assert callable(normalize_epub)
         assert NormalizeReport is not None
+
+
+class TestSurveyBeforeRewrite:
+    """The book survey runs before the stylesheet is rewritten (TR-NORM-7)."""
+
+    def test_the_survey_finds_the_body_text_size(self, build_epub):
+        """Ten 11pt body paragraphs make 11pt the base, so the paragraph rule goes."""
+        path = build_epub([("Chapter 1", "https://example.test/1")])
+        _set_css(path, "p { font-size: 11pt } h1 { font-size: 20pt }")
+        paragraphs = "".join("<p>Body text.</p>" for _ in range(10))
+        chapter = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<html xmlns="http://www.w3.org/1999/xhtml">\n<head>\n'
+            "<title>Chapter 1</title>\n</head>\n"
+            '<body class="fff_chapter">\n<h1>Chapter 1</h1>\n'
+            f"{paragraphs}\n</body>\n</html>\n"
+        )
+        doc = EpubDocument.open(path)
+        doc.write_resource("OEBPS/file0001.xhtml", chapter.encode("utf-8"))
+        doc.save()
+
+        normalize_epub(path, options=NormalizeOptions())
+
+        stylesheet = EpubDocument.open(path).resource_bytes("OEBPS/stylesheet.css").decode("utf-8")
+        rules = [
+            r
+            for r in tinycss2.parse_stylesheet(stylesheet, skip_comments=True, skip_whitespace=True)
+            if r.type == "qualified-rule"
+        ]
+        assert [tinycss2.serialize(r.prelude).strip() for r in rules] == ["h1"]
+        decls = tinycss2.parse_blocks_contents(
+            rules[0].content, skip_comments=True, skip_whitespace=True
+        )
+        assert {d.lower_name: tinycss2.serialize(d.value).strip() for d in decls} == {
+            "font-size": "1.818em"
+        }

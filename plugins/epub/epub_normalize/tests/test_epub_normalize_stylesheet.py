@@ -8,10 +8,14 @@ dropping rules that end up empty after declaration stripping.
 from __future__ import annotations
 
 import dataclasses
+import logging
 
+import pytest
+import tinycss2
 from epub_normalize.normalize.counts import NormalizeCounts
-from epub_normalize.normalize.options import NormalizeOptions
+from epub_normalize.normalize.options import NormalizeOptions, options_for_level
 from epub_normalize.normalize.stylesheet import normalize_stylesheet
+from epub_normalize.normalize.survey import BookContext
 
 
 def _run(css: str, **kw: bool) -> tuple[str, NormalizeCounts]:
@@ -19,6 +23,48 @@ def _run(css: str, **kw: bool) -> tuple[str, NormalizeCounts]:
     counts = NormalizeCounts()
     options = dataclasses.replace(NormalizeOptions(), **kw)
     return normalize_stylesheet(css, options=options, counts=counts), counts
+
+
+def _normalize(
+    css: str, *, level: str = "standard", book: BookContext | None = None
+) -> tuple[str, NormalizeCounts]:
+    """Normalize a stylesheet at one styling level against a book (empty when omitted)."""
+    counts = NormalizeCounts()
+    result = normalize_stylesheet(
+        css,
+        options=options_for_level(level),
+        counts=counts,
+        book=BookContext() if book is None else book,
+    )
+    return result, counts
+
+
+def declarations_of(css: str) -> dict[str, dict[str, str]]:
+    """Map each top-level rule's selector text to its {property: value}, whitespace-stripped."""
+    out: dict[str, dict[str, str]] = {}
+    for rule in tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True):
+        if rule.type != "qualified-rule":
+            continue
+        decls = tinycss2.parse_blocks_contents(
+            rule.content, skip_comments=True, skip_whitespace=True
+        )
+        out[tinycss2.serialize(rule.prelude).strip()] = {
+            d.lower_name: tinycss2.serialize(d.value).strip()
+            for d in decls
+            if d.type == "declaration"
+        }
+    return out
+
+
+def _page_declarations(css: str) -> list[str]:
+    """The declaration names inside the stylesheet's first @page block."""
+    for node in tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True):
+        if node.type == "at-rule" and node.lower_at_keyword == "page":
+            body = tinycss2.parse_blocks_contents(
+                node.content, skip_comments=True, skip_whitespace=True
+            )
+            return [d.lower_name for d in body if d.type == "declaration"]
+    pytest.fail("no @page block in the output")
 
 
 class TestFontFaceHandling:
@@ -94,13 +140,13 @@ class TestOtherAtRules:
     """Tests for non-nesting at-rules."""
 
     def test_page_and_import_at_rules_survive(self) -> None:
-        """@page, @import, @charset and other at-rules are kept verbatim."""
+        """@import and @charset are kept verbatim; a @page whose margins go is dropped."""
         css = '@charset "utf-8";\n@import url(other.css);\n@page { margin: 2cm }\np { color: red }'
         result, counts = _run(css)
         assert "@charset" in result
         assert "@import" in result
-        assert "@page" in result
-        assert "2cm" in result
+        assert "@page" not in result
+        assert "2cm" not in result
         assert "color" not in result
 
 
@@ -188,3 +234,96 @@ class TestCountAccumulation:
 
         normalize_stylesheet(css2, options=options, counts=counts)
         assert counts.rules_removed == 2
+
+
+class TestSelectorContextSplit:
+    """Tests for splitting a selector list into one rule per selector context (TR-NORM-6)."""
+
+    def test_a_mixed_selector_list_is_split(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A list mixing a heading and a drop cap splits; only the drop cap's font survives."""
+        caplog.set_level(logging.DEBUG)
+        css = "h1, p.dropcap { color: #000000; font-family: Goudy; }"
+        result, _counts = _normalize(css)
+        assert declarations_of(result) == {"p.dropcap": {"font-family": "Goudy"}}
+        assert "Normalize split a rule into 2 by selector context: h1, p.dropcap" in caplog.messages
+
+    def test_a_mixed_selector_list_at_strict_is_removed(self) -> None:
+        """At the strict level neither group keeps a declaration, so the whole rule goes."""
+        result, _counts = _normalize(
+            "h1, p.dropcap { color: #000000; font-family: Goudy; }", level="strict"
+        )
+        assert declarations_of(result) == {}
+
+    def test_one_context_is_not_split(self) -> None:
+        """A list whose selectors share one context is rewritten as one rule."""
+        result, counts = _normalize("h1, h2 { color: red; }")
+        assert declarations_of(result) == {}
+        assert counts.rules_removed == 1
+        unchanged = "h1, h2 { font-weight: bold; }"
+        assert _normalize(unchanged)[0] == unchanged
+
+    def test_an_unchanged_mixed_list_is_left_as_is(self) -> None:
+        """A mixed list with nothing to change is kept exactly, with no split and no counts."""
+        css = "h1, p.dropcap { font-weight: bold; }"
+        result, counts = _normalize(css)
+        assert result == css
+        assert counts.declarations_removed == 0
+        assert counts.declarations_converted == 0
+        assert counts.rules_removed == 0
+
+    def test_an_svg_selector_keeps_its_colour(self) -> None:
+        """Colour on an SVG text selector survives while the same colour on a paragraph goes."""
+        result, _counts = _normalize("p, svg text { color: red; }")
+        assert declarations_of(result) == {"svg text": {"color": "red"}}
+
+    def test_a_root_selector_in_a_list_does_not_strip_paragraph_margins(self) -> None:
+        """A root selector ahead of a paragraph does not take the paragraph's margins."""
+        result, _counts = _normalize("body, p { margin: 0; font-size: 12pt }")
+        assert declarations_of(result) == {"p": {"margin": "0", "font-size": "1em"}}
+
+
+class TestFontFaceKeptFamilies:
+    """Tests for @font-face rules whose family a drop cap or vector content uses (FR-NORM-3)."""
+
+    FONT_FACE = '@font-face { font-family: "Goudy Initials"; src: url(g.otf) }'
+    DROP_CAP = 'p::first-letter { font-family: "Goudy Initials" }'
+
+    def test_font_face_kept_for_a_drop_cap_family(self) -> None:
+        """An @font-face whose family the book uses is kept verbatim."""
+        book = BookContext(kept_families=frozenset({"goudy initials"}))
+        result, _counts = _normalize(f"{self.FONT_FACE} {self.DROP_CAP}", book=book)
+        assert self.FONT_FACE in result
+
+    def test_font_face_dropped_without_a_kept_family(self) -> None:
+        """An @font-face with no kept family is removed."""
+        result, _counts = _normalize(f"{self.FONT_FACE} {self.DROP_CAP}")
+        assert "@font-face" not in result
+
+
+class TestPageMargins:
+    """Tests for the @page margins removed at the standard and strict levels (FR-NORM-17)."""
+
+    def test_page_margins_are_removed(self) -> None:
+        """Margin descriptors leave the @page block; other descriptors stay."""
+        result, _counts = _normalize("@page { margin: 1in; size: a5 }")
+        assert "margin" not in result
+        assert _page_declarations(result) == ["size"]
+
+    def test_a_page_with_only_margins_is_removed(self) -> None:
+        """An @page left with no declaration is dropped."""
+        result, _counts = _normalize("@page { margin: 5pt }")
+        assert "@page" not in result
+
+    def test_page_margins_are_kept_at_the_light_level(self) -> None:
+        """At the light level the @page is not touched at all."""
+        css = "@page { margin: 1in; size: a5 }"
+        assert _normalize(css, level="light")[0] == css
+
+
+class TestEmptyMediaBlock:
+    """Tests for @media blocks that empty out (TR-NORM-4)."""
+
+    def test_a_media_block_that_empties_is_removed(self) -> None:
+        """A @media block whose rules all lose their declarations is dropped."""
+        result, _counts = _normalize("@media screen { body { margin: 2% } p { color: red } }")
+        assert "@media" not in result
