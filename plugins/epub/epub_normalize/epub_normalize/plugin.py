@@ -185,6 +185,13 @@ _SETTINGS_SCHEMA = SettingsSchema(
 )
 
 
+FIXED_LAYOUT_SKIP = "fixed-layout book"
+"""The skip a fixed-layout book reports to the run: page layouts are left alone (EXP-395)."""
+
+UNREADABLE_FAILURE = "the EPUB file could not be read — it may be damaged"
+"""The failure an unreadable book reports to the run; trying again cannot help (EXP-395)."""
+
+
 def _log_outcome(report: Any, item: EpubItem, elapsed: float) -> None:
     """Log one book's normalization outcome at the appropriate level.
 
@@ -268,7 +275,9 @@ class EpubNormalizePlugin:
             ctx: The plugin context.
 
         Returns:
-            An empty list (changes are detected by file diffing).
+            An empty list (changes are detected by file diffing). A fixed-layout book is
+            reported to the run as a skip, an unreadable one as a failure that is not retryable,
+            so the run's counts say what happened to every book (EXP-395).
         """
         options = self._options(ctx.settings)
         total = len(items)
@@ -281,15 +290,18 @@ class EpubNormalizePlugin:
                 report = normalize_epub(item.epub_path, options=options)
             except (EpubError, zipfile.BadZipFile):
                 logger.warning(
-                    "Normalize skipped for %s (malformed EPUB)",
+                    "Normalize failed for %s (malformed EPUB)",
                     item.epub_path,
                     exc_info=True,
                 )
+                ctx.report_failure(item.book.book_id, UNREADABLE_FAILURE, retryable=False)
                 ctx.report((i + 1) / total * 100.0 if total else 100.0)
                 continue
 
             elapsed = time.monotonic() - started
             _log_outcome(report, item, elapsed)
+            if report.skipped_reason == FIXED_LAYOUT_REASON:
+                ctx.report_skip(item.book.book_id, FIXED_LAYOUT_SKIP)
             ctx.report((i + 1) / total * 100.0 if total else 100.0)
 
         return []
