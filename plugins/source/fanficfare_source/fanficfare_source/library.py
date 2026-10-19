@@ -59,7 +59,7 @@ UPDATE_OVERRIDES: Mapping[str, str] = MappingProxyType(
         "always_overwrite": "true",
         "never_make_cover": "true",
         "update_check_recent_chapters": "1",
-        "update_preserve_deleted_chapters": "true",
+        "update_preserve_deleted_chapters": "false",
         "output_filename_safepattern": UNICODE_SAFEPATTERN,
         "output_filename": "${title}${formatext}",
         "make_directories": "false",
@@ -70,7 +70,8 @@ UPDATE_OVERRIDES: Mapping[str, str] = MappingProxyType(
 ``always_overwrite``: write even though the staged copy is newer than the story's date (the core
 stages it with a fresh mtime). ``never_make_cover``: ebookerr manages covers; every former
 command-line run set it. ``update_check_recent_chapters``: re-fetch the newest chapter and keep it
-only if its text changed. ``update_preserve_deleted_chapters``: keep chapters the site removed.
+only if its text changed. ``update_preserve_deleted_chapters``: off — ebookerr itself keeps the
+chapters a site removed (``LIB-D50``), with their own titles.
 ``output_filename_safepattern``: :data:`UNICODE_SAFEPATTERN`. ``output_filename`` and
 ``make_directories``: FanFicFare names no folder — the file lands in the work folder as
 ``<title>.epub`` and ebookerr chooses where a new book goes (``D56``).
@@ -88,8 +89,8 @@ def _rekey_stamped_chapter(
 
     Books from ebookerr releases before 2.22.2 can carry the book's own URL stamped onto a
     one-chapter book's chapter (the retired Chapter URL Stamp plugin did that, ``LIB-D38``).
-    When the site lists other chapter URLs, FanFicFare would keep that chapter as one the site
-    removed (``update_preserve_deleted_chapters``) beside a fresh chapter 1. When the staged
+    When the site lists other chapter URLs, FanFicFare would treat that chapter as one the site
+    removed and fetch a fresh chapter 1. When the staged
     file holds exactly one chapter, keyed by a URL the site does not list, it is the site's
     first chapter.
 
@@ -377,6 +378,8 @@ class FanFicFareLibraryGateway:
             chapters_before=before,
             chapters_after=int(written[1] or 0),
             distinct_urls_after=len(written[7] or {}),
+            site_urls=tuple(site_urls),
+            written_urls=tuple(str(chapter_url) for chapter_url in (written[7] or {})),
             added=int(getattr(story, "chapter_added_count", 0) or 0),
             updated=int(getattr(story, "chapter_updated_count", 0) or 0),
             errored=int(getattr(story, "chapter_error_count", 0) or 0),

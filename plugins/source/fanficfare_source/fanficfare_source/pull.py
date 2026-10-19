@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from ebookerr_sdk.domain.dates import format_datetime, parse_datetime
+from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.domain.metadata import sanitize
 from ebookerr_sdk.download.paths import safe_component
 from ebookerr_sdk.spi import (
@@ -384,18 +385,23 @@ class FanFicFarePull:
             note=f"{done} of {total} chapters",
         )
 
+    @staticmethod
+    def _site_chapter_missing(result: DownloadResult) -> bool:
+        """Whether a site chapter URL has no written chapter URL with the same book id."""
+        written = {make_book_id(chapter_url) for chapter_url in result.written_urls}
+        return any(make_book_id(chapter_url) not in written for chapter_url in result.site_urls)
+
     def _verify(self, url: str, result: DownloadResult) -> None:
-        """Reject a FanFicFare result whose counts do not add up (``LIB-D29``).
+        """Reject a FanFicFare result that does not hold the site's chapters (``LIB-D29``).
 
         The rules, checked in this order, the first failing one named: duplicate chapters (the
         written file's distinct chapter URLs differ from its chapter count); an incomplete
-        download (a fresh EPUB lacks chapters the site lists); chapters lost or doubled (an
-        update's chapter count is not the old count plus the chapters added); chapters the site
-        lists are missing (an update holds fewer chapters than the site lists). With
-        ``update_preserve_deleted_chapters`` the written book is the old chapters plus the site's
-        new ones, so ``after == before + added`` and ``after >= site``; a fresh download holds
-        exactly the site's chapters. This detects an update that should have happened and did
-        not, without a forced full download.
+        download (a fresh EPUB's chapter count is not the site's); chapters the site lists are
+        missing (an update lacks a chapter URL the site lists, compared by book id so URL
+        spelling does not matter). A chapter the site removed is not FanFicFare's concern — the
+        core keeps it (``LIB-D50``) — so an update may hold fewer chapters than it had, and the
+        check is by chapter URL, not by count. This detects an update that should have happened
+        and did not, without a forced full download.
 
         Args:
             url: The story address (log only).
@@ -410,12 +416,7 @@ class FanFicFarePull:
             rule = "duplicate chapters"
         elif result.outcome == "created" and result.chapters_after != result.site_chapters:
             rule = "incomplete download"
-        elif (
-            result.outcome == "updated"
-            and result.chapters_after != result.chapters_before + result.added
-        ):
-            rule = "chapters lost or doubled"
-        elif result.outcome == "updated" and result.chapters_after < result.site_chapters:
+        elif result.outcome == "updated" and self._site_chapter_missing(result):
             rule = "chapters the site lists are missing"
         if rule is None:
             return

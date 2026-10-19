@@ -40,6 +40,8 @@ class DownloadResult:
         chapters_before: Chapters FanFicFare recognised in the staged file (0 when created).
         chapters_after: Chapters FanFicFare recognises in the file it wrote, read back from disk.
         distinct_urls_after: Distinct chapter URLs in the file it wrote.
+        site_urls: The chapter URLs the site lists, in order.
+        written_urls: The distinct chapter URLs FanFicFare recognises in the file it wrote.
         added: Chapters fetched that the staged file lacked.
         updated: Chapters re-fetched and replaced because their text changed.
         errored: Chapters written as error placeholders (only with ``continue_on_chapter_error``).
@@ -53,6 +55,8 @@ class DownloadResult:
     chapters_before: int = 0
     chapters_after: int = 0
     distinct_urls_after: int = 0
+    site_urls: tuple[str, ...] = ()
+    written_urls: tuple[str, ...] = ()
     added: int = 0
     updated: int = 0
     errored: int = 0
