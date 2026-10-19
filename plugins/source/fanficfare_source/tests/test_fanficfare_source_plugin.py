@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.testing import FakeContext, make_book_view
+from fanficfare_source.library import FanFicFareLibraryGateway
 from fanficfare_source.plugin import FanFicFareSourcePlugin, SourcePullError
 from fanficfare_source.protocol import DownloadResult, MetadataFetch
 from fanficfare_source.pull import FanFicFarePull
@@ -200,6 +202,28 @@ class TestInit:
         config = gateway._configuration("http://test1.com?sid=1001")
         assert config.getConfig("include_images") is False
         assert config.getConfig("username") == "me"
+
+    def test_no_sign_in_is_asked_where_fanficfare_cannot_sign_in(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A site whose FanFicFare adapter has no login never has its stored sign-in looked up."""
+        asked: list[str] = []
+
+        def credentials(url: str) -> api.SiteCredential | None:
+            asked.append(url)
+            return api.SiteCredential("basic", "me", "pw")
+
+        gateway = FanFicFareLibraryGateway({}, credentials=credentials)
+
+        with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
+            config = gateway._configuration("https://www.literotica.com/s/x")
+
+        assert asked == []
+        assert config.getConfig("username") is False
+        assert (
+            "No sign-in asked for www.literotica.com: FanFicFare cannot sign in there"
+            in caplog.text
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ from fanficfare_source.fff_support import (
     ConfigurationError,
     _ForwardHandler,
     build_configuration,
+    can_sign_in,
     captured_stdout,
     config_sections,
     failure_message,
@@ -231,3 +232,17 @@ def test_fanficfares_own_text_has_the_username_masked() -> None:
         "Failed to Login for URL: (http://test1.com?sid=1) with username: ()"
     )
     assert masked_text(ValueError("no username here")) == "no username here"
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://www.literotica.com/s/x", False),
+        ("https://archiveofourown.org/works/1", True),
+        ("http://test1.com?sid=1", True),
+        ("https://unknown.example/", False),
+    ],
+)
+def test_can_sign_in(url: str, expected: bool) -> None:
+    """FanFicFare's adapter for a site signs in only where it defines a login (``LIB-D53``)."""
+    assert can_sign_in(url) is expected

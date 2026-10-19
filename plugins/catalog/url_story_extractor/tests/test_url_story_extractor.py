@@ -13,6 +13,7 @@ from ebookerr_sdk.spi import (
     SiteCredential,
 )
 from ebookerr_sdk.testing import FakeCore, make_request, run_wire
+from url_story_extractor.pages import FanFicFarePagesGateway
 from url_story_extractor.plugin import UrlStoryExtractorPlugin
 
 
@@ -468,3 +469,23 @@ def test_a_failed_login_never_puts_the_username_in_the_log_or_the_error(
     )
     assert [line for line in terminal["logs"] if "reader" in line["message"]] == []
     assert "reader" not in caplog.text
+
+
+def test_the_extractor_asks_no_sign_in_where_fanficfare_cannot(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A listing on a site whose FanFicFare adapter has no login never looks up a sign-in."""
+    asked: list[str] = []
+
+    def credentials(url: str) -> SiteCredential | None:
+        asked.append(url)
+        return SiteCredential("basic", "me", "pw")
+
+    gateway = FanFicFarePagesGateway({}, credentials=credentials)
+
+    with caplog.at_level(logging.DEBUG, logger="url_story_extractor.pages"):
+        config = gateway._configuration("https://www.literotica.com/s/x")
+
+    assert asked == []
+    assert config.getConfig("username") is False
+    assert "No sign-in asked for www.literotica.com: FanFicFare cannot sign in there" in caplog.text
