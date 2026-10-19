@@ -63,6 +63,15 @@ _VIEWPORT_META_RE = re.compile(
     r"[ \t]*<meta\b[^>]*\bname\s*=\s*[\"']viewport[\"'][^>]*>[ \t]*\n?",
     re.IGNORECASE,
 )
+_PAGE_TEMPLATE_LINK_RE = re.compile(
+    r"[ \t]*<link\b[^>]*(?:vnd\.adobe-page-template\+xml|\.xpgt[\"'])[^>]*>[ \t]*\n?",
+    re.IGNORECASE,
+)
+_EMPTY_INLINE_RE = re.compile(
+    r"</?(?:span|b|i|em|strong|u|s|small|big|sub|sup|font|a)\b[^>]*>", re.IGNORECASE
+)
+_SELF_CLOSING_P_RE = re.compile(r"<p\b([^>]*?)\s*/>", re.IGNORECASE)
+_PAIRED_P_RE = re.compile(r"(<p\b(?![^>]*/>)[^>]*>)(.*?)(</p\s*>)", re.IGNORECASE | re.DOTALL)
 
 
 def is_well_formed(text: str) -> bool:
@@ -89,8 +98,9 @@ def normalize_xhtml(
     counts: NormalizeCounts,
     name: str,
     book: BookContext | None = None,
+    blank_lines: bool = False,
 ) -> str:
-    """Rewrite XHTML chapter document, normalizing styles, attributes and viewport meta.
+    """Rewrite XHTML chapter document, normalizing styles, attributes and blank lines.
 
     The pipeline is:
     1. Snapshot the counters this function can move.
@@ -100,12 +110,14 @@ def normalize_xhtml(
     5. Mask the remaining <style> blocks into the same store.
     6. Rewrite every start tag: its style="" attribute under the context of its own element,
        and the HTML presentational attributes the level removes.
-    7. Remove viewport meta tags.
-    8. Unmask protected regions.
-    9. If no counter moved, return the input verbatim (fidelity + idempotency).
-    10. If the input was well-formed but the output is not, revert: restore all counters
+    7. Remove viewport meta tags when the level strips fixed dimensions.
+    8. Remove Adobe page-template links when the level strips the page layout.
+    9. Mark empty paragraphs with a non-breaking space when *blank_lines* is set.
+    10. Unmask protected regions, twice: a style block may hold a placeholder of step 3.
+    11. If no counter moved, return the input verbatim (fidelity + idempotency).
+    12. If the input was well-formed but the output is not, revert: restore all counters
         and return the input verbatim, logging a WARNING.
-    11. Otherwise return the rewritten text.
+    13. Otherwise return the rewritten text.
 
     Args:
         text: The XHTML chapter document as a string.
@@ -113,6 +125,7 @@ def normalize_xhtml(
         counts: Accumulator for tracking changes across multiple files.
         name: The chapter's manifest href, used only in revert logging (e.g., "OEBPS/c1.xhtml").
         book: What the survey learned about the book; an empty ``BookContext`` when omitted.
+        blank_lines: Whether empty paragraphs get a non-breaking space (FR-NORM-18).
 
     Returns:
         The rewritten XHTML text, or the input verbatim if no changes were made or if
@@ -136,11 +149,21 @@ def normalize_xhtml(
     # Rewrite the style="" and presentational attributes of every start tag.
     masked = _rewrite_start_tags(masked, options=options, book=book, counts=counts)
 
-    # Remove viewport meta tags.
-    masked = _remove_viewport_metas(masked, counts=counts)
+    # Remove viewport meta tags only where the level fixes dimensions.
+    if options.strip_fixed_dimensions:
+        masked = _remove_viewport_metas(masked, counts=counts)
 
-    # Unmask protected regions.
-    working = _unmask(masked, store)
+    # Remove Adobe page-template links only where the level strips the page layout.
+    if options.strip_page_layout:
+        masked = _remove_page_template_links(masked, counts=counts)
+
+    # Put a non-breaking space into every empty paragraph, so a blank line still shows.
+    if blank_lines:
+        masked, marked = mark_blank_lines(masked)
+        counts.blank_lines_marked += marked
+
+    # Unmask twice: a style block masked in step 5 may hold a placeholder of step 3.
+    working = _unmask(_unmask(masked, store), store)
 
     # If no counter moved, return the input verbatim.
     if snapshot == _snapshot(counts):
@@ -175,6 +198,8 @@ def _snapshot(counts: NormalizeCounts) -> tuple[int, ...]:
         counts.style_attributes_removed,
         counts.viewport_metas_removed,
         counts.html_attributes_removed,
+        counts.blank_lines_marked,
+        counts.page_template_links_removed,
     )
 
 
@@ -192,6 +217,8 @@ def _restore(counts: NormalizeCounts, snapshot: tuple[int, ...]) -> None:
         counts.style_attributes_removed,
         counts.viewport_metas_removed,
         counts.html_attributes_removed,
+        counts.blank_lines_marked,
+        counts.page_template_links_removed,
     ) = snapshot
 
 
@@ -423,3 +450,54 @@ def _remove_viewport_metas(text: str, *, counts: NormalizeCounts) -> str:
     result, n_removed = _VIEWPORT_META_RE.subn("", text)
     counts.viewport_metas_removed += n_removed
     return result
+
+
+def _remove_page_template_links(text: str, *, counts: NormalizeCounts) -> str:
+    """Remove Adobe page-template links and update the counter.
+
+    Args:
+        text: The masked XHTML text.
+        counts: Accumulator for tracking changes.
+
+    Returns:
+        The text with page-template links removed.
+    """
+    result, n_removed = _PAGE_TEMPLATE_LINK_RE.subn("", text)
+    counts.page_template_links_removed += n_removed
+    return result
+
+
+def mark_blank_lines(text: str) -> tuple[str, int]:
+    r"""Put one ``&#160;`` into every empty paragraph; return the text and how many (FR-NORM-18).
+
+    A self-closing ``<p …/>`` becomes ``<p …>&#160;</p>``; a paired ``<p …>…</p>`` whose inner
+    text is empty once ``_EMPTY_INLINE_RE`` matches are removed and ASCII whitespace
+    (" \t\r\n") is stripped gets ``&#160;`` right before its ``</p>``. A masked placeholder,
+    ``<br/>``, an image or any text keeps a paragraph non-empty.
+
+    Args:
+        text: A chapter's masked XHTML.
+
+    Returns:
+        The text with every empty paragraph marked, and how many were marked.
+    """
+    marked = 0
+
+    def _self_closing(match: re.Match[str]) -> str:
+        """Expand one self-closing paragraph into an empty paired one holding a space."""
+        nonlocal marked
+        marked += 1
+        return f"<p{match.group(1)}>&#160;</p>"
+
+    def _paired(match: re.Match[str]) -> str:
+        """Add a space before the closing tag of a paragraph that is empty."""
+        nonlocal marked
+        inner = _EMPTY_INLINE_RE.sub("", match.group(2)).strip(" \t\r\n")
+        if inner:
+            return match.group(0)
+        marked += 1
+        return match.group(1) + match.group(2) + "&#160;" + match.group(3)
+
+    text = _SELF_CLOSING_P_RE.sub(_self_closing, text)
+    text = _PAIRED_P_RE.sub(_paired, text)
+    return text, marked

@@ -322,7 +322,14 @@ def _normalize_xhtml_members(
             continue
 
         body = strip_xhtml_marker(text)
-        new_body = normalize_xhtml(body, options=options, counts=counts, name=item.href, book=book)
+        new_body = normalize_xhtml(
+            body,
+            options=options,
+            counts=counts,
+            name=item.href,
+            book=book,
+            blank_lines=item.href not in book.no_blank_lines,
+        )
 
         if new_body == body:
             continue
