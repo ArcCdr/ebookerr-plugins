@@ -1,3 +1,6 @@
+== 2.4.2 ==
+A book whose table of contents cannot be reordered safely is now counted as skipped, with the reason, instead of done; a file that cannot be read is counted as failed, also instead of done.
+
 == 2.4.1 ==
 A new icon: the Low priority arrows.
 
