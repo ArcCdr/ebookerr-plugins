@@ -12,7 +12,7 @@ DOWNLOAD_OUTCOMES: tuple[str, ...] = ("created", "updated", "unrecognised", "fai
 
 UNRECOGNISED_MESSAGE = (
     "FanFicFare can't update this book's file: it holds no chapter FanFicFare recognises "
-    "(for example after a merge, or a file from elsewhere); nothing was changed"
+    "(a file from elsewhere); nothing was changed"
 )
 """The pull's failure when the staged EPUB holds no chapter FanFicFare recognises (``LIB-D28``)."""
 

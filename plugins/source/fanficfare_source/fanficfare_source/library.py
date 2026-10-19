@@ -6,8 +6,9 @@ the plugin's settings, the user's advanced FanFicFare options and the site's sto
 the fixed update policy of :data:`UPDATE_OVERRIDES` (``LIB-D27``), asks FanFicFare's adapter for the
 story and, for a download, writes the EPUB with FanFicFare's own writer — what FanFicFare's command
 line does for ``--update-epub``: a staged EPUB is rebuilt in place, fetching only the chapters it
-lacks. A staged file FanFicFare does not recognise is left alone (``LIB-D28``); a one-chapter book's
-stamped chapter URL is re-keyed first (``LIB-D30``); every result carries the counts the engine
+lacks. A merged book's chapter files are renamed to FanFicFare's naming in the staged copy first
+and a one-chapter book's stamped chapter URL is re-keyed (``LIB-D30``); a staged file FanFicFare
+still recognises nothing in is left alone (``LIB-D28``); every result carries the counts the engine
 verifies (``LIB-D29``). Nothing here raises — a failure is a ``failed`` or ``unrecognised`` result —
 and the plugin process is the isolation boundary: the core ends it on a cancel or a timeout.
 """
@@ -15,12 +16,14 @@ and the plugin process is the isolation boundary: the core ends it on a cancel o
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
+from ebookerr_sdk.epub import EpubDocument, EpubError
 from ebookerr_sdk.spi import CircuitOpenError
 from fanficfare import adapters, writers
 from fanficfare.configurable import Configuration
@@ -80,6 +83,64 @@ chapters a site removed (``LIB-D50``), with their own titles.
 
 class _RunFailedError(Exception):
     """Internal marker reporting a failed run to the breaker."""
+
+
+_FFF_CHAPTER_NAME = re.compile(r".*/(file|chapter)\d+(_u\d+)?\.x?html$")
+"""The archive names FanFicFare's ``get_update_data`` recognises as chapter files."""
+
+
+def _rekey_merged_chapters(staged: Path) -> int:
+    """Rename a merged book's chapter files to FanFicFare's naming (``LIB-D30``).
+
+    Every spine document carrying ``<meta name="chapterurl">`` whose archive name FanFicFare's
+    rule does not match is renamed, in spine order, to ``file0001.xhtml``, ``file0002.xhtml``, …
+    (``OEBPS/file0001.xhtml`` when the package sits at the archive root), in the staged copy only.
+    Documents without a chapter mark are left for the core's chapter carry-over.
+
+    Args:
+        staged: The staged EPUB, changed in place when anything is renamed.
+
+    Returns:
+        How many files were renamed (0 leaves the file untouched).
+    """
+    try:
+        doc = EpubDocument.open(staged)
+        items = {item.id: item for item in doc.opf.manifest()}
+        taken = set(doc.member_names())
+        opf_dir = doc.opf_dir
+        prefix = "" if opf_dir else "OEBPS/"
+        renames: list[tuple[str, str]] = []
+        for entry in doc.opf.spine():
+            item = items.get(entry.idref)
+            # Only an XHTML document with a chapter mark whose name FanFicFare cannot read.
+            if item is None or item.media_type != "application/xhtml+xml":
+                continue
+            if _FFF_CHAPTER_NAME.match(doc.member_name(item.href)):
+                continue
+            if not doc.chapter(item.href).meta("chapterurl"):
+                continue
+            number = len(renames) + 1
+            while f"{opf_dir}/{prefix}file{number:04d}.xhtml".lstrip("/") in taken:
+                number += 1
+            new_href = f"{prefix}file{number:04d}.xhtml"
+            taken.add(f"{opf_dir}/{new_href}".lstrip("/"))
+            renames.append((item.id, new_href))
+        for item_id, new_href in renames:
+            doc.rename_item(item_id, new_href)
+        if renames:
+            doc.save()
+    except EpubError as exc:
+        logger.debug(
+            "Could not rename the chapter files of %s (%s)", staged.name, type(exc).__name__
+        )
+        return 0
+    if renames:
+        logger.info(
+            "Renamed %d chapter file(s) of %s so FanFicFare can update the merged book",
+            len(renames),
+            staged.name,
+        )
+    return len(renames)
 
 
 def _rekey_stamped_chapter(
@@ -325,6 +386,9 @@ class FanFicFareLibraryGateway:
                     "unrecognised", site_chapters=len(site_urls), error=UNREADABLE_MESSAGE
                 )
             before = int(update[1] or 0)
+            if before == 0 and _rekey_merged_chapters(staged):
+                update = get_update_data(str(staged))
+                before = int(update[1] or 0)
             if before == 0:
                 logger.info(
                     "FanFicFare recognises no chapter in %s; it is left as it is", staged_filename

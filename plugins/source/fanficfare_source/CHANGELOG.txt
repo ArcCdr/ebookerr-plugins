@@ -1,5 +1,5 @@
 == 2.2.0 ==
-Chapters a site removes are kept by ebookerr itself, with their own titles. Needs ebookerr 2.24.17 or later.
+Chapters a site removes are kept by ebookerr itself, with their own titles. Merged books update again: FanFicFare now recognises the chapters of a book you merged. Needs ebookerr 2.24.17 or later.
 
 == 2.1.1 ==
 A story's description keeps its paragraphs instead of running them together.
