@@ -239,6 +239,39 @@ class TestEncryptionXmlHandling:
         assert "foo.ttf" not in encryption_text
         assert "keep.ttf" in encryption_text
 
+    def test_a_prefixed_entry_that_survives_keeps_encryption_xml(
+        self, build_epub: Callable[..., Path]
+    ) -> None:
+        """A kept font listed as <enc:EncryptedData> keeps its entry and the file stays."""
+        path = build_epub([("Ch. 1", "url1")])
+        _add_font(path, "f1", "OEBPS/foo.ttf", "font/ttf", b"FONTDATA1")
+        _add_font(path, "f2", "OEBPS/keep.ttf", "font/ttf", b"FONTDATA2")
+
+        doc = EpubDocument.open(path)
+        doc.write_member("OEBPS/stylesheet.css", b"@font-face { src: url(keep.ttf); }")
+        encryption_xml = (
+            b'<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"'
+            b' xmlns:enc="http://www.w3.org/2001/04/xmlenc#">'
+            b"<enc:EncryptedData>"
+            b'<enc:CipherData><enc:CipherReference URI="OEBPS/foo.ttf"/></enc:CipherData>'
+            b"</enc:EncryptedData>"
+            b"<enc:EncryptedData>"
+            b'<enc:CipherData><enc:CipherReference URI="OEBPS/keep.ttf"/></enc:CipherData>'
+            b"</enc:EncryptedData>"
+            b"</encryption>"
+        )
+        doc.write_member("META-INF/encryption.xml", encryption_xml)
+        doc.save()
+
+        doc = EpubDocument.open(path)
+        sweep_fonts(doc, counts=NormalizeCounts())
+
+        encryption_bytes = doc.member_bytes("META-INF/encryption.xml")
+        assert encryption_bytes is not None
+        encryption_text = encryption_bytes.decode("utf-8")
+        assert "foo.ttf" not in encryption_text
+        assert "keep.ttf" in encryption_text
+
     def test_encryption_xml_untouched_when_no_font_is_removed(
         self, build_epub: Callable[..., Path]
     ) -> None:

@@ -116,6 +116,19 @@ class TestKeptFamilies:
         assert "goudy initials" in context.kept_families
         assert "lobster" in context.kept_families
 
+    def test_a_mathml_family_is_kept(self, build_epub: Callable[..., Path]) -> None:
+        """A font family set on MathML content is kept, lower-cased (FR-NORM-3)."""
+        path = build_epub([("Chapter 1", "https://example.test/1")], include_title_page=False)
+        _set_chapter(
+            path,
+            '<math xmlns="http://www.w3.org/1998/Math/MathML">'
+            '<mi style="font-family: Stix">x</mi></math>',
+        )
+
+        context = survey_book(EpubDocument.open(path), NormalizeOptions())
+
+        assert "stix" in context.kept_families
+
     def test_strict_keeps_no_drop_cap_family(self, build_epub: Callable[..., Path]) -> None:
         """Strict makes drop caps plain, so their family is not kept."""
         path = build_epub([("Chapter 1", "https://example.test/1")], include_title_page=False)
