@@ -624,7 +624,7 @@ class TestMalformedHandling:
             )
 
         assert patches == []
-        assert any("Chapter editor skipped" in record.message for record in caplog.records)
+        assert any("Chapter editor failed" in record.message for record in caplog.records)
 
 
 class TestDuplicateBadge:

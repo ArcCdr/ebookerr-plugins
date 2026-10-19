@@ -429,3 +429,64 @@ class TestHeadlessPassWithStoredOrder:
         assert patches[0].book_id == "b1"
         assert "num_chapters" in patches[0].fields
         assert patches[0].fields["num_chapters"] == 3
+
+
+# A book the plugin does not change is reported to the run: a skip or a failure (EXP-395).
+
+UNUSABLE_TOC = "table of contents cannot be reordered safely"
+UNREADABLE = "the EPUB file could not be read — it may be damaged"
+
+
+def _unreadable(tmp_path: Path) -> Path:
+    """An EPUB-shaped zip with no container.xml: every reader refuses it."""
+    bad = tmp_path / "bad.epub"
+    with zipfile.ZipFile(bad, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip")
+    return bad
+
+
+@pytest.mark.pins("EXP-395")
+def test_an_unusable_table_of_contents_is_reported_as_skipped(
+    build_epub: Callable[..., Path],
+) -> None:
+    """A book whose table of contents has no entry is a skip with its reason, file untouched."""
+    epub = build_epub([], include_title_page=False)
+    before = epub.read_bytes()
+    ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
+    patches = EpubChapterReorderPlugin().process(
+        (make_epub_item(epub, book_id="b1", title="Test Book", story_url=None),), ctx
+    )
+    assert patches == []
+    assert ctx.skips == [("b1", UNUSABLE_TOC)]
+    assert ctx.failures == []
+    assert epub.read_bytes() == before
+
+
+def test_a_book_already_in_order_is_neither_skipped_nor_failed(
+    build_epub: Callable[..., Path],
+) -> None:
+    """An already-ordered book is done with nothing to change, as before."""
+    epub = build_epub(
+        [("Chapter 1", "https://example.com/u1"), ("Chapter 2", "https://example.com/u2")]
+    )
+    ctx = FakeContext(logger=logging.getLogger(_LOGGER_NAME))
+    EpubChapterReorderPlugin().process(
+        (make_epub_item(epub, book_id="b1", title="Test Book", story_url=None),), ctx
+    )
+    assert ctx.skips == []
+    assert ctx.failures == []
+
+
+@pytest.mark.parametrize("mode", [api.InvocationMode.HEADLESS, api.InvocationMode.HEADED])
+def test_an_unreadable_epub_is_reported_as_a_failure(
+    tmp_path: Path, mode: api.InvocationMode
+) -> None:
+    """A file that cannot be read fails its book, headless or in the chapter editor."""
+    ctx = FakeContext(mode=mode, logger=logging.getLogger(_LOGGER_NAME))
+    patches = EpubChapterReorderPlugin().process(
+        (make_epub_item(_unreadable(tmp_path), book_id="b2", title="Test Book", story_url=None),),
+        ctx,
+    )
+    assert patches == []
+    assert ctx.failures == [("b2", UNREADABLE, False)]
+    assert ctx.skips == []
