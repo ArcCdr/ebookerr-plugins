@@ -160,3 +160,27 @@ def test_the_extractor_checks_its_advanced_options_at_save() -> None:
         }
     ]
     assert UrlStoryExtractorPlugin.manifest.settings_schema.validator is True
+
+
+def test_the_extractors_adult_switch_wins_over_the_advanced_text() -> None:
+    """*Confirm adult content* wins over ``is_adult`` in the text, which saves with a warning."""
+    text = "[defaults]\nis_adult: false\n"
+    gateway = FanFicFarePagesGateway({"is_adult": True, "extra_options": text})
+    settings = {"is_adult": True, "extra_options": text}
+
+    terminal, _frames = run_wire(
+        UrlStoryExtractorPlugin(), make_request("validate_settings", settings=settings)
+    )
+
+    # FanFicFare hands back the text "true"; only "false" becomes a bool
+    assert gateway._configuration("https://www.example.org/list").getConfig("is_adult") == "true"
+    assert terminal["result"] == [
+        {
+            "field": "extra_options",
+            "message": (
+                'line 2: is_adult is set by "Confirm adult content" on this card, which wins'
+            ),
+            "blocking": False,
+            "href": None,
+        }
+    ]

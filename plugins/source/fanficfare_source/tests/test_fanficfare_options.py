@@ -149,19 +149,24 @@ def test_settings_reach_the_configuration() -> None:
     assert config.getConfig("include_images") is False
 
 
-def test_advanced_options_are_applied_after_the_settings() -> None:
-    """The advanced options win over the settings, which win over the base options (C36)."""
+@pytest.mark.pins("EXP-381")
+def test_a_card_control_wins_over_the_same_option_in_the_advanced_text() -> None:
+    """The card's settings win over the advanced options, a site's section included (LIB-D47)."""
     sections = config_sections(STORY, unknown_site_ok=False)
-    base_ini = "[defaults]\ninclude_subject_tags: base\n"
+    base_ini = "[defaults]\ninclude_subject_tags: base\nkeep_summary_html: base\n"
     options = {"defaults": {"include_subject_tags": "settings"}}
     advanced = build_configuration(
         sections,
         fileform="epub",
         base_ini=base_ini,
         options=options,
-        extra_options="[defaults]\ninclude_subject_tags: advanced\n",
+        extra_options=(
+            "[defaults]\ninclude_subject_tags: advanced\nkeep_summary_html: advanced\n"
+            "[test1.com]\ninclude_subject_tags: site\n"
+        ),
     )
-    assert advanced.getConfig("include_subject_tags") == "advanced"
+    assert advanced.getConfig("include_subject_tags") == "settings"
+    assert advanced.getConfig("keep_summary_html") == "advanced"
     settings_only = build_configuration(
         sections, fileform="epub", base_ini=base_ini, options=options, extra_options=""
     )
@@ -170,6 +175,15 @@ def test_advanced_options_are_applied_after_the_settings() -> None:
         sections, fileform="epub", base_ini=base_ini, options={}, extra_options=""
     )
     assert base_only.getConfig("include_subject_tags") == "base"
+
+
+def test_the_adult_switch_wins_over_is_adult_in_the_advanced_text() -> None:
+    """With *Confirm adult content* on, ``is_adult: false`` in the text changes nothing."""
+    gateway = FanFicFareLibraryGateway(
+        {"is_adult": True, "extra_options": "[test1.com]\nis_adult: false\n"}
+    )
+    # FanFicFare hands back the text "true"; only "false" becomes a bool
+    assert gateway._configuration(STORY).getConfig("is_adult") == "true"
 
 
 def test_a_naming_key_in_the_advanced_options_is_ignored_with_a_warning(caplog: Any) -> None:
@@ -263,3 +277,19 @@ def test_the_manifest_declares_the_save_check() -> None:
     manifest = FanFicFareSourcePlugin.manifest
     assert manifest.settings_schema.validator is True
     assert manifest.spi_version == "3.7"
+
+
+def test_an_option_the_card_sets_is_a_warning_at_save() -> None:
+    """A line setting what a card control sets saves, with a warning naming that control."""
+    text = "[defaults]\nis_adult: false\nslow_down_sleep_time: 2\n[test1.com]\ninclude_images: no"
+    assert _check(text) == [
+        {
+            "field": "extra_options",
+            "message": (
+                'lines 2 and 5: is_adult and include_images are set by "Confirm adult content" '
+                'and "Include images" on this card, which wins'
+            ),
+            "blocking": False,
+            "href": None,
+        }
+    ]
