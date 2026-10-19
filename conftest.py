@@ -270,6 +270,7 @@ def _nav_opf(doc_title: str, author: str, manifest: list[str], spine: list[str])
         "\t\t<dc:language>en</dc:language>\n"
         f"\t\t<dc:title>{escape(doc_title)}</dc:title>\n"
         f"{creator}"
+        '\t\t<meta property="dcterms:modified">2026-01-01T00:00:00Z</meta>\n'
         f"\t</metadata>\n\t<manifest>\n{items}\t</manifest>\n"
         f"\t<spine>\n{refs}\t</spine>\n</package>\n"
     )
