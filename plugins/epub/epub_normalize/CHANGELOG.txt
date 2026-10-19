@@ -1,3 +1,6 @@
+== 2.0.0 ==
+One setting, Styling to remove, replaces the seven switches: Colours and fonts only; Everything your reader can set (the default, where every book starts); or Everything but headings and emphasis. Body text now takes your reader's own size, blank lines and paragraph breaks always stay, colours hidden in borders, shadows and old HTML attributes are removed, italic and bold inside a font rule are kept, monospace text stays monospace, and justification, hyphenation and page margins are left to your reader. DRM-protected books are skipped like fixed-layout ones. Run Normalize styling on the books you already have to apply it to them.
+
 == 1.3.1 ==
 A fixed-layout book is now counted as skipped, with the reason, instead of done; a file that cannot be read is counted as failed, also instead of done.
 

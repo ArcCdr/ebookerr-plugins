@@ -66,7 +66,7 @@ class TestManifest:
         assert plugin.manifest.id == "epub_normalize"
         assert plugin.manifest.name == "EPUB Normalize"
         assert plugin.manifest.plugin_type is api.PluginType.EPUB
-        assert plugin.manifest.version == "1.3.1"
+        assert plugin.manifest.version == "2.0.0"
 
     def test_manifest_pipeline_position(self) -> None:
         plugin = EpubNormalizePlugin()
