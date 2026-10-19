@@ -4184,3 +4184,72 @@ def test_the_survivor_picker_is_a_strict_string_field(tmp_path: Path) -> None:
     assert survivor_field.type == "string"
     assert survivor_field.options_strict is True
     assert survivor_field.options == ("b1", "b2", "b3")
+
+
+# Every book a merge leaves alone is reported to the run: a skip or a failure (EXP-395).
+_TOO_FEW = "a merge needs at least two books"
+_SHARED = "two or more selected books share one file"
+_BY_HAND = "a merge runs only when you start it"
+
+
+def test_a_single_book_is_reported_as_skipped(tmp_path: Path) -> None:
+    """One selected book is a skip with its reason, beside the alert."""
+    ctx = FakeContext(mode=api.InvocationMode.HEADED, view_results=[_submitted("b1")])
+    EpubMergePlugin().process((_make_item("b1", tmp_path / "a.epub"),), ctx)
+    assert ctx.skips == [("b1", _TOO_FEW)]
+    assert ctx.failures == []
+
+
+def test_books_sharing_one_file_are_reported_as_skipped(tmp_path: Path) -> None:
+    """Two books on one library file are both skips with the reason."""
+    import dataclasses
+
+    items = tuple(
+        api.EpubItem(
+            book=dataclasses.replace(_make_book_view(book_id), output_filename="same.epub"),
+            epub_path=tmp_path / name,
+        )
+        for book_id, name in (("b1", "a.epub"), ("b2", "b.epub"))
+    )
+    ctx = FakeContext(mode=api.InvocationMode.HEADED)
+    assert EpubMergePlugin().process(items, ctx) == []
+    assert ctx.skips == [("b1", _SHARED), ("b2", _SHARED)]
+
+
+def test_a_headless_merge_is_reported_as_skipped(tmp_path: Path) -> None:
+    """A merge nobody started by hand never runs, and says so for every book."""
+    ctx = FakeContext()
+    items = (
+        _make_item("b1", tmp_path / "a.epub", "Book A"),
+        _make_item("b2", tmp_path / "b.epub", "Book B"),
+    )
+    assert EpubMergePlugin().process(items, ctx) == []
+    assert ctx.skips == [("b1", _BY_HAND), ("b2", _BY_HAND)]
+
+
+def test_a_failed_merge_is_reported_as_a_failure_of_every_selected_book(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merge that fails fails every selected book with the alert's sentence, not retryable."""
+    from epub_merge.merge import MergeOptions, MergeStructureError
+
+    def _raiser(
+        target: Path,
+        sources: list[Path],
+        options: MergeOptions | None = None,
+        *,
+        book_urls: list[str | None] | None = None,
+    ) -> int:
+        raise MergeStructureError("boom")
+
+    monkeypatch.setattr("epub_merge.plugin.merge_epubs", _raiser)
+    ctx = FakeContext(mode=api.InvocationMode.HEADED, view_results=[_submitted("b1", "b2")])
+    items = (
+        _make_item("b1", tmp_path / "a.epub", "Book A"),
+        _make_item("b2", tmp_path / "b.epub", "Book B"),
+    )
+    assert EpubMergePlugin().process(items, ctx) == []
+    assert sorted(book_id for book_id, _message, _retryable in ctx.failures) == ["b1", "b2"]
+    assert all(message == ctx.alerts[0] for _book_id, message, _retryable in ctx.failures)
+    assert all(retryable is False for _book_id, _message, retryable in ctx.failures)
+    assert ctx.skips == []
