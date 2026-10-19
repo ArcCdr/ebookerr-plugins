@@ -30,7 +30,7 @@ def test_fetch_metadata_writes_no_epub(tmp_path: Path, monkeypatch: pytest.Monke
     """fetch_metadata returns the story's metadata and writes no EPUB."""
     url = "https://literotica.com/s/the-12th-key"
     monkeypatch.chdir(tmp_path)
-    meta = FanFicFareLibraryGateway({"is_adult": True}).fetch_metadata(url)
+    meta = FanFicFareLibraryGateway({"is_adult": True}).fetch_metadata(url).meta
     assert meta is not None
     assert meta["numChapters"]
     assert list(tmp_path.glob("**/*.epub")) == []

@@ -12,7 +12,7 @@ from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.testing import FakeContext, make_book_view
 from fanficfare_source.plugin import FanFicFareSourcePlugin, SourcePullError
-from fanficfare_source.protocol import DownloadResult
+from fanficfare_source.protocol import DownloadResult, MetadataFetch
 from fanficfare_source.pull import FanFicFarePull
 
 URL = "https://www.literotica.com/s/sample-beta"
@@ -64,10 +64,10 @@ class FakeGateway:
 
     def fetch_metadata(
         self, url: str, *, timeout_s: int = 600, cancel_event: Any = None
-    ) -> dict[str, Any] | None:
+    ) -> MetadataFetch:
         """Record the call and return the canned metadata."""
         self.fetch_metadata_calls += 1
-        return self._meta
+        return MetadataFetch(self._meta)
 
     def download(
         self,

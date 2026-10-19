@@ -20,7 +20,11 @@ from fanficfare_source.library import (
     UPDATE_OVERRIDES,
     FanFicFareLibraryGateway,
 )
-from fanficfare_source.protocol import UNREADABLE_MESSAGE, UNRECOGNISED_MESSAGE
+from fanficfare_source.protocol import (
+    UNREADABLE_MESSAGE,
+    UNRECOGNISED_MESSAGE,
+    MetadataFetch,
+)
 
 STORY = "http://test1.com?sid=1001"
 STORED = "Test Story 1001.epub"
@@ -439,7 +443,7 @@ def test_an_unsupported_site_fails_with_its_reason(tmp_path: Path) -> None:
 def test_fetch_metadata_writes_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Metadata alone fetches no chapter and writes no EPUB, even in the current folder."""
     monkeypatch.chdir(tmp_path)
-    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY)
+    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY).meta
     assert meta is not None
     assert meta["title"] == "Test Story 1001"
     assert meta["numChapters"] == "3"
@@ -449,7 +453,7 @@ def test_fetch_metadata_writes_no_file(tmp_path: Path, monkeypatch: pytest.Monke
 
 def test_fetch_metadata_records_the_chapter_urls() -> None:
     """The site's chapter addresses ride in the metadata, in order (LIB-D54)."""
-    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY)
+    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY).meta
     assert meta is not None
     assert meta["zchapterurls"] == [
         "http://test1.com?sid=1001&chapter=1",
@@ -458,13 +462,15 @@ def test_fetch_metadata_records_the_chapter_urls() -> None:
     ]
 
 
-def test_fetch_metadata_of_a_missing_story_is_none(
+def test_fetch_metadata_of_a_missing_story_reports_gone(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A story the site does not have yields None, with the reason at DEBUG (LIB-D25)."""
+    """A story the site does not have is reported gone, with the reason (LIB-D51, LIB-D25)."""
     with caplog.at_level(logging.DEBUG, logger="fanficfare_source.library"):
-        meta = FanFicFareLibraryGateway({}).fetch_metadata("http://test1.com?sid=666")
-    assert meta is None
+        fetch = FanFicFareLibraryGateway({}).fetch_metadata("http://test1.com?sid=666")
+    assert fetch == MetadataFetch(
+        meta=None, error="story not found: http://test1.com?sid=666", gone=True
+    )
     assert (
         logging.DEBUG,
         "Metadata fetch failed for http://test1.com?sid=666: "

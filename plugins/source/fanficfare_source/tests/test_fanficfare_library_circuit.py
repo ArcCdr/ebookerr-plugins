@@ -15,6 +15,7 @@ from fanficfare import exceptions
 from fanficfare_source import library
 from fanficfare_source.library import FanFicFareLibraryGateway
 from fanficfare_source.plugin import FanFicFareSourcePlugin
+from fanficfare_source.protocol import MetadataFetch
 
 URL = "http://test1.com?sid=1"
 KEY = "host:test1.com"
@@ -122,7 +123,7 @@ def test_an_open_breaker_calls_nothing(tmp_path: Path, monkeypatch: pytest.Monke
     gateway = _gateway(circuit)
     result = gateway.download(URL, work_dir=tmp_path, staged_filename=None)
     assert result.error == REFUSED
-    assert gateway.fetch_metadata(URL) is None
+    assert gateway.fetch_metadata(URL) == MetadataFetch(None, error=REFUSED)
     assert calls == []
 
 
@@ -228,11 +229,11 @@ def test_the_metadata_and_download_paths_share_one_breaker(
     monkeypatch.setattr("fanficfare_source.library.adapters.getAdapter", down)
     circuit = MockCircuit()
     gateway = _gateway(circuit)
-    assert gateway.fetch_metadata(URL) is None
-    assert gateway.fetch_metadata(URL) is None
+    assert gateway.fetch_metadata(URL).meta is None
+    assert gateway.fetch_metadata(URL).meta is None
     assert gateway.download(URL, work_dir=tmp_path, staged_filename=None).outcome == "failed"
     assert circuit.is_open(KEY)
-    assert gateway.fetch_metadata(URL) is None
+    assert gateway.fetch_metadata(URL) == MetadataFetch(None, error=REFUSED)
     assert len(calls) == 3
 
 

@@ -17,13 +17,24 @@ from typing import Any
 import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
-from ebookerr_sdk.spi import BookPatch, ChapterLink, ChapterView, SourcePullError
+from ebookerr_sdk.spi import (
+    BookPatch,
+    ChapterLink,
+    ChapterView,
+    SourcePullError,
+    UpdateCheck,
+)
 from ebookerr_sdk.testing import FakeContext, make_book_view
 from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     fanficfare_json_to_book_fields,
 )
-from fanficfare_source.protocol import UNRECOGNISED_MESSAGE, DownloadResult, OnChapter
+from fanficfare_source.protocol import (
+    UNRECOGNISED_MESSAGE,
+    DownloadResult,
+    MetadataFetch,
+    OnChapter,
+)
 from fanficfare_source.pull import FanFicFarePull
 
 URL = "https://www.literotica.com/s/sample-beta"
@@ -81,21 +92,23 @@ class FakeGateway:
         result: DownloadResult | None = None,
         *,
         meta: dict[str, Any] | None = None,
+        fetch: MetadataFetch | None = None,
         write_file: bool = True,
         chapter_calls: list[tuple[int, int]] | None = None,
     ) -> None:
         """Configure the canned result, metadata and chapter progress to replay."""
         self.result = result if result is not None else _created()
         self.meta = meta
+        self.fetch = fetch if fetch is not None else MetadataFetch(meta)
         self.write_file = write_file
         self.chapter_calls = chapter_calls or []
         self.download_calls: list[tuple[str, Path, str | None]] = []
         self.fetch_metadata_calls = 0
 
-    def fetch_metadata(self, url: str) -> dict[str, Any] | None:
-        """Record the call and return the canned metadata."""
+    def fetch_metadata(self, url: str) -> MetadataFetch:
+        """Record the call and return the canned metadata fetch."""
         self.fetch_metadata_calls += 1
-        return self.meta
+        return self.fetch
 
     def download(
         self,
@@ -161,33 +174,37 @@ def test_check_for_update_needs_update_when_more_remote_chapters() -> None:
     assert check.needs_update is True
 
 
-def test_check_for_update_needs_update_when_meta_is_none() -> None:
-    """When fetch_metadata is None for a new book, needs_update=False (fail-closed)."""
-    engine = make_engine(FakeGateway(meta=None))
-    check = engine.check_for_update(URL, prior=None, ctx=None)
+def test_check_for_update_carries_the_reason_and_gone() -> None:
+    """A failed fetch's reason and gone flag ride on the UpdateCheck, with the prior's book id."""
+    prior = prior_view()
+    fetch = MetadataFetch(None, error="story not found: x", gone=True)
+    check = make_engine(FakeGateway(fetch=fetch)).check_for_update(URL, prior=prior, ctx=None)
+    assert check == UpdateCheck(
+        needs_update=False,
+        meta=None,
+        book_id=prior.book_id,
+        error="story not found: x",
+        gone=True,
+    )
+
+
+def test_a_transient_failure_is_not_gone() -> None:
+    """A failure that is not a missing story carries its error and is not gone."""
+    fetch = MetadataFetch(None, error="the download from test1.com failed")
+    check = make_engine(FakeGateway(fetch=fetch)).check_for_update(URL, prior=None, ctx=None)
     assert check.needs_update is False
-    assert check.error == "metadata fetch failed"
+    assert check.gone is False
+    assert check.error == "the download from test1.com failed"
     assert check.book_id is None
 
 
-def test_check_for_update_meta_none_names_the_priors_book_id() -> None:
-    """When metadata fetch fails for a known book, the check still names its book id."""
-    prior = prior_view()
-    engine = make_engine(FakeGateway(meta=None))
-    check = engine.check_for_update(URL, prior=prior, ctx=None)
-    assert check.needs_update is False
-    assert check.error == "metadata fetch failed"
-    assert check.book_id == prior.book_id
-
-
-def test_check_for_update_meta_none_warns_when_prior_is_set(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """A metadata-fetch failure for a known book logs a WARNING."""
-    engine = make_engine(FakeGateway(meta=None))
-    with caplog.at_level(logging.WARNING, logger="fanficfare_source.pull"):
+def test_a_failed_check_logs_nothing_in_the_plugin(caplog: pytest.LogCaptureFixture) -> None:
+    """The core logs a failed check with its reason; the plugin adds no WARNING of its own."""
+    fetch = MetadataFetch(None, error="story not found: x", gone=True)
+    engine = make_engine(FakeGateway(fetch=fetch))
+    with caplog.at_level(logging.WARNING, logger="fanficfare_source"):
         engine.check_for_update(URL, prior=prior_view(), ctx=None)
-    assert any("Auto-Pull check failed for" in r.getMessage() for r in caplog.records)
+    assert [r for r in caplog.records if r.name.startswith("fanficfare_source")] == []
 
 
 def test_check_for_update_returns_gateway_meta_dict() -> None:
