@@ -273,7 +273,7 @@ class TestBehaviour:
         assert result == []
         records = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert len(records) == 1
-        assert "Normalize skipped for" in records[0].message
+        assert "Normalize failed for" in records[0].message
         assert "(malformed EPUB)" in records[0].message
 
     def test_a_broken_book_does_not_stop_the_batch(
