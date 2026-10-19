@@ -22,6 +22,7 @@ entrypoint = "entrypoint.py"
 
 [settings_schema]
 validator = true
+summary = "Tags kept: {include_subject_tags|No tags kept}"
 
 [[settings_schema.fields]]
 key = "is_adult"
