@@ -32,6 +32,22 @@ PX_PER_UNIT: dict[str, float] = {
     "mm": 96.0 / 25.4,
     "q": 96.0 / 101.6,
 }
+VIEWPORT_UNITS: frozenset[str] = frozenset(
+    {
+        "vw",
+        "vh",
+        "vmin",
+        "vmax",
+        "vi",
+        "vb",
+        "svw",
+        "svh",
+        "lvw",
+        "lvh",
+        "dvw",
+        "dvh",
+    }
+)
 
 
 def is_absolute_unit(unit: str) -> bool:
@@ -46,21 +62,38 @@ def is_absolute_unit(unit: str) -> bool:
     return unit.lower() in PX_PER_UNIT
 
 
-def to_em(value: float, unit: str) -> str | None:
-    """Convert an absolute CSS length to em on a 16 px base.
+def px_value(value: float, unit: str) -> float | None:
+    """Convert an absolute CSS length to px.
 
     Args:
         value: The numeric length value.
         unit: The CSS unit (e.g., "px", "pt", "cm").
 
     Returns:
-        A string like "1.5em" or "0" for absolute units; None if the unit is
-        relative or unknown.
+        The length in px, or None if the unit is relative or unknown.
     """
     factor = PX_PER_UNIT.get(unit.lower())
     if factor is None:
         return None
-    em = value * factor / BASE_FONT_PX
+    return value * factor
+
+
+def to_em(value: float, unit: str, *, base_px: float = BASE_FONT_PX) -> str | None:
+    """Convert an absolute CSS length to em against a base font size.
+
+    Args:
+        value: The numeric length value.
+        unit: The CSS unit (e.g., "px", "pt", "cm").
+        base_px: The font size in px that 1em stands for.
+
+    Returns:
+        A string like "1.5em" or "0" for absolute units; None if the unit is
+        relative or unknown.
+    """
+    px = px_value(value, unit)
+    if px is None:
+        return None
+    em = px / base_px
     if em == 0:
         return "0"
     magnitude = min(max(abs(em), EM_MIN), EM_MAX)

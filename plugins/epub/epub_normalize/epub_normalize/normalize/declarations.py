@@ -45,7 +45,8 @@ from .rules import (
     is_preserved_selector,
     is_root_selector,
 )
-from .units import is_absolute_unit, to_em
+from .units import BASE_FONT_PX
+from .values import convert_lengths, has_absolute_length
 
 
 def css_text(nodes: list[Any]) -> str:
@@ -58,44 +59,6 @@ def css_text(nodes: list[Any]) -> str:
         The serialized CSS text.
     """
     return str(tinycss2.serialize(nodes))
-
-
-def has_absolute_length(value: list[Any]) -> bool:
-    """Check if any component value is a dimension token in an absolute unit.
-
-    Args:
-        value: A tinycss2 component-value list.
-
-    Returns:
-        True if the list contains at least one dimension token with an absolute unit.
-    """
-    return any(node.type == "dimension" and is_absolute_unit(node.lower_unit) for node in value)
-
-
-def _convert_lengths(value: list[Any]) -> tuple[list[Any], bool]:
-    """Replace every absolute-length dimension token with its em equivalent.
-
-    Args:
-        value: A tinycss2 component-value list.
-
-    Returns:
-        A tuple of (modified_value_list, changed_flag). changed_flag is True if
-        any tokens were replaced.
-    """
-    out: list[Any] = []
-    changed = False
-    for node in value:
-        replacement = (
-            to_em(node.value, node.lower_unit)
-            if node.type == "dimension" and is_absolute_unit(node.lower_unit)
-            else None
-        )
-        if replacement is None:
-            out.append(node)
-            continue
-        out.extend(tinycss2.parse_component_value_list(replacement))
-        changed = True
-    return out, changed
 
 
 def _should_drop(
@@ -209,7 +172,7 @@ def normalize_declarations(
 
         # Font size conversion (not on root selectors, which are dropped above).
         if options.convert_font_sizes and name == FONT_SIZE_PROPERTY:
-            new_value, changed = _convert_lengths(value)
+            new_value, changed = convert_lengths(value, base_px=BASE_FONT_PX)
             if changed:
                 node.value = new_value
                 counts.declarations_converted += 1
@@ -218,7 +181,7 @@ def normalize_declarations(
 
         # Box property conversion (margin, padding, text-indent).
         if options.normalize_margins and name in BOX_PROPERTIES:
-            new_value, changed = _convert_lengths(value)
+            new_value, changed = convert_lengths(value, base_px=BASE_FONT_PX)
             if changed:
                 node.value = new_value
                 counts.declarations_converted += 1
