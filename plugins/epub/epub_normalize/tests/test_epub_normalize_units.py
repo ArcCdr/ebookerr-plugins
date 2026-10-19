@@ -2,7 +2,9 @@
 
 import pytest
 from epub_normalize.normalize.units import (
+    VIEWPORT_UNITS,
     is_absolute_unit,
+    px_value,
     to_em,
 )
 
@@ -157,3 +159,47 @@ class TestTrailingZerosTrimmed:
     def test_2em_not_2_000em(self) -> None:
         """32 px = 2 em (never '2.000em')."""
         assert to_em(32, "px") == "2em"
+
+
+class TestBaseRelativeEm:
+    """to_em divides by the base size it is given, defaulting to 16 px."""
+
+    def test_pt_against_an_11pt_body_base(self) -> None:
+        """22 pt against an 11 pt body (96 * 11 / 72 px) is 2 em."""
+        assert to_em(22, "pt", base_px=96 * 11 / 72) == "2em"
+
+    def test_20pt_against_an_11pt_body_base(self) -> None:
+        """20 pt against an 11 pt body is 1.818 em."""
+        assert to_em(20, "pt", base_px=96 * 11 / 72) == "1.818em"
+
+    def test_6pt_against_an_11pt_body_base(self) -> None:
+        """6 pt against an 11 pt body is 0.545 em."""
+        assert to_em(6, "pt", base_px=96 * 11 / 72) == "0.545em"
+
+    def test_72pt_against_an_11pt_body_base_is_clamped(self) -> None:
+        """72 pt against an 11 pt body is 6.5 em and clamps to EM_MAX."""
+        assert to_em(72, "pt", base_px=96 * 11 / 72) == "4em"
+
+    def test_default_base_is_16px(self) -> None:
+        """Omitting base_px keeps the 16 px base."""
+        assert to_em(12, "pt") == "1em"
+
+
+class TestPxValue:
+    """px_value gives the px length of an absolute unit."""
+
+    def test_12pt_is_16px(self) -> None:
+        """12 pt is 16 px."""
+        assert px_value(12, "pt") == 16.0
+
+    def test_relative_unit_is_none(self) -> None:
+        """A relative unit has no px length."""
+        assert px_value(1, "em") is None
+
+
+class TestViewportUnits:
+    """VIEWPORT_UNITS lists the viewport-relative units."""
+
+    def test_vw_and_dvh_are_viewport_units(self) -> None:
+        """Both the classic and the dynamic viewport units are listed."""
+        assert "vw" in VIEWPORT_UNITS and "dvh" in VIEWPORT_UNITS

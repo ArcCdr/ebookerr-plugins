@@ -15,7 +15,6 @@ import tinycss2
 from epub_normalize.normalize.counts import NormalizeCounts
 from epub_normalize.normalize.declarations import (
     css_text,
-    has_absolute_length,
     normalize_declarations,
 )
 from epub_normalize.normalize.options import NormalizeOptions
@@ -274,25 +273,6 @@ class TestCssTextFunction:
         """css_text returns a str type."""
         result = css_text(_parse("margin:0"))
         assert isinstance(result, str)
-
-
-class TestHasAbsoluteLength:
-    """has_absolute_length detects absolute-length tokens in a value list."""
-
-    def test_has_absolute_length_with_pixels(self) -> None:
-        """Pixel values are absolute lengths."""
-        declaration = _parse("width: 10px")[0]
-        assert has_absolute_length(declaration.value) is True
-
-    def test_has_absolute_length_with_percentage(self) -> None:
-        """Percentages are not absolute lengths."""
-        declaration = _parse("width: 10%")[0]
-        assert has_absolute_length(declaration.value) is False
-
-    def test_has_absolute_length_with_auto(self) -> None:
-        """The 'auto' keyword is not an absolute length."""
-        declaration = _parse("width: auto")[0]
-        assert has_absolute_length(declaration.value) is False
 
 
 class TestCountAccumulation:
