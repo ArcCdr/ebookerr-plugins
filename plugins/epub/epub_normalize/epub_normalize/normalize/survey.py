@@ -160,11 +160,14 @@ def survey_book(doc: EpubDocument, options: NormalizeOptions, *, name: str = "")
             [m.group(0) for chapter in chapters for m in _SVG_RE.finditer(chapter)] + svg_members
         )
     logger.debug(
-        "Normalize survey %s: base font size %s, %d block elements, %d root-only classes",
+        "Normalize survey %s: base font size %s, %d block(s), %d root class(es), "
+        "%d root id(s), %d kept font famil(ies)",
         name,
         "none" if base is None else f"{base.value:g}{base.unit}",
         block_count,
         len(root_classes),
+        len(root_ids),
+        len(families),
     )
     return BookContext(
         base_size=base,

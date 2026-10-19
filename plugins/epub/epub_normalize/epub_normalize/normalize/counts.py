@@ -33,6 +33,7 @@ class NormalizeCounts:
         font_files_removed: Number of font files removed.
         html_attributes_removed: Number of HTML presentational attributes removed.
         blank_lines_marked: Number of empty paragraphs given a non-breaking space.
+        page_templates_removed: Number of Adobe page-template files removed.
         page_template_links_removed: Number of Adobe page-template links removed.
         files_skipped_marker: Number of files skipped (not counted as a change).
     """
@@ -47,6 +48,7 @@ class NormalizeCounts:
     font_files_removed: int = 0
     html_attributes_removed: int = 0
     blank_lines_marked: int = 0
+    page_templates_removed: int = 0
     page_template_links_removed: int = 0
     files_skipped_marker: int = 0
 

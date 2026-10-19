@@ -6,9 +6,12 @@ when bytes actually changed (`TR-NORM-5`: a no-op run leaves the EPUB byte-ident
 preventing false `EpubModified` event cascades in the core).
 
 **Fixed-layout bail-out** (`FR-NORM-12`): A book declaring `rendition:layout =
-pre-paginated` (EPUB 3) or Apple's `<meta name="fixed-layout" content="true"/>`
-is skipped entirely — comics and illustrated children's books depend on the exact
-styling this plugin removes.
+pre-paginated` (EPUB 3), an OPF `<meta name="fixed-layout" content="true"/>` or Apple's
+`META-INF/com.apple.ibooks.display-options.xml` with the `fixed-layout` option true is
+skipped entirely — comics and illustrated children's books depend on the exact styling
+this plugin removes.
+
+**DRM bail-out** (`FR-NORM-19`): A DRM-protected book is skipped entirely.
 
 **Per-file markers** (`TR-NORM-3`): Each normalized file is stamped with a 12-hex
 signature computed from the ruleset version and the effective options. Changing a
@@ -16,12 +19,14 @@ setting invalidates every marker automatically, so a second run with different
 options re-normalizes. A file whose marker matches the current signature is skipped
 (no work, no rewrite).
 
-**Survey, then a three-pass walk:**
+**Survey, then a four-pass walk:**
 0. The book is surveyed (`survey_book()`, `TR-NORM-7`) so every rule is judged
    against the whole book.
 1. CSS members (stylesheets identified by media type or .css extension).
 2. Chapter members (XHTML only; SVG members are deliberately excluded per FR-NORM-10).
-3. Font sweep (unreferenced files removed via `sweep_fonts()`).
+3. Page templates (Adobe `.xpgt` manifest items and members, when the level removes
+   page layout, `FR-NORM-17`).
+4. Font sweep (unreferenced files removed via `sweep_fonts()`).
 
 CSS members are normalized via `normalize_stylesheet()`, which rewrites declarations
 and removes orphaned rules and at-rules, returning its input verbatim when nothing
@@ -39,12 +44,13 @@ an intermediate save.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from ebookerr_sdk.domain.text_encoding import declare_utf8, decode_declared
 from ebookerr_sdk.epub.document import EpubDocument
-from ebookerr_sdk.epub.errors import ItemNotFoundError
+from ebookerr_sdk.epub.errors import ItemNotFoundError, MalformedEpubError
 from ebookerr_sdk.epub.opf import ManifestItem
 
 from .counts import NormalizeCounts
@@ -65,6 +71,12 @@ from .xhtml import normalize_xhtml
 logger = logging.getLogger(__name__)
 
 FIXED_LAYOUT_REASON = "fixed-layout"
+DRM_REASON = "drm-protected"
+APPLE_DISPLAY_OPTIONS = "META-INF/com.apple.ibooks.display-options.xml"
+_APPLE_FIXED_LAYOUT_RE = re.compile(
+    r"<option\s+name\s*=\s*[\"']fixed-layout[\"']\s*>\s*true\s*</option>", re.IGNORECASE
+)
+PAGE_TEMPLATE_MEDIA_TYPE = "application/vnd.adobe-page-template+xml"
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,11 +127,16 @@ def normalize_epub(path: Path, *, options: NormalizeOptions) -> NormalizeReport:
 
     if _is_fixed_layout(doc):
         return NormalizeReport(counts, skipped_reason=FIXED_LAYOUT_REASON)
+    if _is_drm_protected(doc):
+        return NormalizeReport(counts, skipped_reason=DRM_REASON)
 
     book = survey_book(doc, options, name=path.name)
     signature = options_signature(options)
     _normalize_css_members(doc, options=options, counts=counts, signature=signature, book=book)
     _normalize_xhtml_members(doc, options=options, counts=counts, signature=signature, book=book)
+
+    if options.strip_page_layout:
+        _remove_page_templates(doc, counts=counts)
 
     # Font sweep runs after CSS and XHTML rewrites so it sees the updated members
     # without deleted @font-face rules, accurately identifying unreferenced fonts.
@@ -145,9 +162,10 @@ def _is_fixed_layout(doc: EpubDocument) -> bool:
     """Check whether the EPUB is marked as fixed-layout.
 
     Returns True if the OPF declares `fixed-layout="true"` or contains
-    `rendition:layout = pre-paginated`. A false positive (incorrectly identifying
-    a reflowable book as fixed) is the safe direction: the book is skipped and
-    untouched.
+    `rendition:layout = pre-paginated`, or if Apple's display-options file declares
+    the `fixed-layout` option true (an undecodable file declares nothing). A false
+    positive (incorrectly identifying a reflowable book as fixed) is the safe
+    direction: the book is skipped and untouched.
 
     Args:
         doc: The open EPUB document.
@@ -157,7 +175,50 @@ def _is_fixed_layout(doc: EpubDocument) -> bool:
     """
     if (doc.opf.get_meta_content("fixed-layout") or "").strip().lower() == "true":
         return True
-    return "pre-paginated" in doc.opf.to_xml().lower()
+    if "pre-paginated" in doc.opf.to_xml().lower():
+        return True
+    raw = doc.member_bytes(APPLE_DISPLAY_OPTIONS)
+    if raw is None:
+        return False
+    decoded = decode_declared(raw, kind="xml")
+    return decoded is not None and _APPLE_FIXED_LAYOUT_RE.search(decoded[0]) is not None
+
+
+def _is_drm_protected(doc: EpubDocument) -> bool:
+    """Check whether the EPUB is DRM-protected.
+
+    A damaged ``encryption.xml`` is a damaged book, not a protected one, so a
+    `MalformedEpubError` from the check counts as not protected.
+
+    Args:
+        doc: The open EPUB document.
+
+    Returns:
+        True if a reader would need a licence to open the book's text; False otherwise.
+    """
+    try:
+        return doc.drm_protected()
+    except MalformedEpubError:
+        return False
+
+
+def _remove_page_templates(doc: EpubDocument, *, counts: NormalizeCounts) -> None:
+    """Remove every Adobe page template (manifest item and archive member).
+
+    A template is a manifest item whose media type is `PAGE_TEMPLATE_MEDIA_TYPE` or
+    whose href ends in `.xpgt`. Modifies `doc` and `counts` in place.
+
+    Args:
+        doc: The open EPUB document.
+        counts: Accumulator for tracking changes.
+    """
+    for item in doc.opf.manifest():
+        if (
+            item.media_type.lower() == PAGE_TEMPLATE_MEDIA_TYPE
+            or item.href.lower().endswith(".xpgt")
+        ) and doc.remove_manifest_resource(item.id):
+            counts.page_templates_removed += 1
+            logger.debug("Normalize removed page template %s (item_id=%s)", item.href, item.id)
 
 
 def _css_members(doc: EpubDocument) -> list[ManifestItem]:
