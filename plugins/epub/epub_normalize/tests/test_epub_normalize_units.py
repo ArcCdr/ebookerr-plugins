@@ -202,4 +202,5 @@ class TestViewportUnits:
 
     def test_vw_and_dvh_are_viewport_units(self) -> None:
         """Both the classic and the dynamic viewport units are listed."""
-        assert "vw" in VIEWPORT_UNITS and "dvh" in VIEWPORT_UNITS
+        assert "vw" in VIEWPORT_UNITS
+        assert "dvh" in VIEWPORT_UNITS
