@@ -19,6 +19,7 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import shutil
 from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
@@ -211,6 +212,44 @@ def _oversized_candidates(book_dir: Path, stem: str) -> int:
     return count
 
 
+def _temporary_sibling(path: Path) -> Path:
+    """A hidden name beside *path* for a write that replaces it whole (never an image name)."""
+    return path.with_name(f".{path.name}.{os.getpid()}.tmp")
+
+
+def _replace_text(path: Path, text: str) -> None:
+    """Replace sidecar *path* with *text* whole, never cut short (``EXP-391``).
+
+    The text goes to a temporary file beside *path*, which ``Path.replace`` then puts in its place:
+    a reader, or a stop at any line, finds the old file or the new one.
+
+    Args:
+        path: The sidecar file.
+        text: Its new content.
+    """
+    temporary = _temporary_sibling(path)
+    try:
+        temporary.write_text(text, encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _replace_with_copy(source: str, path: Path) -> None:
+    """Replace sidecar *path* with a copy of *source* whole, never cut short (``EXP-391``).
+
+    Args:
+        source: The file to copy (the app's cover).
+        path: The sidecar file.
+    """
+    temporary = _temporary_sibling(path)
+    try:
+        shutil.copyfile(source, temporary)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def merge_text(
     book_id: str,
     db_value: str | None,
@@ -284,7 +323,7 @@ def merge_text(
     # 4. DB-only changed
     if db_changed and not file_changed:
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(db_value or "", encoding="utf-8")
+        _replace_text(file_path, db_value or "")
         file_mtime = file_path.stat().st_mtime
         return None, db_hash, file_mtime
 
@@ -303,7 +342,7 @@ def merge_text(
         keep_db = ask(message, yes_label, no_label)
 
         if keep_db:
-            file_path.write_text(db_value or "", encoding="utf-8")
+            _replace_text(file_path, db_value or "")
             file_mtime_float = file_path.stat().st_mtime
             msg = f'Conflict on {file_path.name} for "{label}": kept the ebookerr version'
             logs.append({"level": "warning", "message": msg})
@@ -314,7 +353,7 @@ def merge_text(
             return file_text, file_hash, file_mtime_float
     else:
         # Unattended: keep app value
-        file_path.write_text(db_value or "", encoding="utf-8")
+        _replace_text(file_path, db_value or "")
         file_mtime_float = file_path.stat().st_mtime
         msg = (
             f'Conflict on {file_path.name} for "{label}": kept the ebookerr '
@@ -412,7 +451,7 @@ def merge_bytes(  # noqa: C901
     if db_changed and not file_changed:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if db_path:
-            shutil.copy(db_path, file_path)
+            _replace_with_copy(db_path, file_path)
         file_mtime = file_path.stat().st_mtime
         return None, db_hash, file_mtime
 
@@ -432,7 +471,7 @@ def merge_bytes(  # noqa: C901
 
         if keep_db:
             if db_path:
-                shutil.copy(db_path, file_path)
+                _replace_with_copy(db_path, file_path)
             file_mtime_float = file_path.stat().st_mtime
             msg = f'Conflict on {file_path.name} for "{label}": kept the ebookerr version'
             logs.append({"level": "warning", "message": msg})
@@ -444,7 +483,7 @@ def merge_bytes(  # noqa: C901
     else:
         # Unattended: keep app value
         if db_path:
-            shutil.copy(db_path, file_path)
+            _replace_with_copy(db_path, file_path)
         file_mtime_float = file_path.stat().st_mtime
         msg = (
             f'Conflict on {file_path.name} for "{label}": kept the ebookerr '
