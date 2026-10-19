@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 
 from epub_normalize.normalize.counts import NormalizeCounts
-from epub_normalize.normalize.options import NormalizeOptions
+from epub_normalize.normalize.options import NormalizeOptions, options_for_level
+from epub_normalize.normalize.survey import BookContext
 from epub_normalize.normalize.xhtml import is_well_formed, normalize_xhtml
 
 
@@ -15,6 +17,33 @@ def _run(text: str, **kw: bool) -> tuple[str, NormalizeCounts]:
     counts = NormalizeCounts()
     options = dataclasses.replace(NormalizeOptions(), **kw)
     return normalize_xhtml(text, options=options, counts=counts, name="OEBPS/c1.xhtml"), counts
+
+
+def _run_level(text: str, level: str) -> tuple[str, NormalizeCounts]:
+    """Normalize one chapter document at a styling level with an empty survey."""
+    counts = NormalizeCounts()
+    result = normalize_xhtml(
+        text,
+        options=options_for_level(level),
+        counts=counts,
+        name="c.xhtml",
+        book=BookContext(),
+    )
+    return result, counts
+
+
+_E4 = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head>\n'
+    '<body class="c9" style="font-size:12pt">\n'
+    '<p><img src="orn.png" style="width:20px;height:20px"/></p>\n'
+    '<svg xmlns="http://www.w3.org/2000/svg" style="width:600px">'
+    '<text style="font-family:Goudy;fill:#000">A</text></svg>\n'
+    '<p><font color="#000000" face="Arial">old</font></p>\n'
+    '<table width="600"><tr><td bgcolor="#ffffff" align="justify">cell</td></tr></table>\n'
+    "</body></html>\n"
+)
+_E4_SVG = re.search(r"<svg.*?</svg>", _E4, re.DOTALL).group(0)  # type: ignore[union-attr]
 
 
 _DOC = (
@@ -262,3 +291,94 @@ class TestIsWellFormed:
     def test_is_well_formed_entity(self):
         """HTML entities cause parse failures and are detected as not well-formed."""
         assert is_well_formed("<a>&nbsp;</a>") is False
+
+
+class TestElementJudgement:
+    """Chapters mask inline SVG, MathML and scripts and judge each start tag by its own element."""
+
+    def test_the_e4_document_at_standard(self):
+        """The root size goes with its attribute; images, SVG stay; presentational attributes go."""
+        result, counts = _run_level(_E4, "standard")
+        assert '<body class="c9">' in result
+        assert '<img src="orn.png" style="width:20px;height:20px"/>' in result
+        assert _E4_SVG in result
+        font = re.search(r"<font[^>]*>", result).group(0)  # type: ignore[union-attr]
+        assert "color" not in font
+        assert "face" not in font
+        assert "<table>" in result
+        td = re.search(r"<td[^>]*>", result).group(0)  # type: ignore[union-attr]
+        assert "bgcolor" not in td
+        assert "align" not in td
+        assert counts.html_attributes_removed == 5
+        assert counts.style_attributes_removed == 1
+
+    def test_the_e4_document_at_light(self):
+        """Light keeps the root size, the table width and the alignment; colours and fonts go."""
+        result, counts = _run_level(_E4, "light")
+        assert 'style="font-size:12pt"' in result
+        assert '<table width="600">' in result
+        assert '<td align="justify">' in result
+        assert _E4_SVG in result
+        assert "bgcolor" not in result
+        font = re.search(r"<font[^>]*>", result).group(0)  # type: ignore[union-attr]
+        assert "color" not in font
+        assert "face" not in font
+
+    def test_an_untouched_start_tag_is_byte_identical(self):
+        """Odd spacing and quoting in a start tag nothing changes survive byte for byte."""
+        text = _DOC.format(head="", body='<p   class=\'x\'  id="y">a</p><a href="b.xhtml" >c</a>')
+        result, counts = _run_level(text, "standard")
+        assert result == text
+        assert not counts.touched
+
+    def test_a_script_is_never_rewritten(self):
+        """Text that looks like a style attribute inside a script is left alone."""
+        text = _DOC.format(head="", body="<script>var s = 'style=\"color:red\"';</script>")
+        result, counts = _run_level(text, "standard")
+        assert result == text
+        assert not counts.touched
+
+    def test_an_svg_style_block_is_not_normalised(self):
+        """A style block inside an inline SVG is not a chapter stylesheet."""
+        text = _DOC.format(
+            head="",
+            body="<svg><style>text { fill: #000; font-family: Goudy }</style></svg>",
+        )
+        result, counts = _run_level(text, "standard")
+        assert result == text
+        assert not counts.touched
+
+    def test_a_comment_inside_a_style_block_survives(self):
+        """A comment masked first and a style block masked after it both come back intact."""
+        text = _DOC.format(
+            head="<style>p { margin: 0 } /* <!-- c --> */</style>",
+            body="<!-- note --><p>x</p>",
+        )
+        result, _ = _run_level(text, "standard")
+        assert "<!-- note -->" in result
+        assert "<!-- c -->" in result
+        assert "\x00" not in result
+
+    def test_a_drop_cap_span_keeps_its_size(self):
+        """A drop cap keeps its font size while its colour goes."""
+        text = _DOC.format(
+            head="", body='<p><span class="dropcap" style="font-size:300%;color:#000">T</span></p>'
+        )
+        result, _ = _run_level(text, "standard")
+        assert 'style="font-size:300%"' in result
+        assert "#000" not in result
+
+    def test_a_revert_restores_the_attribute_counter(self, monkeypatch):
+        """A rewrite that breaks well-formedness restores html_attributes_removed too."""
+        text = _DOC.format(
+            head='<meta name="viewport" content="x"/>',
+            body='<p><font color="#000">x</font></p>',
+        )
+
+        def broken_remove(text, *, counts):
+            return text + "<unclosed>"
+
+        monkeypatch.setattr("epub_normalize.normalize.xhtml._remove_viewport_metas", broken_remove)
+        result, counts = _run_level(text, "standard")
+        assert result == text
+        assert counts.html_attributes_removed == 0

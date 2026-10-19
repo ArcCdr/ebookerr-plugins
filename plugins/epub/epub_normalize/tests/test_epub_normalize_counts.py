@@ -14,6 +14,20 @@ class TestDefaults:
         assert all(getattr(NormalizeCounts(), f.name) == 0 for f in fields(NormalizeCounts))
 
 
+class TestHtmlAttributes:
+    """Test the html_attributes_removed counter."""
+
+    def test_html_attributes_removed_defaults_to_zero(self) -> None:
+        """html_attributes_removed exists and starts at 0."""
+        assert NormalizeCounts().html_attributes_removed == 0
+
+    def test_add_sums_html_attributes_removed(self) -> None:
+        """add() sums html_attributes_removed."""
+        a = NormalizeCounts(html_attributes_removed=2)
+        a.add(NormalizeCounts(html_attributes_removed=3))
+        assert a.html_attributes_removed == 5
+
+
 class TestAdd:
     """Test NormalizeCounts.add() method."""
 
@@ -88,6 +102,7 @@ class TestTouched:
             "css_files_changed",
             "xhtml_files_changed",
             "font_files_removed",
+            "html_attributes_removed",
         ],
     )
     def test_touched_is_true_for_each_change_counter(self, field_name: str) -> None:
