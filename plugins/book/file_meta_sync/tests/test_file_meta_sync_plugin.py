@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from ebookerr_sdk.spi import AssetView, AssetWrite, CustomValueView, InvocationMode, PluginEventType
 from ebookerr_sdk.testing import FakeContext, FakeCore, make_book_view, make_request, run_wire
 from ebookerr_sdk.wire import encode_book_view
-from file_meta_sync.plugin import FileMetaSyncPlugin, _book_dict, _book_patch
+from file_meta_sync.plugin import FileMetaSyncPlugin, _book_dict, _book_patch, merge_bytes
 
 _CONFLICT_HASH = hashlib.sha256(b"Old").hexdigest()
 
@@ -265,3 +267,76 @@ def test_a_delete_write_becomes_a_delete_asset() -> None:
         }
     )
     assert patch.assets == (AssetWrite(kind="cover_candidate", name="x.png", delete=True),)
+
+
+def _stopped_half_way(data_of: Any) -> Any:
+    """A writer that writes half of what it was given, then stops as a killed process would."""
+
+    def write(destination: Any, payload: Any, *args: object, **kwargs: object) -> None:
+        """Write the first half of *payload*'s bytes to *destination*, then raise."""
+        data = data_of(payload)
+        Path(destination).write_bytes(data[: len(data) // 2])
+        raise InterruptedError("stopped half-way through the write")
+
+    return write
+
+
+@pytest.mark.pins("EXP-391")
+def test_a_sidecar_is_replaced_atomically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A conflict answer whose write is stopped half-way leaves the sidecar whole (EXP-391)."""
+    root = _library(tmp_path)
+    sidecar = root / "books" / "book.back_cover.txt"
+    sidecar.write_text("FILE SIDE")
+    view = make_book_view(
+        book_id="b1",
+        output_filename="books/book.epub",
+        synopsis="APP SIDE",
+        custom_values={
+            "synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")
+        },
+    )
+    ctx = FakeContext(library_root=root, mode=InvocationMode.HEADED, dialog_answers=[True])
+    half_text = _stopped_half_way(lambda text: text.encode("utf-8"))
+    monkeypatch.setattr(Path, "write_text", lambda self, text, **kw: half_text(self, text))
+    with pytest.raises(InterruptedError):
+        FileMetaSyncPlugin().enrich((view,), ctx)
+    monkeypatch.undo()
+    assert sidecar.read_text() == "FILE SIDE"
+    assert sorted(p.name for p in sidecar.parent.iterdir()) == ["book.back_cover.txt", "book.epub"]
+
+
+def test_a_cover_sidecar_is_replaced_atomically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cover rewrite stopped half-way leaves the sidecar image whole."""
+    app_cover = tmp_path / "app-cover.png"
+    app_cover.write_bytes(b"APP COVER BYTES")
+    sidecar = tmp_path / "book.cover.png"
+    sidecar.write_bytes(b"FILE COVER BYTES")
+    half_copy = _stopped_half_way(lambda source: Path(source).read_bytes())
+    monkeypatch.setattr(shutil, "copy", lambda src, dst, **kw: half_copy(dst, src))
+    monkeypatch.setattr(shutil, "copyfile", lambda src, dst, **kw: half_copy(dst, src))
+    with pytest.raises(InterruptedError):
+        merge_bytes("b1", str(app_cover), sidecar, "an-older-hash", [])
+    monkeypatch.undo()
+    assert sidecar.read_bytes() == b"FILE COVER BYTES"
+
+
+def test_a_replaced_sidecar_leaves_no_temporary_file(tmp_path: Path) -> None:
+    """A finished rewrite leaves the new content and nothing beside it."""
+    root = _library(tmp_path)
+    sidecar = root / "books" / "book.back_cover.txt"
+    sidecar.write_text("FILE SIDE")
+    view = make_book_view(
+        book_id="b1",
+        output_filename="books/book.epub",
+        synopsis="APP SIDE",
+        custom_values={
+            "synopsis.synced_hash": CustomValueView(value=_CONFLICT_HASH, value_type="string")
+        },
+    )
+    FileMetaSyncPlugin().enrich((view,), FakeContext(library_root=root))
+    assert sidecar.read_text() == "APP SIDE"
+    assert sorted(p.name for p in sidecar.parent.iterdir()) == ["book.back_cover.txt", "book.epub"]
