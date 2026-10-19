@@ -19,7 +19,6 @@ every packaged fixture (discovered at collection time) against invariants:
 from __future__ import annotations
 
 import logging
-import re
 import shutil
 from pathlib import Path
 
@@ -30,6 +29,8 @@ from epub_normalize.normalize import (
     NormalizeOptions,
     normalize_epub,
 )
+from epub_normalize.normalize.selectors import context_of, parse_selector_list
+from epub_normalize.normalize.survey import BookContext
 
 # Discover all .epub fixtures at collection time so parametrize can name them
 _FIXTURES = sorted((Path(__file__).resolve().parent / "fixtures").glob("*.epub"))
@@ -232,10 +233,10 @@ class TestNormalizeFixtures:
 
     @pytest.mark.parametrize("book", _FIXTURES, ids=lambda p: p.stem, indirect=True)
     def test_no_font_family_survives_in_any_stylesheet(self, book: Path) -> None:
-        """No font-family rules survive in stylesheets (except preserved rules).
+        """A font-family survives only on vector or drop-cap selectors, or as ``monospace``.
 
-        Preserved rule selectors match: ::first-letter, ::first-line, drop-cap,
-        initial-cap, first-letter, svg, image, math.
+        The selector model decides which selectors are vector or drop-cap rules, the
+        same way the engine does.
 
         Args:
             book: The copied EPUB fixture.
@@ -245,10 +246,7 @@ class TestNormalizeFixtures:
 
         # Check every CSS file
         doc = EpubDocument.open(book)
-        preserved_selector_pattern = re.compile(
-            r"::?first-letter|::?first-line|drop-?cap|initial-?cap|first-?letter|\bsvg\b|\bimage\b|\bmath\b",
-            re.IGNORECASE,
-        )
+        context = BookContext()
 
         for item in doc.opf.manifest():
             if not item.href.lower().endswith(".css"):
@@ -265,19 +263,24 @@ class TestNormalizeFixtures:
                 if rule.type != "qualified-rule":
                     continue
 
-                # Serialize the prelude (selector)
-                prelude_text = tinycss2.serialize(rule.prelude)
-
-                # Skip if it matches preserved pattern
-                if preserved_selector_pattern.search(prelude_text):
+                selectors = parse_selector_list(rule.prelude)
+                exempt = bool(selectors) and all(
+                    (ctx := context_of(selector, context)).vector or ctx.drop_cap
+                    for selector in selectors
+                )
+                if exempt:
                     continue
 
                 # Check declarations in this rule
-                for decl in rule.content:
-                    if decl.type == "declaration" and decl.lower_name == "font-family":
-                        raise AssertionError(
-                            f"Found font-family in {item.href} under selector '{prelude_text}'"
-                        )
+                for decl in tinycss2.parse_blocks_contents(rule.content):
+                    if decl.type != "declaration" or decl.lower_name != "font-family":
+                        continue
+                    if tinycss2.serialize(decl.value).strip().lower() == "monospace":
+                        continue
+                    prelude_text = tinycss2.serialize(rule.prelude)
+                    raise AssertionError(
+                        f"Found font-family in {item.href} under selector '{prelude_text}'"
+                    )
 
     @pytest.mark.parametrize("book", _FIXTURES, ids=lambda p: p.stem, indirect=True)
     def test_no_warning_is_logged(self, book: Path, caplog: pytest.LogCaptureFixture) -> None:
