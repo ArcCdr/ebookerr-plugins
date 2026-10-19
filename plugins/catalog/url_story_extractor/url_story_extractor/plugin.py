@@ -31,12 +31,14 @@ from ebookerr_sdk.domain.story_url import (
 from ebookerr_sdk.spi import (
     KNOWN_URLS_KEY,
     PluginContext,
+    SettingsProblem,
     SettingsSchema,
     StoryPatch,
     decode_known_urls,
 )
 from ebookerr_sdk.spi.manifest import package_manifest
 
+from url_story_extractor.fff_support import check_extra_options
 from url_story_extractor.pages import FanFicFarePagesGateway
 
 __all__ = ["UrlStoryExtractorPlugin"]
@@ -611,6 +613,17 @@ class UrlStoryExtractorPlugin:
             The settings schema with extract_urls and metadata settings fields.
         """
         return self.manifest.settings_schema
+
+    def validate_settings(self, values: Mapping[str, Any]) -> list[SettingsProblem]:
+        """Check the *Advanced FanFicFare options* a save would store (``FR-CFG-4``, ``LIB-D47``).
+
+        Args:
+            values: Every settings field's value as the save would store it.
+
+        Returns:
+            What :func:`~url_story_extractor.fff_support.check_extra_options` found in the text.
+        """
+        return check_extra_options("extra_options", str(values.get("extra_options") or ""))
 
     def claims_url(self, url: str) -> bool:
         """Return whether this plugin claims the given URL.

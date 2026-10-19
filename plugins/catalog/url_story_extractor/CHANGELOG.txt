@@ -1,3 +1,6 @@
+== 2.2.0 ==
+Advanced FanFicFare options are checked when you save them: a line FanFicFare cannot read is refused with its line number, and a username, password or cookie line is refused with a link to Settings → Credentials, where sign-ins belong. Needs ebookerr 2.24.14 or later.
+
 == 2.1.0 ==
 A chapter row records the story it belongs to as its story, no longer as a series; a whole story keeps the series its site declares. Needs ebookerr 2.24.7.
 

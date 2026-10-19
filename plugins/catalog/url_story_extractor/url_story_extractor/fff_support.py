@@ -3,7 +3,7 @@
 Every first-party plugin that imports FanFicFare carries this file byte for byte — a plugin may
 import only its own package — and the plugins repository's
 ``tests/test_fanficfare_support_twins.py`` fails when two copies differ (``LIB-D26``). It gives its
-plugin five things:
+plugin six things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
   from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's settings, its
@@ -18,11 +18,13 @@ plugin five things:
   whether it means the site was unreachable;
 * :func:`settings_options`, :func:`strip_naming_keys`, :func:`apply_sign_in` and
   :func:`packaged_base_ini` — the plugin's settings, its advanced options without the file-naming
-  keys, a stored sign-in and its packaged base options, as FanFicFare options.
+  keys, a stored sign-in and its packaged base options, as FanFicFare options;
+* :func:`check_extra_options` — the plugin's save check of its advanced options (``LIB-D47``).
 """
 
 from __future__ import annotations
 
+import configparser
 import contextlib
 import io
 import logging
@@ -34,7 +36,7 @@ from typing import Any
 
 import fanficfare
 import requests
-from ebookerr_sdk.spi import SiteCredential
+from ebookerr_sdk.spi import SettingsProblem, SiteCredential
 from fanficfare import adapters, exceptions
 from fanficfare.configurable import Configuration
 
@@ -69,6 +71,15 @@ _EPUB_OPTIONS: tuple[str, ...] = ("include_images", "keep_summary_html", "make_f
 
 _OPTION_LINE = re.compile(r"^([^\s:=#;\[][^:=]*?)\s*[:=]")
 """An option line of an ini text: a key starting at column 0, then ``:`` or ``=``."""
+
+_SECTION_LINE = re.compile(r"^\[.+\]")
+"""A section line of an ini text, as FanFicFare reads one."""
+
+SIGN_IN_KEYS: frozenset[str] = frozenset({"username", "password", "cookie"})
+"""Option keys that hold a site sign-in, which belongs in Settings → Credentials (``LIB-D47``)."""
+
+CREDENTIALS_HREF = "/settings/credentials"
+"""The ebookerr page that stores site sign-ins: where a refused sign-in line points."""
 
 
 class ConfigurationError(RuntimeError):
@@ -200,6 +211,68 @@ def apply_sign_in(config: Configuration, credential: SiteCredential | None, host
     config.set("overrides", "username", credential.name.replace("%", "%%"))
     config.set("overrides", "password", credential.value.replace("%", "%%"))
     logger.debug("Using the stored sign-in for %s", host)
+
+
+def _line_numbers(numbers: list[int]) -> str:
+    """Name 1-based line numbers: ``line 2``, ``lines 2 and 3``, ``lines 2, 3 and 5``."""
+    if len(numbers) == 1:
+        return f"line {numbers[0]}"
+    return "lines " + ", ".join(map(str, numbers[:-1])) + f" and {numbers[-1]}"
+
+
+def _parse_problem(text: str, exc: configparser.ParsingError) -> str:
+    """Say what is wrong with the first line FanFicFare could not read — its number, never its text.
+
+    Args:
+        text: The options that were read.
+        exc: FanFicFare's parse error; its ``errors`` hold ``(line number, line)`` pairs.
+
+    Returns:
+        The sentence.
+    """
+    number = exc.errors[0][0]
+    if not any(_SECTION_LINE.match(line) for line in text.splitlines()[: number - 1]):
+        return f"line {number}: an option needs a section line above it, such as [defaults]"
+    return f"line {number}: FanFicFare cannot read this line — write an option as name: value"
+
+
+def check_extra_options(field: str, text: str) -> list[SettingsProblem]:
+    """Check the user's "Advanced FanFicFare options" before they are saved (``LIB-D47``).
+
+    FanFicFare's own parser reads the text, as a pull does: the first line it cannot read refuses
+    the save, by its number. An option line holding a sign-in — ``username``, ``password`` or
+    ``cookie``, in any section — refuses it too, with a link to Settings → Credentials. No message
+    quotes a line of the text, which may hold a password.
+
+    Args:
+        field: The key of the settings field that holds the text.
+        text: The text the save would store.
+
+    Returns:
+        One blocking problem for an unreadable line and one for the sign-in lines, in that order;
+        empty when the text is fine.
+    """
+    quiet_fanficfare_logging()
+    problems: list[SettingsProblem] = []
+    try:
+        Configuration(["unknown"], "epub", lightweight=True).read_string(text)
+    except configparser.ParsingError as exc:
+        problems.append(SettingsProblem(field, _parse_problem(text, exc)))
+    except Exception as exc:  # noqa: BLE001 — none may leak its text
+        message = f"FanFicFare cannot read these options ({type(exc).__name__})"
+        problems.append(SettingsProblem(field, message))
+    sign_ins = [
+        number
+        for number, line in enumerate(text.splitlines(), start=1)
+        if (match := _OPTION_LINE.match(line)) and match.group(1).strip().lower() in SIGN_IN_KEYS
+    ]
+    if sign_ins:
+        message = (
+            f"{_line_numbers(sign_ins)}: sign-ins belong in Settings → Credentials, "
+            "not in these options"
+        )
+        problems.append(SettingsProblem(field, message, href=CREDENTIALS_HREF))
+    return problems
 
 
 def config_sections(url: str, *, unknown_site_ok: bool) -> list[str]:

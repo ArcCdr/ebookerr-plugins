@@ -23,13 +23,15 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ebookerr_sdk.spi import (
     BookPatch,
     BookView,
     PluginContext,
+    SettingsProblem,
     SettingsSchema,
     SourcePullError,
     UpdateCheck,
@@ -108,6 +110,19 @@ class FanFicFareSourcePlugin:
     def settings_schema(self) -> SettingsSchema:
         """Return the settings the manifest declares (C36)."""
         return self.manifest.settings_schema
+
+    def validate_settings(self, values: Mapping[str, Any]) -> list[SettingsProblem]:
+        """Check the *Advanced FanFicFare options* a save would store (``FR-CFG-4``, ``LIB-D47``).
+
+        Args:
+            values: Every settings field's value as the save would store it.
+
+        Returns:
+            What :func:`~fanficfare_source.fff_support.check_extra_options` found in the text.
+        """
+        from fanficfare_source.fff_support import check_extra_options
+
+        return check_extra_options("extra_options", str(values.get("extra_options") or ""))
 
     def claims(self, url: str) -> bool:
         """Claim any HTTP(S) URL — the catch-all floor beneath every more specific Source."""
