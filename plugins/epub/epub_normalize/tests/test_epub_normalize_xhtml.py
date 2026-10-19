@@ -382,3 +382,37 @@ class TestElementJudgement:
         result, counts = _run_level(text, "standard")
         assert result == text
         assert counts.html_attributes_removed == 0
+
+
+class TestFixedDimensionsAndPageLayout:
+    """The viewport meta and the Adobe page-template links follow their level (FR-NORM-6)."""
+
+    _VIEWPORT = (
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head>'
+        '<meta name="viewport" content="width=600"/></head><body><p>a</p></body></html>'
+    )
+    _PAGE_TEMPLATE = (
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head>'
+        '<link href="page-template.xpgt" rel="stylesheet" '
+        'type="application/vnd.adobe-page-template+xml"/></head><body><p>a</p></body></html>'
+    )
+
+    def test_the_viewport_meta_goes_only_with_fixed_dimensions(self) -> None:
+        """The viewport meta stays at Light and goes at Standard."""
+        light, light_counts = _run_level(self._VIEWPORT, "light")
+        assert "viewport" in light
+        assert light_counts.viewport_metas_removed == 0
+
+        standard, standard_counts = _run_level(self._VIEWPORT, "standard")
+        assert "viewport" not in standard
+        assert standard_counts.viewport_metas_removed == 1
+
+    def test_a_page_template_link_goes_with_the_page_layout(self) -> None:
+        """The Adobe page-template link stays at Light and goes at Standard."""
+        light, light_counts = _run_level(self._PAGE_TEMPLATE, "light")
+        assert "page-template.xpgt" in light
+        assert light_counts.page_template_links_removed == 0
+
+        standard, standard_counts = _run_level(self._PAGE_TEMPLATE, "standard")
+        assert "page-template.xpgt" not in standard
+        assert standard_counts.page_template_links_removed == 1

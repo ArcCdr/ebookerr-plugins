@@ -80,6 +80,23 @@ class TestAdd:
         assert all(getattr(y, f.name) == 1 for f in fields(NormalizeCounts))
 
 
+class TestBlankLinesAndPageLinks:
+    """Test the blank_lines_marked and page_template_links_removed counters."""
+
+    def test_new_counters_default_to_zero(self) -> None:
+        """blank_lines_marked and page_template_links_removed start at 0."""
+        counts = NormalizeCounts()
+        assert counts.blank_lines_marked == 0
+        assert counts.page_template_links_removed == 0
+
+    def test_add_sums_the_new_counters(self) -> None:
+        """add() sums blank_lines_marked and page_template_links_removed."""
+        a = NormalizeCounts(blank_lines_marked=2, page_template_links_removed=1)
+        a.add(NormalizeCounts(blank_lines_marked=3, page_template_links_removed=4))
+        assert a.blank_lines_marked == 5
+        assert a.page_template_links_removed == 5
+
+
 class TestTouched:
     """Test NormalizeCounts.touched property."""
 
