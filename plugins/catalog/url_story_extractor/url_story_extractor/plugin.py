@@ -621,9 +621,12 @@ class UrlStoryExtractorPlugin:
             values: Every settings field's value as the save would store it.
 
         Returns:
-            What :func:`~url_story_extractor.fff_support.check_extra_options` found in the text.
+            What :func:`~url_story_extractor.fff_support.check_extra_options` found in the text,
+            the card's own controls named by their labels.
         """
-        return check_extra_options("extra_options", str(values.get("extra_options") or ""))
+        text = str(values.get("extra_options") or "")
+        labels = {field.key: field.label for field in self.manifest.settings_schema.fields}
+        return check_extra_options("extra_options", text, labels)
 
     def claims_url(self, url: str) -> bool:
         """Return whether this plugin claims the given URL.

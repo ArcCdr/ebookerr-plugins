@@ -1,5 +1,5 @@
 == 2.1.0 ==
-Advanced FanFicFare options are checked when you save them: a line FanFicFare cannot read is refused with its line number, and a username, password or cookie line is refused with a link to Settings → Credentials, where sign-ins belong. Needs ebookerr 2.24.14 or later.
+Advanced FanFicFare options are checked when you save them: a line FanFicFare cannot read is refused with its line number, and a username, password or cookie line is refused with a link to Settings → Credentials, where sign-ins belong. The switches and fields on this plugin's card now win over the same options in Advanced FanFicFare options, for every site; saving such a line shows a warning naming the card's control. Needs ebookerr 2.24.14 or later.
 
 == 2.0.2 ==
 Uses FanFicFare 4.62.0, the version this release was tested with; newer FanFicFare releases arrive as updates of this plugin a few days after they are published.

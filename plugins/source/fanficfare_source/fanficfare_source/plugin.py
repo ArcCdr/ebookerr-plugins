@@ -118,11 +118,14 @@ class FanFicFareSourcePlugin:
             values: Every settings field's value as the save would store it.
 
         Returns:
-            What :func:`~fanficfare_source.fff_support.check_extra_options` found in the text.
+            What :func:`~fanficfare_source.fff_support.check_extra_options` found in the text,
+            the card's own controls named by their labels.
         """
         from fanficfare_source.fff_support import check_extra_options
 
-        return check_extra_options("extra_options", str(values.get("extra_options") or ""))
+        text = str(values.get("extra_options") or "")
+        labels = {field.key: field.label for field in self.manifest.settings_schema.fields}
+        return check_extra_options("extra_options", text, labels)
 
     def claims(self, url: str) -> bool:
         """Claim any HTTP(S) URL — the catch-all floor beneath every more specific Source."""

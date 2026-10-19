@@ -6,9 +6,9 @@ import only its own package — and the plugins repository's
 plugin six things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
-  from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's settings, its
-  "Advanced FanFicFare options" and per-call overrides; a parse error never quotes a line of the
-  options, which may hold a site password;
+  from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's "Advanced
+  FanFicFare options", its settings and per-call overrides; a parse error never quotes a line of
+  the options, which may hold a site password;
 * :func:`quiet_fanficfare_logging` — importing ``fanficfare`` attaches a DEBUG handler that writes
   to stderr, which the core reports as a WARNING after the plugin's run; once quieted, only
   FanFicFare's WARNING and ERROR records reach the log, re-logged through this plugin's logger;
@@ -64,10 +64,13 @@ NAMING_KEYS: frozenset[str] = frozenset(
 """FanFicFare options that name or place the output file — ebookerr chooses those (``D56``)."""
 
 _DEFAULTS_OPTIONS: tuple[str, ...] = ("is_adult", "include_subject_tags")
-"""Plugin settings written to FanFicFare's ``[defaults]`` section (``C36``)."""
+"""Plugin settings FanFicFare documents in its ``[defaults]`` section (``C36``)."""
 
 _EPUB_OPTIONS: tuple[str, ...] = ("include_images", "keep_summary_html", "make_firstimage_cover")
-"""Plugin settings written to FanFicFare's ``[epub]`` section (``C36``)."""
+"""Plugin settings FanFicFare documents in its ``[epub]`` section (``C36``)."""
+
+CARD_KEYS: frozenset[str] = frozenset(_DEFAULTS_OPTIONS + _EPUB_OPTIONS)
+"""The FanFicFare options a plugin's card sets; they win over its advanced options (``LIB-D47``)."""
 
 _OPTION_LINE = re.compile(r"^([^\s:=#;\[][^:=]*?)\s*[:=]")
 """An option line of an ini text: a key starting at column 0, then ``:`` or ``=``."""
@@ -134,7 +137,7 @@ def settings_options(settings: Mapping[str, Any]) -> dict[str, dict[str, str]]:
 
     Only the settings present are written: ``is_adult`` and ``include_subject_tags`` under
     ``defaults``; ``include_images``, ``keep_summary_html`` and ``make_firstimage_cover`` under
-    ``epub``.
+    ``epub``. :func:`build_configuration` sets them all in ``overrides`` (``LIB-D47``).
 
     Args:
         settings: The plugin's resolved settings.
@@ -213,11 +216,42 @@ def apply_sign_in(config: Configuration, credential: SiteCredential | None, host
     logger.debug("Using the stored sign-in for %s", host)
 
 
+def _listed(words: list[str]) -> str:
+    """Join *words* the way a sentence lists them: ``a``, ``a and b``, ``a, b and c``."""
+    if len(words) == 1:
+        return words[0]
+    return ", ".join(words[:-1]) + f" and {words[-1]}"
+
+
 def _line_numbers(numbers: list[int]) -> str:
     """Name 1-based line numbers: ``line 2``, ``lines 2 and 3``, ``lines 2, 3 and 5``."""
-    if len(numbers) == 1:
-        return f"line {numbers[0]}"
-    return "lines " + ", ".join(map(str, numbers[:-1])) + f" and {numbers[-1]}"
+    return ("line " if len(numbers) == 1 else "lines ") + _listed([str(n) for n in numbers])
+
+
+def _option_lines(text: str) -> list[tuple[int, str]]:
+    """Return each option line of *text* as its 1-based number and its lower-case key."""
+    return [
+        (number, match.group(1).strip().lower())
+        for number, line in enumerate(text.splitlines(), start=1)
+        if (match := _OPTION_LINE.match(line))
+    ]
+
+
+def _card_warning(owned: list[tuple[int, str]], card_labels: Mapping[str, str]) -> str:
+    """Say which lines set what the card sets, by the card's labels, and that the card wins.
+
+    Args:
+        owned: The ``(line number, key)`` pairs of the lines a card control overrides.
+        card_labels: The plugin's settings labels by field key.
+
+    Returns:
+        The sentence.
+    """
+    keys = list(dict.fromkeys(key for _number, key in owned))
+    labels = _listed([f'"{card_labels[key]}"' for key in keys])
+    verb = "is" if len(keys) == 1 else "are"
+    lines = _line_numbers([number for number, _key in owned])
+    return f"{lines}: {_listed(keys)} {verb} set by {labels} on this card, which wins"
 
 
 def _parse_problem(text: str, exc: configparser.ParsingError) -> str:
@@ -236,21 +270,27 @@ def _parse_problem(text: str, exc: configparser.ParsingError) -> str:
     return f"line {number}: FanFicFare cannot read this line — write an option as name: value"
 
 
-def check_extra_options(field: str, text: str) -> list[SettingsProblem]:
+def check_extra_options(
+    field: str, text: str, card_labels: Mapping[str, str]
+) -> list[SettingsProblem]:
     """Check the user's "Advanced FanFicFare options" before they are saved (``LIB-D47``).
 
     FanFicFare's own parser reads the text, as a pull does: the first line it cannot read refuses
     the save, by its number. An option line holding a sign-in — ``username``, ``password`` or
-    ``cookie``, in any section — refuses it too, with a link to Settings → Credentials. No message
-    quotes a line of the text, which may hold a password.
+    ``cookie``, in any section — refuses it too, with a link to Settings → Credentials. An option
+    line setting what one of the card's own controls sets (:data:`CARD_KEYS`) saves with a
+    warning naming that control, whose value wins. No message quotes a line of the text, which may
+    hold a password.
 
     Args:
         field: The key of the settings field that holds the text.
         text: The text the save would store.
+        card_labels: The plugin's settings labels by field key; a :data:`CARD_KEYS` key among them
+            is one of its card controls.
 
     Returns:
-        One blocking problem for an unreadable line and one for the sign-in lines, in that order;
-        empty when the text is fine.
+        One blocking problem for an unreadable line and one for the sign-in lines, then one warning
+        for the lines the card overrides, in that order; empty when the text is fine.
     """
     quiet_fanficfare_logging()
     problems: list[SettingsProblem] = []
@@ -261,17 +301,17 @@ def check_extra_options(field: str, text: str) -> list[SettingsProblem]:
     except Exception as exc:  # noqa: BLE001 — none may leak its text
         message = f"FanFicFare cannot read these options ({type(exc).__name__})"
         problems.append(SettingsProblem(field, message))
-    sign_ins = [
-        number
-        for number, line in enumerate(text.splitlines(), start=1)
-        if (match := _OPTION_LINE.match(line)) and match.group(1).strip().lower() in SIGN_IN_KEYS
-    ]
+    lines = _option_lines(text)
+    sign_ins = [number for number, key in lines if key in SIGN_IN_KEYS]
     if sign_ins:
         message = (
             f"{_line_numbers(sign_ins)}: sign-ins belong in Settings → Credentials, "
             "not in these options"
         )
         problems.append(SettingsProblem(field, message, href=CREDENTIALS_HREF))
+    owned = [(number, key) for number, key in lines if key in CARD_KEYS and key in card_labels]
+    if owned:
+        problems.append(SettingsProblem(field, _card_warning(owned, card_labels), blocking=False))
     return problems
 
 
@@ -311,16 +351,18 @@ def build_configuration(
 ) -> Configuration:
     """Build a FanFicFare configuration, each layer overriding the ones before it (``C36``).
 
-    The order: FanFicFare's own ``defaults.ini``, then *base_ini*, then *options*, then
-    *extra_options* without the file-naming keys (:func:`strip_naming_keys`), then *overrides*. A
+    The order: FanFicFare's own ``defaults.ini``, then *base_ini*, then *extra_options* without the
+    file-naming keys (:func:`strip_naming_keys`), then *options*, then *overrides*. *options* and
+    *overrides* are set in FanFicFare's ``overrides`` section, which wins over every site and format
+    section, so the card's settings decide whatever the advanced options say (``LIB-D47``). A
     stored sign-in goes on top of the result with :func:`apply_sign_in`.
 
     Args:
         sections: What :func:`config_sections` returned for the address.
         fileform: The output format FanFicFare's per-format sections are keyed by.
         base_ini: The plugin's base options in FanFicFare's ini format (:func:`packaged_base_ini`).
-        options: The plugin's settings as FanFicFare options, by section name
-            (:func:`settings_options`).
+        options: The plugin's settings as FanFicFare options, by the section FanFicFare documents
+            them in (:func:`settings_options`); each is set in ``overrides``.
         extra_options: The user's "Advanced FanFicFare options", in FanFicFare's ini format.
         overrides: Option name to value, set in FanFicFare's ``overrides`` section, which wins over
             every other layer.
@@ -343,13 +385,7 @@ def build_configuration(
         raise ConfigurationError(
             f"Could not parse FanFicFare configuration: {type(exc).__name__}"
         ) from None
-    # the plugin's settings: plain values, set after the base options
-    for section, values in options.items():
-        if not config.has_section(section):
-            config.add_section(section)
-        for key, value in values.items():
-            config.set(section, key, value)
-    # the user's advanced options, naming keys dropped, win over the settings
+    # the user's advanced options, naming keys dropped, win over the base options
     try:
         config.read_string(strip_naming_keys(extra_options))
     except Exception as exc:  # noqa: BLE001 — none may leak its text
@@ -358,6 +394,10 @@ def build_configuration(
         ) from None
     if not config.has_section("overrides"):
         config.add_section("overrides")
+    # the card's settings win over every section of the advanced options; per-call ones over them
+    for values in options.values():
+        for key, value in values.items():
+            config.set("overrides", key, value)
     for key, value in overrides.items():
         config.set("overrides", key, value)
     return config
