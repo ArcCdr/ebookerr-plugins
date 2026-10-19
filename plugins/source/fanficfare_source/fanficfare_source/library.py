@@ -32,6 +32,7 @@ from fanficfare.epubutils import get_update_data
 from fanficfare_source.fff_support import (
     apply_sign_in,
     build_configuration,
+    can_sign_in,
     captured_stdout,
     config_sections,
     failure_message,
@@ -272,7 +273,8 @@ class FanFicFareLibraryGateway:
         """Build the story's configuration: settings, advanced options, update policy, sign-in.
 
         The settings are read now, so a change to them takes effect on the next call. The site's
-        stored sign-in, when it has one, goes on top of everything (``C36``).
+        stored sign-in, when it has one and FanFicFare can sign in on that site (``LIB-D53``), goes
+        on top of everything (``C36``); on any other site it is not even looked up.
 
         Args:
             url: The story address.
@@ -289,7 +291,12 @@ class FanFicFareLibraryGateway:
             overrides=UPDATE_OVERRIDES,
         )
         host = (urlsplit(url).hostname or "").lower()
-        credential = self._credentials(url) if self._credentials is not None else None
+        credential = None
+        if self._credentials is not None:
+            if can_sign_in(url):
+                credential = self._credentials(url)
+            else:
+                logger.debug("No sign-in asked for %s: FanFicFare cannot sign in there", host)
         apply_sign_in(config, credential, host)
         return config
 

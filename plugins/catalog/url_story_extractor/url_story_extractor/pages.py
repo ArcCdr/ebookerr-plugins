@@ -20,6 +20,7 @@ from fanficfare.geturls import get_urls_from_page
 from url_story_extractor.fff_support import (
     apply_sign_in,
     build_configuration,
+    can_sign_in,
     captured_stdout,
     config_sections,
     failure_message,
@@ -168,7 +169,8 @@ class FanFicFarePagesGateway:
 
         FanFicFare's own ``defaults.ini`` comes first, then this plugin's packaged base options,
         its settings, its "Advanced FanFicFare options" and the retry cap; the site's stored
-        sign-in, when the user has one, goes on top (``C36``).
+        sign-in, when the user has one and FanFicFare can sign in on that site (``LIB-D53``), goes
+        on top (``C36``); on any other site it is not even looked up.
 
         Configurations are cached on ``self`` keyed by the resolved section tuple and the host: a
         scan that enriches many stories from one site would otherwise rebuild the configuration
@@ -207,9 +209,13 @@ class FanFicFarePagesGateway:
             overrides={"max_request_retries": str(LISTING_RETRIES)},
             lightweight=True,
         )
-        apply_sign_in(
-            config, self._credentials(url) if self._credentials is not None else None, host
-        )
+        credential = None
+        if self._credentials is not None:
+            if can_sign_in(url):
+                credential = self._credentials(url)
+            else:
+                logger.debug("No sign-in asked for %s: FanFicFare cannot sign in there", host)
+        apply_sign_in(config, credential, host)
         self._config_cache[key] = config
         logger.debug("Built a FanFicFare configuration for sections=%s", ",".join(key[0]))
         return config

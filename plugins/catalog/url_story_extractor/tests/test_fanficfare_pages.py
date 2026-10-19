@@ -258,11 +258,11 @@ class TestFetchStoryMetadata:
             metadata_fetcher=mock_fetcher,
         )
 
-        gateway.list_story_urls("https://x.test/authors/jane")
-        gateway.fetch_story_metadata("https://x.test/s/a")
+        gateway.list_story_urls("http://test1.com/authors/jane")
+        gateway.fetch_story_metadata("http://test1.com/s/a")
 
         all_log_text = "\n".join(record.message for record in caplog.records)
-        assert "Using the stored sign-in for x.test" in all_log_text
+        assert "Using the stored sign-in for test1.com" in all_log_text
         assert "hunter2" not in all_log_text
 
 

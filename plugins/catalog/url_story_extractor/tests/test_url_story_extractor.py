@@ -487,5 +487,5 @@ def test_the_extractor_asks_no_sign_in_where_fanficfare_cannot(
         config = gateway._configuration("https://www.literotica.com/s/x")
 
     assert asked == []
-    assert config.getConfig("username") is False
+    assert not config.getConfig("username")
     assert "No sign-in asked for www.literotica.com: FanFicFare cannot sign in there" in caplog.text

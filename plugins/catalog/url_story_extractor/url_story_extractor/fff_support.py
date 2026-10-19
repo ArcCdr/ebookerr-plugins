@@ -3,7 +3,7 @@
 Every first-party plugin that imports FanFicFare carries this file byte for byte — a plugin may
 import only its own package — and the plugins repository's
 ``tests/test_fanficfare_support_twins.py`` fails when two copies differ (``LIB-D26``). It gives its
-plugin six things:
+plugin seven things:
 
 * :func:`config_sections` and :func:`build_configuration` — a FanFicFare ``Configuration`` layered
   from FanFicFare's own ``defaults.ini``, the packaged ``base.ini``, the plugin's "Advanced
@@ -20,13 +20,15 @@ plugin six things:
 * :func:`settings_options`, :func:`strip_naming_keys`, :func:`apply_sign_in` and
   :func:`packaged_base_ini` — the plugin's settings, its advanced options without the file-naming
   keys, a stored sign-in and its packaged base options, as FanFicFare options;
-* :func:`check_extra_options` — the plugin's save check of its advanced options (``LIB-D47``).
+* :func:`check_extra_options` — the plugin's save check of its advanced options (``LIB-D47``);
+* :func:`can_sign_in` — whether FanFicFare can sign in on a story's site at all (``LIB-D53``).
 """
 
 from __future__ import annotations
 
 import configparser
 import contextlib
+import inspect
 import io
 import logging
 import re
@@ -40,6 +42,7 @@ import fanficfare
 import requests
 from ebookerr_sdk.spi import SettingsProblem, SiteCredential
 from fanficfare import adapters, exceptions
+from fanficfare.adapters.base_adapter import BaseSiteAdapter
 from fanficfare.configurable import Configuration
 
 logger = logging.getLogger(__name__)
@@ -216,6 +219,47 @@ def apply_sign_in(config: Configuration, credential: SiteCredential | None, host
     config.set("overrides", "username", credential.name.replace("%", "%%"))
     config.set("overrides", "password", credential.value.replace("%", "%%"))
     logger.debug("Using the stored sign-in for %s", host)
+
+
+_SIGN_IN_BY_CLASS: dict[type, bool] = {}
+"""Whether each FanFicFare adapter class can sign in, decided once per class."""
+
+_READS_USERNAME = re.compile(r"""getConfig\(\s*['"]username['"]""")
+"""An adapter's source asking FanFicFare's configuration for a ``username``."""
+
+
+def can_sign_in(url: str) -> bool:
+    """Whether FanFicFare's adapter for *url* can sign in (``LIB-D53``).
+
+    True when any class of the adapter's hierarchy other than ``BaseSiteAdapter`` and ``object``
+    defines ``performLogin``, or its source reads a username (``getConfig("username")``);
+    False for an unknown site or any lookup error. Cached per adapter class.
+
+    Args:
+        url: A story or listing address.
+
+    Returns:
+        True when a stored username-and-password sign-in would be used on that site.
+    """
+    try:
+        klass = adapters._get_class_for(url)[0]
+    except Exception:  # noqa: BLE001 - any lookup error means "no sign-in", never a failure
+        return False
+    if klass is None:
+        return False
+    cached = _SIGN_IN_BY_CLASS.get(klass)
+    if cached is not None:
+        return cached
+    # The base adapter and object define nothing site-specific; every other class may log in.
+    hierarchy = [c for c in klass.__mro__ if c not in (BaseSiteAdapter, object)]
+    found = any("performLogin" in vars(c) for c in hierarchy)
+    if not found:
+        try:
+            found = _READS_USERNAME.search(inspect.getsource(klass)) is not None
+        except (OSError, TypeError):
+            found = False
+    _SIGN_IN_BY_CLASS[klass] = found
+    return found
 
 
 def _listed(words: list[str]) -> str:

@@ -45,12 +45,12 @@ def test_a_sign_in_reaches_the_configuration() -> None:
 
     gateway = FanFicFarePagesGateway({}, credentials=credentials)
 
-    config = gateway._configuration("https://www.example.org/list")
-    gateway._configuration("https://www.example.org/other")
+    config = gateway._configuration("http://test1.com/list")
+    gateway._configuration("http://test1.com/other")
 
     assert config.getConfig("username") == "me"
     assert config.getConfig("password") == "pw"
-    assert asked == ["https://www.example.org/list"]
+    assert asked == ["http://test1.com/list"]
 
 
 def test_a_sign_in_is_never_used_for_another_site() -> None:
@@ -58,12 +58,12 @@ def test_a_sign_in_is_never_used_for_another_site() -> None:
     gateway = FanFicFarePagesGateway(
         {},
         credentials=lambda url: (
-            SiteCredential("basic", "me", "pw") if "//a.example/" in url else None
+            SiteCredential("basic", "me", "pw") if "//test1.com/" in url else None
         ),
     )
 
-    signed_in = gateway._configuration("https://a.example/list")
-    other = gateway._configuration("https://b.example/list")
+    signed_in = gateway._configuration("http://test1.com/list")
+    other = gateway._configuration("http://www.test1.com/list")
 
     assert signed_in.getConfig("username") == "me"
     assert other.getConfig("username") == ""
@@ -125,9 +125,9 @@ def test_a_scan_configures_fanficfare_from_the_calls_settings_and_sign_in(
         return {"urllist": []}
 
     monkeypatch.setattr("url_story_extractor.pages.get_urls_from_page", lister)
-    core = FakeCore(credentials_by_host={"www.example.org": SiteCredential("basic", "me", "pw")})
+    core = FakeCore(credentials_by_host={"test1.com": SiteCredential("basic", "me", "pw")})
     settings = {
-        "extract_urls": ["https://www.example.org/list"],
+        "extract_urls": ["http://test1.com/list"],
         "extra_options": "[defaults]\nslow_down_sleep_time: 2\n",
     }
 

@@ -219,7 +219,7 @@ class TestInit:
             config = gateway._configuration("https://www.literotica.com/s/x")
 
         assert asked == []
-        assert config.getConfig("username") is False
+        assert not config.getConfig("username")
         assert (
             "No sign-in asked for www.literotica.com: FanFicFare cannot sign in there"
             in caplog.text
