@@ -300,7 +300,8 @@ class FanFicFareLibraryGateway:
             url: The story address.
 
         Returns:
-            FanFicFare's ``getAllMetadata()`` mapping, or ``None``.
+            FanFicFare's ``getAllMetadata()`` mapping plus ``zchapterurls``, the site's chapter
+            addresses in order (``LIB-D54``), or ``None``.
         """
         if self._blocked(url) is not None:
             return None
@@ -308,6 +309,7 @@ class FanFicFareLibraryGateway:
             with captured_stdout():
                 adapter = adapters.getAdapter(self._configuration(url), url)
                 metadata = dict(adapter.getStoryMetadataOnly().getAllMetadata())
+                metadata["zchapterurls"] = [str(chapter["url"]) for chapter in adapter.chapterUrls]
         except Exception as exc:  # noqa: BLE001 — every failure is None (LIB-D25)
             logger.debug("Metadata fetch failed for %s: %s", url, failure_message(exc, url))
             if is_outage(exc):

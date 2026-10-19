@@ -137,18 +137,27 @@ class FanFicFarePull:
 
     @staticmethod
     def _no_new_content(prior: BookView, meta: dict[str, Any]) -> bool:
-        """Check (a): the authoritative no-new-content skip.
+        """Check (a): the authoritative no-new-content skip (``LIB-D54``).
 
-        True when the remote has no more chapters than ``prior`` and ``dateUpdated`` is
-        unchanged — i.e. nothing to download. The remote ``dateUpdated`` string is parsed
-        before comparison, so the check is shape-independent.
+        When the book has a chapter table and the metadata lists the site's chapter
+        addresses (``zchapterurls``), true exactly when every site address, normalised with
+        ``make_book_id``, is the key of one of the book's chapters and ``dateUpdated`` is
+        unchanged: chapters the core kept neither hide a new site chapter nor cause a pull.
+        Otherwise (no chapter table, or no address list) true when the remote has no more
+        chapters than ``prior`` and ``dateUpdated`` is unchanged. The remote ``dateUpdated``
+        string is parsed before comparison, so the check is shape-independent.
         """
+        if parse_datetime(meta.get("dateUpdated")) != prior.date_updated:
+            return False
+        site_urls = meta.get("zchapterurls")
+        if prior.chapter_table and isinstance(site_urls, list):
+            known = {make_book_id(chapter.key) for chapter in prior.chapter_table}
+            return all(make_book_id(str(url)) in known for url in site_urls)
         remote_chapters = FanFicFarePull._remote_chapters(meta)
         return (
             remote_chapters is not None
             and prior.num_chapters is not None
             and remote_chapters <= prior.num_chapters
-            and parse_datetime(meta.get("dateUpdated")) == prior.date_updated
         )
 
     def check_for_update(
