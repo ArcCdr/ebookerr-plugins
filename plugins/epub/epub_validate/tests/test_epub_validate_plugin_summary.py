@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -819,3 +820,51 @@ class TestExceptionIsolation:
         # Hash after
         hash_after = hashlib.sha256(temp_epub.read_bytes()).hexdigest()
         assert hash_before == hash_after
+
+
+# A crash is the run's failure only when the user started the run (EXP-395, VAL-FR-7).
+
+_CRASHED = "validation stopped on an unexpected error — try again"
+
+
+def _crash_on_second() -> Any:
+    """A validate_epub stand-in that raises on its second call and passes every other."""
+    calls = [0]
+
+    def validate(path: Any, **kw: Any) -> ValidationReport:
+        calls[0] += 1
+        if calls[0] == 2:
+            raise RuntimeError("boom")
+        return ValidationReport(
+            status="valid",
+            findings=(),
+            checker="native",
+            error_count=0,
+            warning_count=0,
+            duration_s=0.1,
+        )
+
+    return validate
+
+
+def test_a_crash_in_a_run_started_by_hand_is_a_retryable_failure(temp_epub: Path) -> None:
+    """In a run the user started, the crashed book fails, retryable; the others are validated."""
+    from epub_validate.plugin import EpubValidatePlugin
+
+    ctx = FakeContext(mode=InvocationMode.HEADED, logger=_LOGGER)
+    items = (_item(temp_epub, book_id="b1"), _item(temp_epub, book_id="b2"))
+    with patch("epub_validate.plugin.validate_epub", side_effect=_crash_on_second()):
+        patches = EpubValidatePlugin().process(items, ctx)
+    assert [p.book_id for p in patches] == ["b1"]
+    assert ctx.failures == [("b2", _CRASHED, True)]
+
+
+def test_a_crash_in_a_pull_or_an_event_run_is_not_reported(temp_epub: Path) -> None:
+    """Headless — a pull, an import, an event — the crash is logged only (VAL-FR-7)."""
+    from epub_validate.plugin import EpubValidatePlugin
+
+    ctx = FakeContext(mode=InvocationMode.HEADLESS, logger=_LOGGER)
+    items = (_item(temp_epub, book_id="b1"), _item(temp_epub, book_id="b2"))
+    with patch("epub_validate.plugin.validate_epub", side_effect=_crash_on_second()):
+        EpubValidatePlugin().process(items, ctx)
+    assert ctx.failures == []
