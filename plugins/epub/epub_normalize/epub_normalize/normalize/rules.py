@@ -243,7 +243,7 @@ PAGE_MARGIN_DESCRIPTORS: frozenset[str] = frozenset(
         "padding-left",
     }
 )
-"""The ``@page`` descriptors removed with the page layout."""
+"""The ``@page`` descriptors removed with the page layout (FR-NORM-17)."""
 
 BOX_PROPERTIES: frozenset[str] = frozenset(
     {

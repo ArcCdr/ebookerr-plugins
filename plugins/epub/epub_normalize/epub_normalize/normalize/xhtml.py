@@ -82,6 +82,7 @@ def normalize_xhtml(
     options: NormalizeOptions,
     counts: NormalizeCounts,
     name: str,
+    book: BookContext | None = None,
 ) -> str:
     """Rewrite XHTML chapter document, normalizing styles, attributes and viewport meta.
 
@@ -103,11 +104,13 @@ def normalize_xhtml(
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes across multiple files.
         name: The chapter's manifest href, used only in revert logging (e.g., "OEBPS/c1.xhtml").
+        book: What the survey learned about the book; an empty ``BookContext`` when omitted.
 
     Returns:
         The rewritten XHTML text, or the input verbatim if no changes were made or if
         the rewrite would have broken well-formedness.
     """
+    book = BookContext() if book is None else book
     # Snapshot the counters this function can move.
     snapshot = _snapshot(counts)
 
@@ -115,7 +118,7 @@ def normalize_xhtml(
     was_well_formed = is_well_formed(text)
 
     # Rewrite <style> blocks.
-    working = _rewrite_style_blocks(text, options=options, counts=counts)
+    working = _rewrite_style_blocks(text, options=options, counts=counts, book=book)
 
     # Mask comments and style blocks to protect them from attribute rewrites.
     masked, store = _mask(working)
@@ -180,7 +183,9 @@ def _restore(counts: NormalizeCounts, snapshot: tuple[int, ...]) -> None:
     ) = snapshot
 
 
-def _rewrite_style_blocks(text: str, *, options: NormalizeOptions, counts: NormalizeCounts) -> str:
+def _rewrite_style_blocks(
+    text: str, *, options: NormalizeOptions, counts: NormalizeCounts, book: BookContext
+) -> str:
     """Rewrite CSS inside <style> blocks through the stylesheet normalizer.
 
     For each match, if the block body is wrapped in an XML comment (already inert
@@ -191,6 +196,7 @@ def _rewrite_style_blocks(text: str, *, options: NormalizeOptions, counts: Norma
         text: The XHTML text containing <style> blocks.
         options: Normalization options.
         counts: Accumulator for tracking changes.
+        book: What the survey learned about the book.
 
     Returns:
         The text with <style> block contents rewritten.
@@ -207,7 +213,7 @@ def _rewrite_style_blocks(text: str, *, options: NormalizeOptions, counts: Norma
             return match.group(0)
 
         # Normalize the CSS body.
-        normalized = normalize_stylesheet(body, options=options, counts=counts)
+        normalized = normalize_stylesheet(body, options=options, counts=counts, book=book)
         return open_tag + normalized + close_tag
 
     return _STYLE_BLOCK_RE.sub(_rewrite_one, text)

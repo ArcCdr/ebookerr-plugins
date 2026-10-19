@@ -16,7 +16,9 @@ setting invalidates every marker automatically, so a second run with different
 options re-normalizes. A file whose marker matches the current signature is skipped
 (no work, no rewrite).
 
-**Three-pass walk:**
+**Survey, then a three-pass walk:**
+0. The book is surveyed (`survey_book()`, `TR-NORM-7`) so every rule is judged
+   against the whole book.
 1. CSS members (stylesheets identified by media type or .css extension).
 2. Chapter members (XHTML only; SVG members are deliberately excluded per FR-NORM-10).
 3. Font sweep (unreferenced files removed via `sweep_fonts()`).
@@ -57,6 +59,7 @@ from .markers import (
 )
 from .options import NormalizeOptions, options_signature
 from .stylesheet import normalize_stylesheet
+from .survey import BookContext, survey_book
 from .xhtml import normalize_xhtml
 
 logger = logging.getLogger(__name__)
@@ -91,8 +94,9 @@ class NormalizeReport:
 def normalize_epub(path: Path, *, options: NormalizeOptions) -> NormalizeReport:
     """Normalize an EPUB by stripping layout-interfering styling.
 
-    Opens the EPUB, checks for fixed-layout, normalizes CSS stylesheets,
-    and persists only if bytes actually changed (the TR-NORM-5 contract).
+    Opens the EPUB, checks for fixed-layout, surveys the book, normalizes CSS
+    stylesheets and chapters, and persists only if bytes actually changed (the
+    TR-NORM-5 contract).
     Exceptions from opening the archive propagate (caller decides reporting).
 
     Args:
@@ -112,9 +116,10 @@ def normalize_epub(path: Path, *, options: NormalizeOptions) -> NormalizeReport:
     if _is_fixed_layout(doc):
         return NormalizeReport(counts, skipped_reason=FIXED_LAYOUT_REASON)
 
+    book = survey_book(doc, options, name=path.name)
     signature = options_signature(options)
-    _normalize_css_members(doc, options=options, counts=counts, signature=signature)
-    _normalize_xhtml_members(doc, options=options, counts=counts, signature=signature)
+    _normalize_css_members(doc, options=options, counts=counts, signature=signature, book=book)
+    _normalize_xhtml_members(doc, options=options, counts=counts, signature=signature, book=book)
 
     # Font sweep runs after CSS and XHTML rewrites so it sees the updated members
     # without deleted @font-face rules, accurately identifying unreferenced fonts.
@@ -180,6 +185,7 @@ def _normalize_css_members(
     options: NormalizeOptions,
     counts: NormalizeCounts,
     signature: str,
+    book: BookContext,
 ) -> None:
     """Normalize every CSS stylesheet in the EPUB.
 
@@ -197,6 +203,7 @@ def _normalize_css_members(
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes.
         signature: The 12-hex options_signature to stamp on changed files.
+        book: What the survey learned about the book.
     """
     for item in _css_members(doc):
         try:
@@ -223,7 +230,7 @@ def _normalize_css_members(
             continue
 
         body = strip_css_marker(text)
-        new_body = normalize_stylesheet(body, options=options, counts=counts)
+        new_body = normalize_stylesheet(body, options=options, counts=counts, book=book)
 
         if new_body == body:
             continue
@@ -270,6 +277,7 @@ def _normalize_xhtml_members(
     options: NormalizeOptions,
     counts: NormalizeCounts,
     signature: str,
+    book: BookContext,
 ) -> None:
     """Normalize every XHTML chapter document in the EPUB.
 
@@ -287,6 +295,7 @@ def _normalize_xhtml_members(
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes.
         signature: The 12-hex options_signature to stamp on changed files.
+        book: What the survey learned about the book.
     """
     for item in _xhtml_members(doc):
         try:
@@ -313,7 +322,7 @@ def _normalize_xhtml_members(
             continue
 
         body = strip_xhtml_marker(text)
-        new_body = normalize_xhtml(body, options=options, counts=counts, name=item.href)
+        new_body = normalize_xhtml(body, options=options, counts=counts, name=item.href, book=book)
 
         if new_body == body:
             continue
