@@ -58,7 +58,7 @@ files = ["."]
 exclude = ['/tests/', '^tests/', '/entrypoint\.py$', '^conftest\.py$', '^\.venv/']
 explicit_package_bases = true
 mypy_path = [
-    "plugins/epub/epub_normalize", "plugins/epub/epub_validate",
+    "plugins/epub/epub_normalize",
     "plugins/epub/epub_chapter_reorder", "plugins/epub/epub_merge",
     "plugins/source/epub_download_source", "plugins/source/pdf_download_source",
     "plugins/source/docx_download_source", "plugins/source/text_download_source",
@@ -72,5 +72,5 @@ mypy_path = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["pymupdf", "docx", "striprtf.*", "tinycss2.*", "fanficfare", "fanficfare.*"]
+module = ["pymupdf", "docx", "striprtf.*", "tinycss2.*", "fanficfare", "fanficfare.*", "html5lib.*"]
 ignore_missing_imports = true

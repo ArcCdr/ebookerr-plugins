@@ -699,9 +699,9 @@ def test_settings_schema_method_matches_manifest() -> None:
 
 
 def test_manifest_version_bumped() -> None:
-    """Manifest version is bumped to 2.6.1."""
+    """Manifest version is bumped to 2.6.2."""
     manifest = EpubMergePlugin().manifest
-    assert manifest.version == "2.6.1"
+    assert manifest.version == "2.6.2"
 
 
 def test_a_merge_returns_no_read_position_patches(
@@ -1082,7 +1082,7 @@ def test_structure_error_alert_says_retrying_will_not_help(
     _ = EpubMergePlugin().process(items, ctx)
 
     assert "Retrying will not help." in ctx.alerts[0]
-    assert "Run EPUB Validate on this book to see the details" in ctx.alerts[0]
+    assert "Re-pull this book or run Normalize styling on it" in ctx.alerts[0]
 
 
 def test_structure_error_alert_still_carries_the_technical_detail(

@@ -1,6 +1,6 @@
 id = "epub_merge"
 name = "EPUB Merge"
-version = "2.6.1"
+version = "2.6.2"
 type = "epub"
 spi_version = "3.1"
 description = "Combines several books into one, moving every chapter into the first book and deleting the others. Run it from the Merge action; there is no undo."

@@ -1,3 +1,6 @@
+== 2.6.2 ==
+A merge that fails on a book's internal structure now tells you to re-pull the book or run Normalize styling on it; EPUB Validate is gone. Needs ebookerr 2.24.17 or later.
+
 == 2.6.1 ==
 A merge that is refused is now counted as skipped for every selected book, with the reason, and a merge that fails as failed for each of them, instead of done.
 

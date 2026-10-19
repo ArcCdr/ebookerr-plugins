@@ -1,3 +1,6 @@
+== 2.0.1 ==
+Internal tidy-up for ebookerr 2.24.17; nothing changes for you. Needs ebookerr 2.24.16 or later.
+
 == 2.0.0 ==
 One setting, Styling to remove, replaces the seven switches: Colours and fonts only; Everything your reader can set (the default, where every book starts); or Everything but headings and emphasis. Body text now takes your reader's own size, blank lines and paragraph breaks always stay, colours hidden in borders, shadows and old HTML attributes are removed, italic and bold inside a font rule are kept, monospace text stays monospace, and, unless you pick Colours and fonts only, justification, hyphenation and page margins are left to your reader. DRM-protected books are skipped like fixed-layout ones. Run Normalize styling on the books you already have to apply it to them.
 

@@ -553,8 +553,8 @@ class EpubMergePlugin:
                 exc,
                 f'Merge failed — "{survivor.book.title}" has an internal structure problem, '
                 "so the merged book could not be assembled. Retrying will not help. "
-                "Run EPUB Validate on this book to see the details, then re-pull or "
-                f"normalise it before merging again. Technical detail: {exc}",
+                "Re-pull this book or run Normalize styling on it, then merge again. "
+                f"Technical detail: {exc}",
             )
         except EpubMergeError as exc:
             return _fail(ctx, items, survivor, exc, f"Merge failed: {exc}")

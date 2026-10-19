@@ -21,9 +21,6 @@ official = true
 [plugins.epub_normalize]
 official = true
 
-[plugins.epub_validate]
-official = true
-
 [plugins.fanficfare_source]
 official = true
 
