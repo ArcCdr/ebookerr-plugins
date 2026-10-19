@@ -1,4 +1,4 @@
-"""HTML presentational attributes that a styling level removes from start tags.
+"""HTML presentational attributes that a styling level removes from start tags (FR-NORM-20).
 
 Presentational attributes (``bgcolor``, ``color``, ``face``, ``align``, ``width``,
 ``leftmargin`` and the like) override the reader's own styling in the same way the CSS
