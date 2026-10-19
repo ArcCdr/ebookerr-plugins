@@ -48,7 +48,9 @@ _CENSUS_MASK_RE = re.compile(
     r"|<(?:\w+:)?svg\b[^>]*>.*?</(?:\w+:)?svg\s*>|<(?:\w+:)?math\b[^>]*>.*?</(?:\w+:)?math\s*>",
     re.IGNORECASE | re.DOTALL,
 )
-_SVG_RE = re.compile(r"<(?:\w+:)?svg\b[^>]*>.*?</(?:\w+:)?svg\s*>", re.IGNORECASE | re.DOTALL)
+_VECTOR_RE = re.compile(
+    r"<(?:\w+:)?(svg|math)\b[^>]*>.*?</(?:\w+:)?\1\s*>", re.IGNORECASE | re.DOTALL
+)
 _STYLE_RE = re.compile(r"<style\b[^>]*>(.*?)</style\s*>", re.IGNORECASE | re.DOTALL)
 _XHTML_SUFFIXES = (".xhtml", ".html", ".htm")
 
@@ -156,8 +158,8 @@ def survey_book(doc: EpubDocument, options: NormalizeOptions, *, name: str = "")
     base = _base(_pools(rules, styled, census, book), block_count)
     families: set[str] = set()
     if options.strip_fonts:
-        families = _css_families(rules, book, options.plain_drop_caps) | _svg_families(
-            [m.group(0) for chapter in chapters for m in _SVG_RE.finditer(chapter)] + svg_members
+        families = _css_families(rules, book, options.plain_drop_caps) | _vector_families(
+            [m.group(0) for chapter in chapters for m in _VECTOR_RE.finditer(chapter)] + svg_members
         )
     logger.debug(
         "Normalize survey %s: base font size %s, %d block(s), %d root class(es), "
@@ -595,11 +597,11 @@ def _shorthand_family(value: list[Any]) -> list[str]:
     return family_names(rest)
 
 
-def _svg_families(texts: list[str]) -> set[str]:
-    """Return the font families that SVG text and style attributes set.
+def _vector_families(texts: list[str]) -> set[str]:
+    """Return the font families that SVG and MathML text and style attributes set.
 
     Args:
-        texts: SVG markup: the subtrees of XHTML chapters and whole SVG documents.
+        texts: SVG and MathML markup: the subtrees of XHTML chapters and whole SVG documents.
 
     Returns:
         The lower-case family names.

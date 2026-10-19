@@ -57,6 +57,23 @@ _DIMENSION_TAGS = frozenset(
     }
 )
 _BODY_TAGS = frozenset({"body"})
+_EMBEDDED_TAGS = frozenset(
+    {
+        "img",
+        "image",
+        "picture",
+        "source",
+        "object",
+        "embed",
+        "svg",
+        "math",
+        "video",
+        "audio",
+        "canvas",
+        "iframe",
+        "input",
+    }
+)
 
 _BODY_COLOR_ATTRS = frozenset({"text", "link", "vlink", "alink", "background"})
 _CELL_COLOR_ATTRS = frozenset({"background", "bordercolor"})
@@ -149,6 +166,8 @@ def _is_removed(tag: str, name: str, value: str | None, options: NormalizeOption
     Returns:
         True when some enabled rule matches the attribute.
     """
+    if tag in _EMBEDDED_TAGS:
+        return False
     normalized = None if value is None else _normalize_value(value)
     for rule in _RULES:
         if name not in rule.attrs or not getattr(options, rule.flag):
@@ -166,7 +185,8 @@ def strip_presentational_attributes(
     """Return the start tag's attributes minus the presentational ones the level removes.
 
     Image-like and embedded elements (``img``, ``object``, ``svg``, ``video`` and similar)
-    have no rule and keep every attribute. Order of the surviving attributes is kept.
+    keep every attribute whatever a rule's tag list says. Order of the surviving attributes is
+    kept.
 
     Args:
         tag: The lower-case tag name of the start tag.

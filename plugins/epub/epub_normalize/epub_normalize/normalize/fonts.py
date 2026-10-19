@@ -162,7 +162,7 @@ def _prune_encryption(doc: EpubDocument, removed_hrefs: list[str]) -> None:
     pruned = _ENCRYPTED_DATA_RE.sub(replacer, text)
 
     # If encrypted entries remain, write the pruned XML back.
-    if "<encrypteddata" in pruned.lower():
+    if _ENCRYPTED_DATA_RE.search(pruned):
         doc.write_member(
             "META-INF/encryption.xml", declare_utf8(pruned, kind="xml").encode("utf-8")
         )
