@@ -844,3 +844,16 @@ def test_a_rejected_result_publishes_nothing(tmp_path: Path) -> None:
     progress = progress_values(ctx)
     assert 92.0 not in progress
     assert 95.0 not in progress
+
+
+def test_a_pull_keeps_the_tags_its_tags_to_keep_setting_names(tmp_path: Path) -> None:
+    """The pull reads *Tags to keep* from its settings: dropping ``genre`` drops the genres."""
+    payload = fff_json(eroticatags="", genre="Fluff, Angst", ships="A/B")
+
+    def pulled(setting: str, folder: str) -> Any:
+        engine = make_engine(FakeGateway(_created(json_data=payload)))
+        ctx = FakeContext(settings={"include_subject_tags": setting})
+        return engine.pull(URL, tmp_path / folder, None, ctx).fields["tags"]
+
+    assert pulled("genre, ships", "both") == "Fluff, Angst, A/B"
+    assert pulled("ships", "ships") == "A/B"

@@ -87,8 +87,10 @@ def test_the_manifest_declares_its_fanficfare_settings() -> None:
     )
 
     assert schema.fields[4].label == "Tags to keep"
-    tags_default = "extratags, genre, category, characters, ships, lastupdate, status"
+    tags_default = "genre, characters, ships, freeformtags, eroticatags"
     assert schema.fields[4].default == tags_default
+    previous = ("extratags, genre, category, characters, ships, lastupdate, status",)
+    assert schema.fields[4].previous_defaults == previous
     assert (
         schema.fields[4].help
         == "The story details written as the book's tags, separated by commas."

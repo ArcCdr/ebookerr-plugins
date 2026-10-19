@@ -7,14 +7,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
 from ebookerr_sdk.domain.ids import make_book_id
 from fanficfare_source.metadata import (
+    DEFAULT_TAG_KEYS,
     chapter_links_from_fanficfare,
     chapter_urls_from_fanficfare,
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
     sanitize,
     split_series,
+    tag_keys,
 )
 
 
@@ -345,3 +348,49 @@ def test_fields_carry_the_series_number() -> None:
     f2 = fanficfare_json_to_book_fields({"series": ""})
     assert f2["series"] is None
     assert f2["series_index"] is None
+
+
+_AO3 = {
+    "storyUrl": "https://archiveofourown.org/works/1",
+    "category": "F/M",
+    "genre": "Fluff, Hurt/Comfort, Slow Burn",
+    "characters": "Jane Doe, John Roe",
+    "ships": "Jane Doe/John Roe",
+    "freeformtags": "slow burn, Found Family",
+    "extratags": "FanFiction",
+    "status": "In-Progress",
+    "lastupdate": "2026-10-01",
+}
+"""An AO3-shaped payload: list details as FanFicFare gives them, one comma-joined string each."""
+
+
+@pytest.mark.pins("EXP-382")
+def test_a_non_literotica_payload_fills_tags_from_the_kept_subject_keys() -> None:
+    """The default *Tags to keep* gives genres, characters, ships and freeform tags, each once."""
+    fields = fanficfare_json_to_book_fields(_AO3)
+    assert fields["tags"] == (
+        "Fluff, Hurt/Comfort, Slow Burn, Jane Doe, John Roe, Jane Doe/John Roe, Found Family"
+    )
+    assert fields["category"] == "F/M"
+
+
+def test_the_kept_keys_decide_the_tags_and_never_take_category_status_or_date() -> None:
+    """An edited list keeps only what it names; category, status and lastupdate are never tags."""
+    kept = tag_keys("characters, extratags, category, status, lastupdate")
+    fields = fanficfare_json_to_book_fields(_AO3, kept=kept)
+    assert kept == ("characters", "extratags")
+    assert fields["tags"] == "Jane Doe, John Roe, FanFiction"
+
+
+def test_a_literotica_payload_keeps_its_story_tags(fanficfare_fixtures: Path) -> None:
+    """Literotica's tags are unchanged: its story tags, without the site label "Erotica"."""
+    data = _embedded_json(fanficfare_fixtures / "sample-beta.create.stdout")
+    assert fanficfare_json_to_book_fields(data)["tags"] == data["eroticatags"]
+
+
+def test_tags_to_keep_is_read_as_comma_separated_names() -> None:
+    """Names are trimmed and empty ones dropped; no setting means the shipped default."""
+    assert tag_keys(None) == DEFAULT_TAG_KEYS
+    assert tag_keys(" genre,, ships ,") == ("genre", "ships")
+    assert tag_keys("") == ()
+    assert DEFAULT_TAG_KEYS == ("genre", "characters", "ships", "freeformtags", "eroticatags")
