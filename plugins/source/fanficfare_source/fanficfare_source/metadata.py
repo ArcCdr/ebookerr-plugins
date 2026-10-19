@@ -19,6 +19,7 @@ from typing import Any
 
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
+from ebookerr_sdk.domain.metadata import sanitize_multiline
 
 # FanFicFare JSON key -> Book text field. Empty strings become None.
 _TEXT_FIELDS: dict[str, str] = {
@@ -44,7 +45,8 @@ _DATE_FIELDS: dict[str, str] = {
     "dateUpdated": "date_updated",
 }
 
-# Human-readable text columns sanitised at persistence (tag-strip + entity-decode).
+# Human-readable one-line text columns sanitised at persistence (tag-strip + entity-decode);
+# the description is sanitised on its own, keeping its paragraph breaks (sanitize_multiline).
 # URL columns are intentionally excluded: they feed make_book_id and html.unescape
 # would corrupt a URL containing a literal &amp; query parameter.
 _SANITISE_COLUMNS: frozenset[str] = frozenset(
@@ -52,7 +54,6 @@ _SANITISE_COLUMNS: frozenset[str] = frozenset(
         "title",
         "author",
         "series",
-        "description",
         "category",
         "status",
         "site",
@@ -173,7 +174,8 @@ def fanficfare_json_to_book_fields(
     """Map a FanFicFare metadata payload to Book constructor kwargs (no ``book_id``).
 
     Human-readable text columns are sanitised (HTML-stripped, entity-decoded) at
-    persistence. URL columns are left verbatim — they feed make_book_id and must
+    persistence; the description keeps its paragraph breaks (``sanitize_multiline``), every
+    other text column is one line. URL columns are left verbatim — they feed make_book_id and must
     never be entity-decoded. No ``fanficfare_json`` key is emitted: the raw payload is
     no longer archived anywhere (the ``books.fanficfare_json`` blob column was dropped,
     migration step 28) — only the fields/chapters derived here are persisted.
@@ -195,6 +197,8 @@ def fanficfare_json_to_book_fields(
     fields.update({col: parse_datetime(data.get(key)) for key, col in _DATE_FIELDS.items()})
     for col in _SANITISE_COLUMNS:
         fields[col] = sanitize(fields[col])
+    # A description is multi-paragraph: keep its paragraph breaks (LIB-D9).
+    fields["description"] = sanitize_multiline(fields["description"])
     fields["tags"] = _tags(data, kept)
     fields["series"], fields["series_index"] = split_series(fields["series"])
     # Map language if present and non-empty

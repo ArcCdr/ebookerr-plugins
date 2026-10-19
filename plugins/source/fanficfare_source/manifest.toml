@@ -1,6 +1,6 @@
 id = "fanficfare_source"
 name = "FanFicFare"
-version = "2.1.0"
+version = "2.1.1"
 type = "source"
 spi_version = "3.7"
 description = "Downloads stories from any site FanFicFare supports. This is the fallback source: it handles every web address no more specific source claims first."
