@@ -228,13 +228,43 @@ def _absorbed_chapter_links(
     return tuple(links)
 
 
-def _fail(
-    ctx: PluginContext, survivor: EpubItem, exc: EpubMergeError, message: str
-) -> list[BookPatch]:
-    """Log and alert on merge failure; fail closed by returning no patches.
+TOO_FEW_SKIP = "a merge needs at least two books"
+"""The skip a selection of one book reports to the run (EXP-395)."""
+
+SHARED_FILE_SKIP = "two or more selected books share one file"
+"""The skip every book of a selection with a shared library file reports (EXP-395, EXP-249)."""
+
+BY_HAND_SKIP = "a merge runs only when you start it"
+"""The skip every book reports when nobody started the merge by hand (EXP-395)."""
+
+
+def _skip_all(items: tuple[EpubItem, ...], ctx: PluginContext, reason: str) -> None:
+    """Report every selected book as skipped with *reason*, so the run counts none as done.
 
     Args:
-        ctx: Plugin context for alerting the user.
+        items: The selected books.
+        ctx: Plugin context the skips are reported through.
+        reason: One phrase for the user.
+    """
+    for item in items:
+        ctx.report_skip(item.book.book_id, reason)
+
+
+def _fail(
+    ctx: PluginContext,
+    items: tuple[EpubItem, ...],
+    survivor: EpubItem,
+    exc: EpubMergeError,
+    message: str,
+) -> list[BookPatch]:
+    """Log, alert and report a merge failure; fail closed by returning no patches.
+
+    Every selected book is reported as failed with *message*, not retryable — the merge
+    did not happen for any of them (EXP-395).
+
+    Args:
+        ctx: Plugin context for alerting the user and reporting the failures.
+        items: The selected books.
         survivor: The target book that was not modified.
         exc: The exception raised by merge_epubs.
         message: The user-facing alert message to display.
@@ -250,6 +280,8 @@ def _fail(
         exc,
     )
     ctx.alert(message)
+    for item in items:
+        ctx.report_failure(item.book.book_id, message, retryable=False)
     return []
 
 
@@ -272,6 +304,7 @@ def _reject_unmergeable_selection(items: tuple[EpubItem, ...], ctx: PluginContex
     """
     if len(items) < 2:
         ctx.alert("Select at least two books to merge.")
+        _skip_all(items, ctx, TOO_FEW_SKIP)
         return True
 
     files = [item.book.output_filename for item in items if item.book.output_filename]
@@ -286,6 +319,7 @@ def _reject_unmergeable_selection(items: tuple[EpubItem, ...], ctx: PluginContex
             "Some of the selected books share a file on disk, so merging them would copy a "
             "book into itself. Select books that each have their own EPUB."
         )
+        _skip_all(items, ctx, SHARED_FILE_SKIP)
         return True
 
     return False
@@ -380,7 +414,8 @@ class EpubMergePlugin:
             Empty list when the selection is too small, two or more selected books share
             an ``output_filename`` (``EXP-249``), the caller is headless, the user
             cancels the confirmation view or clears its selection, or the merge fails
-            validation.
+            validation. The first three report every selected book as skipped, a failed
+            merge reports every one as failed (EXP-395); a cancel reports nothing.
 
             On failure: empty list. The survivor's EPUB is not modified on disk, and
             nothing is deleted — fail closed.
@@ -430,6 +465,7 @@ class EpubMergePlugin:
 
         if ctx.mode is InvocationMode.HEADLESS:
             logger.info("Merge skipped: headless invocations never merge")
+            _skip_all(items, ctx, BY_HAND_SKIP)
             return []
 
         view = _build_view(survivor, items, survivor_id)
@@ -496,6 +532,7 @@ class EpubMergePlugin:
         except MergeInputError as exc:
             return _fail(
                 ctx,
+                items,
                 survivor,
                 exc,
                 f"Merge failed — one of the selected books could not be read: {exc}",
@@ -503,6 +540,7 @@ class EpubMergePlugin:
         except MergeContentError as exc:
             return _fail(
                 ctx,
+                items,
                 survivor,
                 exc,
                 f"Merge failed — the merged book did not account for every chapter: {exc}",
@@ -510,6 +548,7 @@ class EpubMergePlugin:
         except MergeStructureError as exc:
             return _fail(
                 ctx,
+                items,
                 survivor,
                 exc,
                 f'Merge failed — "{survivor.book.title}" has an internal structure problem, '
@@ -518,7 +557,7 @@ class EpubMergePlugin:
                 f"normalise it before merging again. Technical detail: {exc}",
             )
         except EpubMergeError as exc:
-            return _fail(ctx, survivor, exc, f"Merge failed: {exc}")
+            return _fail(ctx, items, survivor, exc, f"Merge failed: {exc}")
 
         ctx.report(80.0)
 
