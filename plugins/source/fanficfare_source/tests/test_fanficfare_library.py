@@ -141,7 +141,7 @@ def test_the_update_policy_is_fixed() -> None:
         "always_overwrite": "true",
         "never_make_cover": "true",
         "update_check_recent_chapters": "1",
-        "update_preserve_deleted_chapters": "true",
+        "update_preserve_deleted_chapters": "false",
         "output_filename_safepattern": UNICODE_SAFEPATTERN,
         "output_filename": "${title}${formatext}",
         "make_directories": "false",
@@ -224,8 +224,8 @@ def test_the_same_count_rebuilds_without_new_chapters(tmp_path: Path, fetched: l
     assert fetched == ["4"]
 
 
-def test_chapters_the_site_removed_are_kept(tmp_path: Path) -> None:
-    """A chapter the site no longer lists stays in the book (update_preserve_deleted_chapters)."""
+def test_chapters_the_site_removed_are_left_to_the_core(tmp_path: Path) -> None:
+    """A chapter the site no longer lists is not kept by FanFicFare; the core keeps it (LIB-D27)."""
     work = tmp_path / "w"
     work.mkdir()
     settings = story_settings("One,Two,Three,Four")
@@ -236,8 +236,12 @@ def test_chapters_the_site_removed_are_kept(tmp_path: Path) -> None:
     assert result.outcome == "updated"
     assert result.site_chapters == 3
     assert result.chapters_before == 4
-    assert result.chapters_after == 4
-    assert result.added == 0
+    assert result.chapters_after == 3
+    assert len(result.written_urls) == 3
+    assert set(result.site_urls) <= set(result.written_urls)
+    with zipfile.ZipFile(work / STORED) as book:
+        text = b"".join(book.read(name) for name in book.namelist())
+    assert b"Preserved Deleted Chapter" not in text
 
 
 def test_a_file_with_no_recognised_chapter_is_left_alone(

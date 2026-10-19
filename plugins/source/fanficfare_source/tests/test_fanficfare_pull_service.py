@@ -721,30 +721,6 @@ def test_a_created_result_missing_chapters_is_rejected(
     )
 
 
-def test_an_update_that_lost_chapters_is_rejected(tmp_path: Path) -> None:
-    """An update where chapters_after != chapters_before + added is rejected."""
-    from fanficfare_source.pull import INCONSISTENT_MESSAGE
-
-    prior = prior_view()
-    gateway = FakeGateway(
-        _created(
-            outcome="updated",
-            chapters_before=4,
-            added=1,
-            chapters_after=4,
-            site_chapters=5,
-            distinct_urls_after=4,
-        )
-    )
-
-    with pytest.raises(SourcePullError) as info:
-        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
-
-    assert str(info.value) == INCONSISTENT_MESSAGE.format(
-        rule="chapters lost or doubled", site=5, before=4, added=1, after=4
-    )
-
-
 def test_an_update_still_missing_site_chapters_is_rejected(tmp_path: Path) -> None:
     """An update where chapters_after < site_chapters is rejected."""
     from fanficfare_source.pull import INCONSISTENT_MESSAGE
@@ -758,6 +734,8 @@ def test_an_update_still_missing_site_chapters_is_rejected(tmp_path: Path) -> No
             chapters_after=3,
             site_chapters=4,
             distinct_urls_after=3,
+            site_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3", "http://test1.com?sid=1&chapter=4"),
+            written_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3"),
         )
     )
 
@@ -812,23 +790,78 @@ def test_a_consistent_update_is_accepted(tmp_path: Path) -> None:
     assert patch.upsert is True
 
 
-def test_kept_removed_chapters_are_accepted(tmp_path: Path) -> None:
-    """An update that kept removed chapters (before + added == after >= site) is accepted."""
+def test_an_update_missing_a_site_chapter_is_rejected(tmp_path: Path) -> None:
+    """An update lacking a chapter URL the site lists is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
     prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=2,
+            added=0,
+            chapters_after=1,
+            site_chapters=2,
+            distinct_urls_after=1,
+            site_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2"),
+            written_urls=("http://test1.com?sid=1&chapter=1",),
+        )
+    )
+
+    with pytest.raises(SourcePullError) as info:
+        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="chapters the site lists are missing", site=2, before=2, added=0, after=1
+    )
+
+
+def test_an_update_without_a_removed_chapter_is_accepted(tmp_path: Path) -> None:
+    """An update that dropped a removed chapter (before 4, site 3, after 3) is accepted."""
+    prior = prior_view()
+    urls = ("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2", "http://test1.com?sid=1&chapter=3")
     gateway = FakeGateway(
         _created(
             outcome="updated",
             chapters_before=4,
             added=0,
-            chapters_after=4,
+            chapters_after=3,
             site_chapters=3,
-            distinct_urls_after=4,
+            distinct_urls_after=3,
+            site_urls=urls,
+            written_urls=urls,
         )
     )
 
     patch = make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
 
     assert patch.upsert is True
+
+
+def test_a_written_chapter_url_twice_is_rejected(tmp_path: Path) -> None:
+    """A written file holding a chapter URL twice (2 distinct URLs, 3 chapters) is rejected."""
+    from fanficfare_source.pull import INCONSISTENT_MESSAGE
+
+    prior = prior_view()
+    gateway = FakeGateway(
+        _created(
+            outcome="updated",
+            chapters_before=2,
+            added=1,
+            chapters_after=3,
+            site_chapters=2,
+            distinct_urls_after=2,
+            site_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2"),
+            written_urls=("http://test1.com?sid=1&chapter=1", "http://test1.com?sid=1&chapter=2"),
+        )
+    )
+
+    with pytest.raises(SourcePullError) as info:
+        make_engine(gateway).pull(URL, tmp_path, prior, FakeContext())
+
+    assert str(info.value) == INCONSISTENT_MESSAGE.format(
+        rule="duplicate chapters", site=2, before=2, added=1, after=3
+    )
 
 
 def test_a_rejected_result_publishes_nothing(tmp_path: Path) -> None:
