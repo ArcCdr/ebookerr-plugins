@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -33,6 +34,48 @@ def test_a_fixed_layout_book_is_reported_as_skipped(build_epub: Callable[..., Pa
     assert ctx.skips == [("b1", "fixed-layout book")]
     assert ctx.failures == []
     assert epub.read_bytes() == before
+
+
+_APPLE_FIXED_LAYOUT = (
+    b'<?xml version="1.0" encoding="UTF-8"?><display_options><platform name="*">'
+    b'<option name="fixed-layout">true</option></platform></display_options>'
+)
+
+
+def test_a_book_apple_marks_fixed_layout_is_reported_as_skipped(
+    build_epub: Callable[..., Path],
+) -> None:
+    """Apple's display-options file declaring fixed-layout true skips the book untouched."""
+    epub = build_epub([("Chapter One", "Test content")])
+    doc = EpubDocument.open(epub)
+    doc.write_member("META-INF/com.apple.ibooks.display-options.xml", _APPLE_FIXED_LAYOUT)
+    doc.save()
+    before = epub.read_bytes()
+    ctx = FakeContext()
+    EpubNormalizePlugin().process((make_epub_item(epub, book_id="b1"),), ctx)
+    assert ctx.skips == [("b1", "fixed-layout book")]
+    assert ctx.failures == []
+    assert epub.read_bytes() == before
+
+
+def test_a_drm_protected_book_is_reported_as_skipped(
+    build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
+) -> None:
+    """A book with a licence file is reported as a skip, warned about and left untouched."""
+    epub = build_epub([("Chapter One", "Test content")])
+    doc = EpubDocument.open(epub)
+    doc.write_member("META-INF/rights.xml", b"<rights/>")
+    doc.save()
+    before = epub.read_bytes()
+    ctx = FakeContext()
+    with caplog.at_level(logging.WARNING):
+        EpubNormalizePlugin().process((make_epub_item(epub, book_id="b1", title="Test Book"),), ctx)
+    assert ctx.skips == [("b1", "DRM-protected book")]
+    assert ctx.failures == []
+    assert epub.read_bytes() == before
+    assert 'Normalize skipped for "Test Book" (book_id=b1): DRM-protected book' in [
+        r.getMessage() for r in caplog.records if r.levelno == logging.WARNING
+    ]
 
 
 def test_a_reflowable_book_is_normalised_and_not_reported(build_epub: Callable[..., Path]) -> None:

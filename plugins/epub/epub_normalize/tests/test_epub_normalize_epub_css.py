@@ -14,6 +14,7 @@ from epub_normalize.normalize import (
     NormalizeOptions,
     NormalizeReport,
     normalize_epub,
+    options_for_level,
     options_signature,
 )
 from epub_normalize.normalize.markers import read_css_marker
@@ -298,6 +299,68 @@ class TestCssNormalization:
 
         with pytest.raises(zipfile.BadZipFile):
             normalize_epub(bad_epub, options=NormalizeOptions())
+
+
+class TestPageTemplates:
+    """Adobe page templates are removed with the page layout (FR-NORM-17)."""
+
+    _ITEM = ("pt", "OEBPS/page-template.xpgt", "application/vnd.adobe-page-template+xml")
+
+    def _with_template(self, build_epub) -> Path:
+        """Build a book carrying a page-template manifest item, its member and a chapter link."""
+        path = build_epub([("Chapter 1", "https://example.test/1")])
+        doc = EpubDocument.open(path)
+        doc.opf.add_manifest_item(*self._ITEM)
+        doc.write_resource(
+            self._ITEM[1], b"<ade:template xmlns:ade='http://ns.adobe.com/2006/ade'/>"
+        )
+        chapter = doc.resource_bytes("OEBPS/file0001.xhtml").decode("utf-8")
+        chapter = chapter.replace(
+            "</head>",
+            '<link href="page-template.xpgt" rel="stylesheet" '
+            'type="application/vnd.adobe-page-template+xml"/>\n</head>',
+        )
+        doc.write_resource("OEBPS/file0001.xhtml", chapter.encode("utf-8"))
+        doc.save()
+        return path
+
+    def test_page_templates_are_removed_at_standard(self, build_epub):
+        """At Standard the manifest item, its member and the chapter link are all gone."""
+        path = self._with_template(build_epub)
+
+        report = normalize_epub(path, options=options_for_level("standard"))
+
+        doc = EpubDocument.open(path)
+        assert doc.opf.item_by_id("pt") is None
+        assert doc.member_bytes("OEBPS/page-template.xpgt") is None
+        assert b"xpgt" not in doc.resource_bytes("OEBPS/file0001.xhtml")
+        assert report.counts.page_templates_removed == 1
+        assert report.counts.page_template_links_removed == 1
+
+    def test_page_templates_stay_at_light(self, build_epub):
+        """At Light the item, the member and the link all stay."""
+        path = self._with_template(build_epub)
+
+        report = normalize_epub(path, options=options_for_level("light"))
+
+        doc = EpubDocument.open(path)
+        assert doc.opf.item_by_id("pt") is not None
+        assert doc.member_bytes("OEBPS/page-template.xpgt") is not None
+        assert b"page-template.xpgt" in doc.resource_bytes("OEBPS/file0001.xhtml")
+        assert report.counts.page_templates_removed == 0
+
+    def test_a_template_is_found_by_its_extension_when_the_media_type_lies(self, build_epub):
+        """A .xpgt item labelled with another media type is a page template too."""
+        path = build_epub([("Chapter 1", "https://example.test/1")])
+        doc = EpubDocument.open(path)
+        doc.opf.add_manifest_item("pt", "OEBPS/page-template.xpgt", "text/xml")
+        doc.write_resource("OEBPS/page-template.xpgt", b"<t/>")
+        doc.save()
+
+        report = normalize_epub(path, options=options_for_level("standard"))
+
+        assert report.counts.page_templates_removed == 1
+        assert EpubDocument.open(path).opf.item_by_id("pt") is None
 
 
 class TestNormalizeReport:

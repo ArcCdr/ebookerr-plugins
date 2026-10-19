@@ -229,8 +229,11 @@ class TestBehaviour:
 
         records = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(records) == 1
-        assert 'Normalized "Test Book" (book_id=b1)' in records[0].message
-        assert "declaration(s)" in records[0].message
+        message = records[0].message
+        assert 'Normalized "Test Book" (book_id=b1) at level standard: removed ' in message
+        assert "declaration(s)" in message
+        assert " HTML attribute(s), " in message
+        assert " marked " in message
         assert " in " in records[0].message
 
     def test_info_line_on_a_no_op_book(
@@ -248,7 +251,10 @@ class TestBehaviour:
 
         records = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(records) == 1
-        assert 'Normalize no-op for "Test Book" (book_id=b1)' in records[0].message
+        assert (
+            'Normalize no-op for "Test Book" (book_id=b1) at level standard: nothing to change'
+            in records[0].message
+        )
 
     def test_warning_on_a_fixed_layout_book(
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture

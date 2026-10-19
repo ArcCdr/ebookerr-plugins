@@ -97,6 +97,32 @@ class TestBlankLinesAndPageLinks:
         assert a.page_template_links_removed == 5
 
 
+class TestFieldOrder:
+    """Test the declared order of the counters."""
+
+    def test_page_templates_removed_sits_between_blank_lines_and_page_template_links(self) -> None:
+        """The fields appear in the contract's order."""
+        assert [f.name for f in fields(NormalizeCounts)] == [
+            "declarations_removed",
+            "declarations_converted",
+            "rules_removed",
+            "style_attributes_removed",
+            "viewport_metas_removed",
+            "css_files_changed",
+            "xhtml_files_changed",
+            "font_files_removed",
+            "html_attributes_removed",
+            "blank_lines_marked",
+            "page_templates_removed",
+            "page_template_links_removed",
+            "files_skipped_marker",
+        ]
+
+    def test_page_templates_removed_counts_as_a_change(self) -> None:
+        """A removed page template is a change, so the book is saved."""
+        assert NormalizeCounts(page_templates_removed=1).touched is True
+
+
 class TestTouched:
     """Test NormalizeCounts.touched property."""
 
