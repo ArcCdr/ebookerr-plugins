@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 
 from ebookerr_sdk.epub import EpubDocument, EpubError
 from ebookerr_sdk.spi import CircuitOpenError
-from fanficfare import adapters, writers
+from fanficfare import adapters, exceptions, writers
 from fanficfare.configurable import Configuration
 from fanficfare.epubutils import get_update_data
 
@@ -45,6 +45,7 @@ from fanficfare_source.protocol import (
     UNREADABLE_MESSAGE,
     UNRECOGNISED_MESSAGE,
     DownloadResult,
+    MetadataFetch,
     OnChapter,
 )
 
@@ -181,7 +182,7 @@ class FanFicFareLibraryGateway:
     This gateway runs FanFicFare inside the plugin's process to fetch metadata
     (``fetch_metadata``) and download a story (``download``), writing the EPUB with
     FanFicFare's own writer via ``_write``. The ``fetch_metadata()`` method returns
-    the story's metadata as a dict or ``None`` on any failure. The ``download()``
+    a ``MetadataFetch``: the story's metadata, or the reason there is none. The ``download()``
     method returns a ``DownloadResult`` and never raises (failures are encoded in
     the result).
 
@@ -195,8 +196,9 @@ class FanFicFareLibraryGateway:
 
     Lifecycle and invariants:
         When the host's circuit is open (``_blocked()`` returns its label), a call is
-        refused without making any request: ``fetch_metadata`` returns ``None`` and
-        ``download`` returns a ``DownloadResult`` with status ``"failed"``. A failure
+        refused without making any request: ``fetch_metadata`` returns a
+        ``MetadataFetch`` with that reason and ``download`` returns a ``DownloadResult`` with
+        status ``"failed"``. A failure
         is recorded only when an outage occurs (via ``_record(ok=False)``). The
         instance retains the settings, the sign-in lookup and the circuit breaker across
         multiple calls and uses them for all subsequent invocations.
@@ -291,8 +293,8 @@ class FanFicFareLibraryGateway:
         apply_sign_in(config, credential, host)
         return config
 
-    def fetch_metadata(self, url: str) -> dict[str, Any] | None:
-        """Return the story's metadata without fetching any chapter, or ``None`` on any failure.
+    def fetch_metadata(self, url: str) -> MetadataFetch:
+        """Return the story's metadata without fetching any chapter, or why there is none.
 
         No file is written (the former ``--meta-only`` run wrote a title-page EPUB).
 
@@ -301,22 +303,27 @@ class FanFicFareLibraryGateway:
 
         Returns:
             FanFicFare's ``getAllMetadata()`` mapping plus ``zchapterurls``, the site's chapter
-            addresses in order (``LIB-D54``), or ``None``.
+            addresses in order (``LIB-D54``), or ``None`` with the user-facing reason; ``gone``
+            is set when FanFicFare reports that the story no longer exists (``LIB-D51``).
         """
-        if self._blocked(url) is not None:
-            return None
+        label = self._blocked(url)
+        if label is not None:
+            return MetadataFetch(None, error=f"{label} is not reachable; retrying automatically")
         try:
             with captured_stdout():
                 adapter = adapters.getAdapter(self._configuration(url), url)
                 metadata = dict(adapter.getStoryMetadataOnly().getAllMetadata())
                 metadata["zchapterurls"] = [str(chapter["url"]) for chapter in adapter.chapterUrls]
-        except Exception as exc:  # noqa: BLE001 — every failure is None (LIB-D25)
-            logger.debug("Metadata fetch failed for %s: %s", url, failure_message(exc, url))
+        except Exception as exc:  # noqa: BLE001 — every failure is a reason (LIB-D25)
+            reason = failure_message(exc, url)
+            logger.debug("Metadata fetch failed for %s: %s", url, reason)
             if is_outage(exc):
                 self._record(url, ok=False)
-            return None
+            return MetadataFetch(
+                None, error=reason, gone=isinstance(exc, exceptions.StoryDoesNotExist)
+            )
         self._record(url, ok=True)
-        return metadata
+        return MetadataFetch(meta=metadata)
 
     def download(
         self,

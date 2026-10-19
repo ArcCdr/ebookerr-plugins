@@ -47,7 +47,7 @@ from fanficfare_source.metadata import (
     fanficfare_json_to_book_fields,
     tag_keys,
 )
-from fanficfare_source.protocol import DownloadResult, FanFicFareGateway
+from fanficfare_source.protocol import DownloadResult, FanFicFareGateway, MetadataFetch
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class FanFicFarePull:
         self._verify_window_s = verify_window_s
         self._clock = clock
 
-    def _meta_for(self, url: str, ctx: PluginContext | None) -> dict[str, Any] | None:
+    def _meta_for(self, url: str, ctx: PluginContext | None) -> MetadataFetch:
         """Return FanFicFare's metadata for ``url``, from ``ctx`` state when cached there.
 
         With no ``ctx`` (an engine-only caller), always fetches fresh — there is nowhere to
@@ -112,20 +112,20 @@ class FanFicFarePull:
             ctx: Runtime services carrying the plugin state cache, or ``None``.
 
         Returns:
-            The metadata payload, or ``None`` on a fetch failure.
+            The fetch: the metadata payload, or why there is none (``LIB-D51``).
         """
         cache_key = f"meta:{url}"
         if ctx is not None:
             cached = ctx.state_get(cache_key)
             if cached is not None:
-                return cached  # type: ignore[no-any-return]
-        meta = self._fanficfare.fetch_metadata(url)
-        if meta is not None and ctx is not None:
+                return MetadataFetch(cached)
+        fetch = self._fanficfare.fetch_metadata(url)
+        if fetch.meta is not None and ctx is not None:
             try:
-                ctx.state_set(cache_key, meta, ttl_s=_META_CACHE_TTL_S)
+                ctx.state_set(cache_key, fetch.meta, ttl_s=_META_CACHE_TTL_S)
             except ValueError as exc:
                 logger.debug("FanFicFare metadata for %s not cached: %s", url, exc)
-        return meta
+        return fetch
 
     @staticmethod
     def _remote_chapters(meta: dict[str, Any]) -> int | None:
@@ -174,7 +174,9 @@ class FanFicFarePull:
         ``_existing_via_alias`` looks the id up (EXP-074). Shares the meta-poll and
         no-new-content check with :meth:`pull`, without downloading, so the Auto-Pull scan
         never polls FanFicFare twice for the same URL. Fail-closed: when the metadata fetch
-        itself errors, returns ``needs_update=False`` with ``error`` set rather than guessing.
+        itself errors, returns ``needs_update=False`` with ``error`` set rather than guessing, and
+        ``gone`` set when FanFicFare reports the story no longer exists (``LIB-D51``). The failure
+        is not logged here: the core logs every failed check once, with this reason.
 
         Args:
             url: The story/section URL to check.
@@ -186,17 +188,15 @@ class FanFicFarePull:
             state and reusable by a following :meth:`pull` call); ``book_id`` is the id
             FanFicFare's own metadata derives; ``fields`` carries the observed ``status``.
         """
-        meta = self._meta_for(url, ctx)
+        fetch = self._meta_for(url, ctx)
+        meta = fetch.meta
         if meta is None:
-            if prior is not None:
-                logger.warning(
-                    "Auto-Pull check failed for %s: metadata fetch failed — skipped", url
-                )
             return UpdateCheck(
                 needs_update=False,
                 meta=None,
                 book_id=prior.book_id if prior else None,
-                error="metadata fetch failed",
+                error=fetch.error or "metadata fetch failed",
+                gone=fetch.gone,
             )
         book_id = fanficfare_book_id(meta)
         status = sanitize(meta.get("status"))
@@ -250,7 +250,7 @@ class FanFicFarePull:
         """
         ctx.report(2.0)
 
-        meta = self._meta_for(url, ctx)
+        meta = self._meta_for(url, ctx).meta
         ctx.check_cancelled()
         ctx.report(5.0)
 

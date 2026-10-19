@@ -26,6 +26,21 @@ Args: chapters done, chapters in the book."""
 
 
 @dataclass(frozen=True, slots=True)
+class MetadataFetch:
+    """A metadata fetch: the payload, or why there is none (``LIB-D51``, ``LIB-D54``).
+
+    Attributes:
+        meta: FanFicFare's metadata for the story; ``None`` when the fetch failed.
+        error: The user-facing reason when *meta* is ``None``.
+        gone: Whether FanFicFare reported that the story no longer exists on its site.
+    """
+
+    meta: dict[str, Any] | None
+    error: str | None = None
+    gone: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class DownloadResult:
     """One FanFicFare run, with the counts the pull engine verifies (``LIB-D25``, ``LIB-D29``).
 
@@ -72,8 +87,8 @@ class DownloadResult:
 class FanFicFareGateway(Protocol):
     """FanFicFare, as :class:`~fanficfare_source.pull.FanFicFarePull` uses it (``LIB-D25``)."""
 
-    def fetch_metadata(self, url: str) -> dict[str, Any] | None:
-        """Return the story's metadata without fetching any chapter, or ``None`` on any failure."""
+    def fetch_metadata(self, url: str) -> MetadataFetch:
+        """Return the story's metadata without fetching any chapter, or why there is none."""
         ...
 
     def download(
