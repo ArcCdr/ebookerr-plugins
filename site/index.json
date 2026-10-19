@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-19T18:30:08Z",
+  "generated_at": "2026-10-19T18:30:57Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -831,6 +831,32 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.1.1",
+          "published_at": "2026-10-19T18:30:40Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.1.1/fanficfare_source-2.1.1.zip",
+          "sha256": "3d69f6ef79b3eb49b648c3fd49168831ee368971123ef2c1f9daae98e56f330a",
+          "size": 30517,
+          "spi_version": "3.7",
+          "min_app_version": "",
+          "changelog": "A story's description keeps its paragraphs instead of running them together.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "fallback_source"
+            ]
+          },
+          "requirements": [
+            "fanficfare==4.62.0"
+          ]
+        },
+        {
           "version": "2.0.2",
           "published_at": "2026-10-13T12:34:03Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.0.2/fanficfare_source-2.0.2.zip",
@@ -995,6 +1021,33 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.2.1",
+          "published_at": "2026-10-19T18:30:57Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.2.1/file_meta_sync-2.2.1.zip",
+          "sha256": "21b743620d15deb3aaebe7ca6bd7f8e89d5e449285eaa4047be31a127deaf6fe",
+          "size": 11480,
+          "spi_version": "3.0",
+          "min_app_version": "",
+          "changelog": "A sidecar file is replaced whole: when a sync is stopped half-way, the file keeps its previous content instead of being left empty or cut short.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.2.0",
           "published_at": "2026-10-08T18:18:23Z",
