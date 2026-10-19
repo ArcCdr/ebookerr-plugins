@@ -1,175 +1,51 @@
-"""Tests for EPUB normalization rule constants and selector predicates."""
+"""Tests for EPUB normalization rule constants (FR-NORM-3..10, FR-NORM-16, FR-NORM-17)."""
 
 from __future__ import annotations
 
-import re
-
+import pytest
+from epub_normalize.normalize import rules
 from epub_normalize.normalize.rules import (
     ALIGNMENT_PROPERTIES,
     BODY_ALIGNMENTS,
     BOX_PROPERTIES,
-    BOX_PROPERTIES_2,
     COLOR_PROPERTIES,
-    COLOR_PROPERTIES_2,
     COLOR_SHORTHAND_PROPERTIES,
-    COLOR_SHORTHAND_PROPERTIES_2,
-    DIMENSION_PROPERTIES,
     FIXED_SIZE_PROPERTIES,
     FONT_EXTENSIONS,
     FONT_MEDIA_TYPES,
-    FONT_PROPERTIES,
     FONT_SIZE_PROPERTY,
     GRADIENT_FUNCTIONS,
     HYPHENATION_PROPERTIES,
-    IMAGE_SELECTOR_RE,
     MONOSPACE_FAMILIES,
-    NEVER_STRIPPED_PROPERTIES,
-    PRESERVE_SELECTOR_RE,
     ROOT_LAYOUT_PROPERTIES,
-    ROOT_SELECTOR_RE,
     SEMANTIC_PROPERTIES,
     SPACING_PROPERTIES,
-    is_image_selector,
-    is_preserved_selector,
-    is_root_selector,
 )
 
 
 class TestPropertySets:
     """Tests for CSS property constant sets."""
 
-    def test_max_width_is_never_stripped(self) -> None:
-        """max-width is in NEVER_STRIPPED_PROPERTIES but not in DIMENSION_PROPERTIES."""
-        assert "max-width" in NEVER_STRIPPED_PROPERTIES
-        assert "max-width" not in DIMENSION_PROPERTIES
-
-    def test_dimension_set_is_exact(self) -> None:
-        """DIMENSION_PROPERTIES has exactly the specified members."""
-        assert {
-            "width",
-            "height",
-            "min-width",
-            "min-height",
-            "max-height",
-        } == DIMENSION_PROPERTIES
-
-    def test_font_set_includes_the_shorthand(self) -> None:
-        """FONT_PROPERTIES includes both font-family and the font shorthand."""
-        assert {"font-family", "font"} == FONT_PROPERTIES
-
     def test_color_sets_split_shorthand_out(self) -> None:
         """COLOR_PROPERTIES and COLOR_SHORTHAND_PROPERTIES are distinct."""
-        assert {"color", "background-color"} == COLOR_PROPERTIES
-        assert {"background"} == COLOR_SHORTHAND_PROPERTIES
+        assert COLOR_PROPERTIES.isdisjoint(COLOR_SHORTHAND_PROPERTIES)
+        assert "color" in COLOR_PROPERTIES
+        assert "background" in COLOR_SHORTHAND_PROPERTIES
 
     def test_box_properties_cover_all_sides(self) -> None:
-        """BOX_PROPERTIES has 11 members covering margin, padding and text-indent."""
-        assert len(BOX_PROPERTIES) == 11
-        assert "margin" in BOX_PROPERTIES
-        assert "margin-left" in BOX_PROPERTIES
-        assert "padding" in BOX_PROPERTIES
-        assert "padding-bottom" in BOX_PROPERTIES
-        assert "text-indent" in BOX_PROPERTIES
-
-
-class TestPreservedSelectors:
-    """Tests for is_preserved_selector predicate."""
-
-    def test_preserved_selectors(self) -> None:
-        """is_preserved_selector returns True for drop-cap and special-context selectors."""
-        preserved = [
-            "p::first-letter",
-            "p:first-letter",
-            "P::FIRST-LINE",
-            ".dropcap",
-            ".drop-cap",
-            ".initial-cap",
-            "span.first-letter",
-            "svg",
-            "div svg",
-            "math",
-            ".foo image",
-        ]
-        for selector in preserved:
-            assert is_preserved_selector(selector) is True, f"Failed for {selector}"
-
-    def test_not_preserved_selectors(self) -> None:
-        """is_preserved_selector returns False for regular and non-matching selectors."""
-        not_preserved = [
-            "p",
-            "body",
-            ".chapter",
-            "h1, h2",
-            "div.imagery",  # word boundary stops imagery matching image
-            ".mathematics",
-        ]
-        for selector in not_preserved:
-            assert is_preserved_selector(selector) is False, f"Failed for {selector}"
-
-
-class TestImageSelectors:
-    """Tests for is_image_selector predicate."""
-
-    def test_image_selectors(self) -> None:
-        """is_image_selector returns True for image-related selectors."""
-        image_selectors = [
-            "img",
-            "IMG.center",
-            "figure",
-            ".cover",
-            ".cover-page",
-            ".titlepage",
-            ".title-page",
-            "svg",
-        ]
-        for selector in image_selectors:
-            assert is_image_selector(selector) is True, f"Failed for {selector}"
-
-    def test_not_image_selectors(self) -> None:
-        """is_image_selector returns False for non-image selectors."""
-        not_image = [
-            "p",
-            "body",
-        ]
-        for selector in not_image:
-            assert is_image_selector(selector) is False, f"Failed for {selector}"
-
-    def test_covert_is_true_deliberate_overmatch(self) -> None:
-        """.covert matches .cover as a deliberate, pinned over-match."""
-        assert is_image_selector(".covert") is True
-
-    def test_imaginary_is_not_matched(self) -> None:
-        """div.imaginary does not match the image selector (word boundary)."""
-        assert is_image_selector("div.imaginary") is False
-
-
-class TestRootSelectors:
-    """Tests for is_root_selector predicate."""
-
-    def test_root_selectors(self) -> None:
-        """is_root_selector returns True for html and body at selector position."""
-        root_selectors = [
-            "html",
-            "body",
-            "body.fff",
-            "html, body",
-            "body > p",
-            "  body  ",
-        ]
-        for selector in root_selectors:
-            assert is_root_selector(selector) is True, f"Failed for {selector}"
-
-    def test_not_root_selectors(self) -> None:
-        """is_root_selector returns False for non-root and class/id names."""
-        not_root = [
-            "p",
-            ".body",
-            "bodytext",
-            "#body",
-            "div.htmlish",
-        ]
-        for selector in not_root:
-            assert is_root_selector(selector) is False, f"Failed for {selector}"
+        """BOX_PROPERTIES holds the physical and logical margins, paddings and text-indent."""
+        assert len(BOX_PROPERTIES) == 23
+        for name in (
+            "margin",
+            "margin-left",
+            "margin-inline-start",
+            "margin-block",
+            "padding",
+            "padding-bottom",
+            "padding-inline-end",
+            "text-indent",
+        ):
+            assert name in BOX_PROPERTIES
 
 
 class TestFontMediaTypesAndExtensions:
@@ -182,16 +58,6 @@ class TestFontMediaTypesAndExtensions:
         assert ".ttf" in FONT_EXTENSIONS
         assert ".woff2" in FONT_EXTENSIONS
         assert ".jpg" not in FONT_EXTENSIONS
-
-
-class TestRegexFlags:
-    """Tests for regex compilation flags."""
-
-    def test_every_regex_is_case_insensitive(self) -> None:
-        """All selector regexes are compiled with re.IGNORECASE flag."""
-        assert PRESERVE_SELECTOR_RE.flags & re.IGNORECASE
-        assert IMAGE_SELECTOR_RE.flags & re.IGNORECASE
-        assert ROOT_SELECTOR_RE.flags & re.IGNORECASE
 
 
 class TestFontSizeProperty:
@@ -218,23 +84,23 @@ class TestAlignmentProperties:
     """Tests for ALIGNMENT_PROPERTIES set."""
 
     def test_alignment_properties(self) -> None:
-        """ALIGNMENT_PROPERTIES includes text-align and text-indent."""
-        assert {"text-align", "text-indent"} == ALIGNMENT_PROPERTIES
+        """ALIGNMENT_PROPERTIES includes text-align and text-align-last, not text-indent."""
+        assert {"text-align", "text-align-last"} == ALIGNMENT_PROPERTIES
 
 
 class TestTwoPointZeroSets:
     """Tests for the 2.0 property sets."""
 
-    def test_color_properties_2_has_longhands_and_shadows(self) -> None:
-        """COLOR_PROPERTIES_2 holds colour longhands and shadows, not geometry."""
-        assert "-webkit-text-fill-color" in COLOR_PROPERTIES_2
-        assert "text-shadow" in COLOR_PROPERTIES_2
-        assert "border-left-color" in COLOR_PROPERTIES_2
-        assert "width" not in COLOR_PROPERTIES_2
+    def test_color_properties_has_longhands_and_shadows(self) -> None:
+        """COLOR_PROPERTIES holds colour longhands and shadows, not geometry."""
+        assert "-webkit-text-fill-color" in COLOR_PROPERTIES
+        assert "text-shadow" in COLOR_PROPERTIES
+        assert "border-left-color" in COLOR_PROPERTIES
+        assert "width" not in COLOR_PROPERTIES
 
-    def test_color_shorthand_properties_2_has_border(self) -> None:
-        """COLOR_SHORTHAND_PROPERTIES_2 holds the border shorthand."""
-        assert "border" in COLOR_SHORTHAND_PROPERTIES_2
+    def test_color_shorthand_properties_has_border(self) -> None:
+        """COLOR_SHORTHAND_PROPERTIES holds the border shorthand."""
+        assert "border" in COLOR_SHORTHAND_PROPERTIES
 
     def test_hyphenation_properties_has_adobe_hyphenate(self) -> None:
         """HYPHENATION_PROPERTIES holds the Adobe hyphenation property."""
@@ -253,11 +119,6 @@ class TestTwoPointZeroSets:
         """ROOT_LAYOUT_PROPERTIES removes max-width on the root."""
         assert "max-width" in ROOT_LAYOUT_PROPERTIES
 
-    def test_box_properties_2_has_text_indent_and_inline_margin(self) -> None:
-        """BOX_PROPERTIES_2 holds text-indent and logical margins."""
-        assert "text-indent" in BOX_PROPERTIES_2
-        assert "margin-inline-start" in BOX_PROPERTIES_2
-
     def test_semantic_properties_keeps_font_style_not_size(self) -> None:
         """SEMANTIC_PROPERTIES keeps font-style and never font-size."""
         assert "font-style" in SEMANTIC_PROPERTIES
@@ -270,3 +131,25 @@ class TestTwoPointZeroSets:
     def test_gradient_functions_has_linear_gradient(self) -> None:
         """GRADIENT_FUNCTIONS names linear-gradient."""
         assert "linear-gradient" in GRADIENT_FUNCTIONS
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "PRESERVE_SELECTOR_RE",
+            "IMAGE_SELECTOR_RE",
+            "ROOT_SELECTOR_RE",
+            "is_preserved_selector",
+            "is_image_selector",
+            "is_root_selector",
+            "FONT_PROPERTIES",
+            "DIMENSION_PROPERTIES",
+            "NEVER_STRIPPED_PROPERTIES",
+            "COLOR_PROPERTIES_2",
+            "COLOR_SHORTHAND_PROPERTIES_2",
+            "ALIGNMENT_PROPERTIES_2",
+            "BOX_PROPERTIES_2",
+        ],
+    )
+    def test_the_regex_predicates_are_gone(self, name: str) -> None:
+        """The 1.x regex predicates and sets, and the _2 suffixed names, no longer exist."""
+        assert hasattr(rules, name) is False
