@@ -282,9 +282,7 @@ def _stopped_half_way(data_of: Any) -> Any:
 
 
 @pytest.mark.pins("EXP-391")
-def test_a_sidecar_is_replaced_atomically(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_sidecar_is_replaced_atomically(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A conflict answer whose write is stopped half-way leaves the sidecar whole (EXP-391)."""
     root = _library(tmp_path)
     sidecar = root / "books" / "book.back_cover.txt"
