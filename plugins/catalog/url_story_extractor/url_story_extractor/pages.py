@@ -22,6 +22,8 @@ from url_story_extractor.fff_support import (
     build_configuration,
     captured_stdout,
     config_sections,
+    failure_message,
+    masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
     settings_options,
@@ -132,8 +134,12 @@ class FanFicFarePagesGateway:
         except ListingError:  # noqa: BLE001
             raise
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Listing failed at %s: %s: %s", url, type(exc).__name__, exc)
-            raise ListingError(f"could not list stories at {url}: {exc}") from exc
+            logger.warning(
+                "Listing failed at %s: %s: %s", url, type(exc).__name__, masked_text(exc)
+            )
+            raise ListingError(
+                f"could not list stories at {url}: {failure_message(exc, url)}"
+            ) from exc
 
     def fetch_story_metadata(self, url: str) -> dict[str, Any] | None:
         """Return the raw metadata dict for one story URL, or ``None`` on any failure.
@@ -154,7 +160,7 @@ class FanFicFarePagesGateway:
             logger.debug("Fetched metadata for %s in %.1fs", url, elapsed)
             return result
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Could not fetch metadata for %s: %s", url, exc)
+            logger.warning("Could not fetch metadata for %s: %s", url, masked_text(exc))
             return None
 
     def _configuration(self, url: str) -> Any:

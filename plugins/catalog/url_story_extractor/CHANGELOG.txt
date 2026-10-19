@@ -1,5 +1,5 @@
 == 2.2.0 ==
-Advanced FanFicFare options are checked when you save them: a line FanFicFare cannot read is refused with its line number, and a username, password or cookie line is refused with a link to Settings → Credentials, where sign-ins belong. Confirm adult content now wins over is_adult in Advanced FanFicFare options, for every site; saving such a line shows a warning. Needs ebookerr 2.24.14 or later.
+Advanced FanFicFare options are checked when you save them: a line FanFicFare cannot read is refused with its line number, and a username, password or cookie line is refused with a link to Settings → Credentials, where sign-ins belong. Confirm adult content now wins over is_adult in Advanced FanFicFare options, for every site; saving such a line shows a warning. A page that cannot be listed now fails with a plain sentence naming the site — a refused login says whether its stored sign-in was refused or none is stored — and no log line names the account's username. Needs ebookerr 2.24.14 or later.
 
 == 2.1.0 ==
 A chapter row records the story it belongs to as its story, no longer as a series; a whole story keeps the series its site declares. Needs ebookerr 2.24.7.

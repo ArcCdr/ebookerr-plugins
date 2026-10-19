@@ -14,8 +14,9 @@ plugin six things:
   FanFicFare's WARNING and ERROR records reach the log, re-logged through this plugin's logger;
 * :func:`captured_stdout` — the plugin process's stdout carries the core's wire protocol, so what
   FanFicFare prints is captured and logged at DEBUG instead;
-* :func:`failure_message` and :func:`is_outage` — one plain sentence per FanFicFare failure, and
-  whether it means the site was unreachable;
+* :func:`failure_message`, :func:`masked_text` and :func:`is_outage` — one plain sentence per
+  FanFicFare failure, FanFicFare's own text with the username masked, and whether it means the
+  site was unreachable;
 * :func:`settings_options`, :func:`strip_naming_keys`, :func:`apply_sign_in` and
   :func:`packaged_base_ini` — the plugin's settings, its advanced options without the file-naming
   keys, a stored sign-in and its packaged base options, as FanFicFare options;
@@ -33,6 +34,7 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
+from urllib.parse import urlsplit
 
 import fanficfare
 import requests
@@ -424,15 +426,26 @@ def captured_stdout() -> Iterator[None]:
             )
 
 
+def _site(url: str) -> str:
+    """Name *url*'s site by its host without a leading ``www.``: ``example.org``."""
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    return host or "the site"
+
+
 def failure_message(exc: BaseException, url: str) -> str:  # noqa: C901
     """Return one plain, user-facing sentence for a FanFicFare failure on *url* (``LIB-D25``).
+
+    A refused login names the site and says whether a sign-in was stored — FanFicFare names the
+    username it tried, empty when it had none (``LIB-D49``); a failed download is one fixed
+    sentence naming the site.
 
     Args:
         exc: What FanFicFare, or its HTTP client, raised.
         url: The address it was working on.
 
     Returns:
-        The sentence. An exception this table does not know names only its type, never its text.
+        The sentence. It never carries FanFicFare's own text, which may name the username: an
+        exception this table does not know names only its type.
     """
     if isinstance(exc, exceptions.UnknownSite):
         return f"unsupported site: FanFicFare does not support {url}"
@@ -441,7 +454,11 @@ def failure_message(exc: BaseException, url: str) -> str:  # noqa: C901
     if isinstance(exc, exceptions.AccessDenied):
         return "the site refused access to this story"
     if isinstance(exc, exceptions.FailedToLogin):
-        return "the site refused the login — check this site's sign-in in Settings → Credentials"
+        if exc.username:
+            return f"{_site(url)} refused the stored sign-in — check it in Settings → Credentials"
+        return (
+            f"{_site(url)} needs a sign-in and none is stored — add one in Settings → Credentials"
+        )
     if isinstance(exc, exceptions.AdultCheckRequired):
         return (
             'the site asks you to confirm you are an adult — turn on "Confirm adult content" in '
@@ -454,12 +471,29 @@ def failure_message(exc: BaseException, url: str) -> str:  # noqa: C901
     if isinstance(exc, exceptions.HTTPErrorFFF):
         return f"the site answered HTTP {exc.status_code}"
     if isinstance(exc, exceptions.FailedToDownload):
-        return f"download failed: {exc}"
+        return f"the download from {_site(url)} failed"
     if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
         return "the site could not be reached"
     if isinstance(exc, ConfigurationError):
         return str(exc)
     return f"FanFicFare failed ({type(exc).__name__})"
+
+
+def masked_text(exc: BaseException) -> str:
+    """Return FanFicFare's own text for *exc*, the username it names replaced by ``***``.
+
+    ``FailedToLogin`` names the username it tried; this is the only form of its text that may
+    reach a log line (``LIB-D49``).
+
+    Args:
+        exc: What FanFicFare, or its HTTP client, raised.
+
+    Returns:
+        The exception's text.
+    """
+    text = str(exc)
+    username = getattr(exc, "username", None)
+    return text.replace(username, "***") if isinstance(username, str) and username else text
 
 
 def is_outage(exc: BaseException) -> bool:

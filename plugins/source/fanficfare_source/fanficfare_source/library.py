@@ -33,6 +33,7 @@ from fanficfare_source.fff_support import (
     config_sections,
     failure_message,
     is_outage,
+    masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
     settings_options,
@@ -282,7 +283,13 @@ class FanFicFareLibraryGateway:
                 result = self._write(url, work_dir, staged_filename, on_chapter)
         except Exception as exc:  # noqa: BLE001 — every failure is a result (LIB-D25)
             message = failure_message(exc, url)
-            logger.debug("FanFicFare failed for %s: %s (%s)", url, message, type(exc).__name__)
+            logger.warning(
+                "FanFicFare failed for %s: %s (%s: %s)",
+                url,
+                message,
+                type(exc).__name__,
+                masked_text(exc),
+            )
             if is_outage(exc):
                 self._record(url, ok=False)
             return DownloadResult("failed", error=message)
