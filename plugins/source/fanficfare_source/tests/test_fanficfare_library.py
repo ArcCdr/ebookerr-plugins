@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from ebookerr_sdk.epub import EpubDocument
 from ebookerr_sdk.spi import SiteCredential
 from fanficfare.adapters import adapter_test1
 from fanficfare.epubutils import get_update_data
@@ -88,26 +89,31 @@ def fetched(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return calls
 
 
-def _rename_chapter_files(epub: Path) -> None:
-    """Rename every OEBPS/fileNNNN.xhtml to OEBPS/chapter_NN_x.xhtml, as a merge does (LIB-D28)."""
+def _rename_chapter_files(epub: Path, *, keep_marks: bool = True) -> None:
+    """Rename every OEBPS/fileNNNN.xhtml to OEBPS/chapter_NN_sample.xhtml, as a merge does.
+
+    The rename goes through the SDK, so the manifest and NCX follow. ``keep_marks=False`` then
+    strips every ``chapterurl`` meta, leaving a file from elsewhere (LIB-D28, LIB-D30).
+    """
+    doc = EpubDocument.open(epub)
+    for item in list(doc.opf.manifest()):
+        if match := re.fullmatch(r"(.*/)?file(\d{4})\.xhtml", item.href):
+            folder = match.group(1) or ""
+            doc.rename_item(item.id, f"{folder}chapter_{int(match.group(2)):02d}_sample.xhtml")
+    doc.save()
+    if keep_marks:
+        return
     with zipfile.ZipFile(epub) as zin:
         items = [(info.filename, zin.read(info.filename)) for info in zin.infolist()]
-    renames = {
-        name: f"OEBPS/chapter_{int(match.group(1)):02d}_x.xhtml"
-        for name, _ in items
-        if (match := re.fullmatch(r"OEBPS/file(\d{4})\.xhtml", name))
-    }
     tmp = epub.with_suffix(".tmp")
     with zipfile.ZipFile(tmp, "w") as zout:
         for name, data in items:
-            if name.endswith((".opf", ".ncx")):
-                text = data.decode("utf-8")
-                for old, new in renames.items():
-                    text = text.replace(old, new)
-                data = text.encode("utf-8")
-            new_name = renames.get(name, name)
-            compress = zipfile.ZIP_STORED if new_name == "mimetype" else zipfile.ZIP_DEFLATED
-            zout.writestr(new_name, data, compress_type=compress)
+            if name.endswith(".xhtml"):
+                data = re.sub(r'<meta name="chapterurl"[^>]*/?>', "", data.decode("utf-8")).encode(
+                    "utf-8"
+                )
+            compress = zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
+            zout.writestr(name, data, compress_type=compress)
     tmp.replace(epub)
 
 
@@ -244,15 +250,38 @@ def test_chapters_the_site_removed_are_left_to_the_core(tmp_path: Path) -> None:
     assert b"Preserved Deleted Chapter" not in text
 
 
-def test_a_file_with_no_recognised_chapter_is_left_alone(
+def test_a_merged_book_is_renamed_then_updated(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A merged book's file (chapters renamed) is neither rebuilt nor changed (LIB-D28)."""
+    """A merged book's chapter files are renamed to FanFicFare's naming, then updated (LIB-D30)."""
+    work = tmp_path / "w"
+    work.mkdir()
+    settings = story_settings("One,Two,Three")
+    gateway = FanFicFareLibraryGateway(settings)
+    gateway.download(STORY, work_dir=work, staged_filename=None)
+    _rename_chapter_files(work / STORED)
+    assert get_update_data(str(work / STORED))[1] == 0
+    settings["extra_options"] = story_settings("One,Two,Three,Four")["extra_options"]
+    with caplog.at_level(logging.INFO, logger="fanficfare_source.library"):
+        result = gateway.download(STORY, work_dir=work, staged_filename=STORED)
+    assert result.outcome == "updated"
+    assert result.chapters_before == 3
+    assert result.chapters_after == 4
+    assert (
+        logging.INFO,
+        f"Renamed 3 chapter file(s) of {STORED} so FanFicFare can update the merged book",
+    ) in [(record.levelno, record.getMessage()) for record in caplog.records]
+
+
+def test_a_file_without_chapter_marks_is_left_alone(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A file with no FanFicFare chapter marks is neither rebuilt nor changed (LIB-D28)."""
     work = tmp_path / "w"
     work.mkdir()
     gateway = FanFicFareLibraryGateway(story_settings("One,Two,Three"))
     gateway.download(STORY, work_dir=work, staged_filename=None)
-    _rename_chapter_files(work / STORED)
+    _rename_chapter_files(work / STORED, keep_marks=False)
     assert get_update_data(str(work / STORED))[1] == 0
     before = (work / STORED).read_bytes()
     with caplog.at_level(logging.INFO, logger="fanficfare_source.library"):

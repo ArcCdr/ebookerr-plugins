@@ -56,3 +56,11 @@ def test_the_unrecognised_messages_say_nothing_was_changed() -> None:
     """Both UNRECOGNISED_MESSAGE and UNREADABLE_MESSAGE end with 'nothing was changed'."""
     assert UNRECOGNISED_MESSAGE.endswith("nothing was changed")
     assert UNREADABLE_MESSAGE.endswith("nothing was changed")
+
+
+def test_the_unrecognised_message_names_only_a_file_from_elsewhere() -> None:
+    """A merged book is re-keyed (LIB-D30), so the message no longer names a merge (LIB-D28)."""
+    assert UNRECOGNISED_MESSAGE == (
+        "FanFicFare can't update this book's file: it holds no chapter FanFicFare recognises "
+        "(a file from elsewhere); nothing was changed"
+    )
