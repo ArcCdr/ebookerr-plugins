@@ -1,4 +1,4 @@
-"""Tests for the styling levels, their rule groups and the ruleset signature (FR-NORM-15, TR-NORM-8).
+"""Tests for the styling levels, their rule groups and the ruleset signature (FR-NORM-15).
 
 Tests options_for_level(), the NormalizeOptions dataclass defaults and immutability, and the
 signature computed by options_signature().
@@ -49,7 +49,7 @@ def test_each_level_sets_its_groups(level: str) -> None:
 
 
 def test_an_unknown_level_is_refused() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="loud"):
         options_for_level("loud")
 
 
