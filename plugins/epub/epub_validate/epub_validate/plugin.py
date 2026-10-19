@@ -46,6 +46,9 @@ from ebookerr_sdk.validate import validate_epub
 
 logger = logging.getLogger(__name__)
 
+UNEXPECTED_FAILURE = "validation stopped on an unexpected error — try again"
+"""The failure a crashed book reports in a run the user started by hand (EXP-395)."""
+
 _SETTINGS_SCHEMA = SettingsSchema(
     fields=(
         SettingsField(
@@ -304,7 +307,9 @@ class EpubValidatePlugin:
         Emits one summary at the end (VAL-D10): HEADED mode alerts once, HEADLESS mode
         toasts when any book errored or when the worst verdict is not valid (EXP-203).
         On exception, the item is skipped and counted as failed; validation never aborts
-        the batch (VAL-FR-7).
+        the batch (VAL-FR-7). In a run the user started by hand (HEADED) the crashed book is
+        also reported to the run as a retryable failure; a pull, an import or an event run
+        only logs it, so validation never fails the book's pass there (EXP-395).
 
         Args:
             items: Staged EPUB items to validate.
@@ -332,6 +337,8 @@ class EpubValidatePlugin:
                     item.book.book_id,
                 )
                 patch, status, fb_reason = None, "errors", None
+                if ctx.mode is InvocationMode.HEADED:
+                    ctx.report_failure(item.book.book_id, UNEXPECTED_FAILURE, retryable=True)
 
             statuses.append(status)
             if status == "errors":
