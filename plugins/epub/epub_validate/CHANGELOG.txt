@@ -1,3 +1,6 @@
+== 1.4.1 ==
+When you validate books by hand and the check of one of them stops on an unexpected error, that book is now counted as failed, so you can run it again; a pull or an automatic check is never stopped by it.
+
 == 1.4.0 ==
 Its Validate button now shows the plugin's own icon. Needs ebookerr 2.24.1 or later.
 
