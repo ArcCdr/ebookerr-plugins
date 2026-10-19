@@ -20,11 +20,11 @@ rewrite but is not after has had a genuine regression — it must be reverted. A
 already failed to parse (e.g., because of `&nbsp;` or mismatched tags) is rewritten without
 re-parsing, because the regression guard only fires on a *change in status*.
 
-**Inline style declarations and empty selector** — A `style=""` attribute is normalized with an
-empty selector (`selector=""`), so an inline `font-size` on `<body>` is *converted* to relative
-units rather than removed. The element name is not knowable from an attribute match alone, and
-converting is the conservative outcome (preserves the intent when possible rather than dropping
-the declaration).
+**Inline style declarations and the empty context** — A `style=""` attribute is normalized with an
+empty `RuleContext` and an empty `BookContext`, so an inline `font-size` on `<body>` is *converted*
+to relative units rather than removed. The element name is not knowable from an attribute match
+alone, and converting is the conservative outcome (preserves the intent when possible rather than
+dropping the declaration).
 """
 
 from __future__ import annotations
@@ -43,7 +43,9 @@ from .declarations import (
     normalize_declarations,
 )
 from .options import NormalizeOptions
+from .selectors import RuleContext
 from .stylesheet import normalize_stylesheet
+from .survey import BookContext
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +261,7 @@ def _rewrite_style_attributes(
     """Rewrite style="" attributes through the declaration normalizer.
 
     Per match, the attribute value is parsed as a declaration list, normalized with
-    an empty selector (since the element name is not knowable), and rebuilt. If it
+    an empty context (since the element name is not knowable), and rebuilt. If it
     empties, the attribute is removed (including the whitespace before it).
 
     Args:
@@ -280,8 +282,10 @@ def _rewrite_style_attributes(
         # Parse the attribute value as declarations.
         parsed = tinycss2.parse_blocks_contents(value, skip_comments=False, skip_whitespace=False)
 
-        # Normalize with an empty selector (element name unknown).
-        normalized = normalize_declarations(parsed, options=options, selector="", counts=counts)
+        # Normalize with an empty context (element name unknown).
+        normalized = normalize_declarations(
+            parsed, options=options, context=RuleContext(), book=BookContext(), counts=counts
+        )
 
         # Keep only declaration nodes.
         kept = [d for d in normalized if d.type == "declaration"]

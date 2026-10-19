@@ -239,8 +239,11 @@ class TestBehaviour:
         epub = build_epub([("Chapter One", "Test content")])
         item = _make_item(epub)
 
+        plugin = EpubNormalizePlugin()
+        plugin.process((item,), FakeContext())
+        caplog.clear()
+
         with caplog.at_level(logging.INFO):
-            plugin = EpubNormalizePlugin()
             plugin.process((item,), FakeContext())
 
         records = [r for r in caplog.records if r.levelno == logging.INFO]

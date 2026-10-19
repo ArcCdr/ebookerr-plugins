@@ -60,7 +60,8 @@ class TestXhtmlNormalization:
         assert "Georgia" not in chapter
         assert "margin" in chapter
         assert report.counts.xhtml_files_changed == 1
-        assert report.counts.declarations_removed == 1
+        # The chapter's font-family, plus the linked stylesheet's root margin.
+        assert report.counts.declarations_removed == 2
 
     def test_inline_style_attribute_is_normalized(self, build_epub):
         """A style="" attribute normalized (colors removed, properties kept)."""

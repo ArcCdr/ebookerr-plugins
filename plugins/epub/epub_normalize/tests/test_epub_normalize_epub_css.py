@@ -33,7 +33,7 @@ class TestCssNormalization:
         path = build_epub([("Chapter 1", "https://example.test/1")])
         _set_css(
             path,
-            "body { font-family: Georgia; color: #222; margin: 2% }",
+            "p { font-family: Georgia; color: #222; margin: 2% }",
         )
 
         report = normalize_epub(path, options=NormalizeOptions())
@@ -103,7 +103,7 @@ class TestCssNormalization:
         """Changing options invalidates the marker and re-stamps with new signature."""
         path = build_epub([("Chapter 1", "https://example.test/1")])
         # Use CSS with margins to test that normalize_margins changes the output
-        _set_css(path, "body { margin: 10px; padding: 5px }")
+        _set_css(path, "p { margin: 10px; padding: 5px }")
 
         options1 = dataclasses.replace(NormalizeOptions(), normalize_margins=False)
         normalize_epub(path, options=options1)
@@ -122,7 +122,7 @@ class TestCssNormalization:
     def test_clean_stylesheet_is_not_written(self, build_epub):
         """A clean stylesheet (no changes) is not written."""
         path = build_epub([("Chapter 1", "https://example.test/1")])
-        _set_css(path, "body { margin: 2% }")
+        _set_css(path, "p { margin: 2% }")
 
         report = normalize_epub(path, options=NormalizeOptions())
 
@@ -136,7 +136,7 @@ class TestCssNormalization:
     def test_unchanged_book_is_not_saved(self, build_epub):
         """A book with no changes is not saved to disk."""
         path = build_epub([("Chapter 1", "https://example.test/1")])
-        _set_css(path, "body { margin: 2% }")
+        _set_css(path, "p { margin: 2% }")
 
         bytes_before = path.read_bytes()
         normalize_epub(path, options=NormalizeOptions())

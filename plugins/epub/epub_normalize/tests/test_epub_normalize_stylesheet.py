@@ -128,19 +128,19 @@ class TestFidelityRule:
 
 
 class TestPreservedSelectors:
-    """Tests for drop-cap and image selectors that are fully preserved."""
+    """Tests for drop-cap selectors, which keep everything but their colours."""
 
-    def test_drop_cap_rule_is_untouched(self) -> None:
-        """p::first-letter rules are entirely exempt from normalization."""
+    def test_drop_cap_rule_keeps_everything_but_colours(self) -> None:
+        """p::first-letter keeps family, size and float; its colour goes (FR-NORM-10)."""
         css = "p::first-letter { font-family: Georgia; font-size: 300%; color: navy; float: left }"
         result, counts = _run(css)
         assert "Georgia" in result
-        assert "navy" in result
+        assert "300%" in result
+        assert "navy" not in result
         assert "float" in result
-        assert counts.declarations_removed == 0
+        assert counts.declarations_removed == 1
         assert counts.declarations_converted == 0
         assert counts.rules_removed == 0
-        assert result == css
 
 
 class TestFontSizeHandling:

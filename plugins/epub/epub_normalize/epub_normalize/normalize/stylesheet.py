@@ -47,6 +47,8 @@ from .declarations import (
     normalize_declarations,
 )
 from .options import NormalizeOptions
+from .selectors import RuleContext, context_of, parse_selector_list
+from .survey import BookContext
 
 
 def normalize_stylesheet(
@@ -54,6 +56,7 @@ def normalize_stylesheet(
     *,
     options: NormalizeOptions,
     counts: NormalizeCounts,
+    book: BookContext | None = None,
 ) -> str:
     """Rewrite a CSS stylesheet, normalizing at-rules and declarations.
 
@@ -67,17 +70,19 @@ def normalize_stylesheet(
         css: The CSS stylesheet text.
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes across multiple files.
+        book: What the survey learned about the book; an empty ``BookContext`` when omitted.
 
     Returns:
         The rewritten CSS text, or the input verbatim if nothing changed.
     """
+    book = BookContext() if book is None else book
     before = (
         counts.declarations_removed,
         counts.declarations_converted,
         counts.rules_removed,
     )
     nodes = tinycss2.parse_stylesheet(css, skip_comments=False, skip_whitespace=False)
-    out = _rewrite_rules(nodes, options=options, counts=counts)
+    out = _rewrite_rules(nodes, options=options, counts=counts, book=book)
     after = (
         counts.declarations_removed,
         counts.declarations_converted,
@@ -93,6 +98,7 @@ def _rewrite_rules(
     *,
     options: NormalizeOptions,
     counts: NormalizeCounts,
+    book: BookContext,
 ) -> list[Any]:
     """Walk a rule list and return survivors after rewriting and orphan cleanup.
 
@@ -106,6 +112,7 @@ def _rewrite_rules(
         nodes: A tinycss2 node list from parse_stylesheet() or parse_rule_list().
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes.
+        book: What the survey learned about the book.
 
     Returns:
         The filtered and transformed node list.
@@ -113,16 +120,17 @@ def _rewrite_rules(
     out: list[Any] = []
     for node in nodes:
         if node.type == "at-rule":
-            result = _rewrite_at_rule(node, options=options, counts=counts)
+            result = _rewrite_at_rule(node, options=options, counts=counts, book=book)
             if result is not None:
                 out.append(result)
         elif node.type == "qualified-rule":
-            selector = css_text(node.prelude).strip()
+            selectors = parse_selector_list(node.prelude)
+            context = context_of(selectors[0], book) if selectors else RuleContext()
             decls = tinycss2.parse_blocks_contents(
                 node.content, skip_comments=False, skip_whitespace=False
             )
             survivors = normalize_declarations(
-                decls, options=options, selector=selector, counts=counts
+                decls, options=options, context=context, book=book, counts=counts
             )
             if any(n.type == "declaration" for n in survivors):
                 node.content = survivors
@@ -139,6 +147,7 @@ def _rewrite_at_rule(
     *,
     options: NormalizeOptions,
     counts: NormalizeCounts,
+    book: BookContext,
 ) -> Any | None:
     """Rewrite or drop an at-rule, returning None if it should be removed.
 
@@ -149,6 +158,7 @@ def _rewrite_at_rule(
         node: A tinycss2 AtRule node.
         options: Normalization options controlling which properties to strip/convert.
         counts: Accumulator for tracking changes.
+        book: What the survey learned about the book.
 
     Returns:
         The at-rule node (possibly mutated in place), or None if it should be dropped.
@@ -161,7 +171,7 @@ def _rewrite_at_rule(
 
     if lower_at_keyword in {"media", "supports"} and node.content is not None:
         inner = tinycss2.parse_rule_list(node.content, skip_comments=False, skip_whitespace=False)
-        new_inner = _rewrite_rules(inner, options=options, counts=counts)
+        new_inner = _rewrite_rules(inner, options=options, counts=counts, book=book)
         if any(n.type in {"qualified-rule", "at-rule"} for n in new_inner):
             node.content = new_inner
             return node
