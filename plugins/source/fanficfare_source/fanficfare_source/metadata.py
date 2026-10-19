@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from ebookerr_sdk.domain.dates import parse_datetime
@@ -31,7 +31,6 @@ _TEXT_FIELDS: dict[str, str] = {
     "seriesUrl": "series_url",
     "description": "description",
     "category": "category",
-    "eroticatags": "tags",
     "status": "status",
     "site": "site",
     "cover_image": "cover_image",
@@ -55,11 +54,16 @@ _SANITISE_COLUMNS: frozenset[str] = frozenset(
         "series",
         "description",
         "category",
-        "tags",
         "status",
         "site",
     }
 )
+
+DEFAULT_TAG_KEYS: tuple[str, ...] = ("genre", "characters", "ships", "freeformtags", "eroticatags")
+"""What *Tags to keep* names as shipped: the story-tag details of every site (``LIB-D48``)."""
+
+_NOT_TAG_KEYS: frozenset[str] = frozenset({"category", "status", "lastupdate"})
+"""Details *Tags to keep* may name that never become tags: the category is a field of its own."""
 
 # FanFicFare JSON key -> Book integer field (string-typed source, may be empty).
 _INT_FIELDS: dict[str, str] = {
@@ -129,7 +133,43 @@ def sanitize(value: str | None) -> str | None:
     return html.unescape(_TAG_RE.sub("", value)).strip()
 
 
-def fanficfare_json_to_book_fields(data: Mapping[str, Any]) -> dict[str, Any]:
+def tag_keys(setting: Any) -> tuple[str, ...]:
+    """Return the FanFicFare details *Tags to keep* names, in order (``LIB-D48``).
+
+    Args:
+        setting: The ``include_subject_tags`` setting — detail names separated by commas — or
+            ``None`` when the call carries no such setting.
+
+    Returns:
+        The names, trimmed, without empty ones and without ``category``, ``status`` and
+        ``lastupdate``, which are never tags; :data:`DEFAULT_TAG_KEYS` when *setting* is ``None``.
+    """
+    if setting is None:
+        return DEFAULT_TAG_KEYS
+    names = (name.strip() for name in str(setting).split(","))
+    return tuple(name for name in names if name and name not in _NOT_TAG_KEYS)
+
+
+def _tags(data: Mapping[str, Any], kept: Sequence[str]) -> str | None:
+    """Join the tags of the *kept* details, each tag once, as the ``", "`` text the core stores.
+
+    FanFicFare gives a list detail as one comma-joined string. Each part is sanitised
+    (:func:`sanitize`); a tag already taken, in any letter case, is skipped.
+    """
+    seen: set[str] = set()
+    tags: list[str] = []
+    for key in kept:
+        for part in str(data.get(key) or "").split(","):
+            tag = sanitize(part)
+            if tag and tag.casefold() not in seen:
+                seen.add(tag.casefold())
+                tags.append(tag)
+    return ", ".join(tags) or None
+
+
+def fanficfare_json_to_book_fields(
+    data: Mapping[str, Any], *, kept: Sequence[str] = DEFAULT_TAG_KEYS
+) -> dict[str, Any]:
     """Map a FanFicFare metadata payload to Book constructor kwargs (no ``book_id``).
 
     Human-readable text columns are sanitised (HTML-stripped, entity-decoded) at
@@ -140,13 +180,22 @@ def fanficfare_json_to_book_fields(data: Mapping[str, Any]) -> dict[str, Any]:
     ``datePublished``/``dateUpdated`` are parsed into timezone-aware UTC datetimes here
     — the parse frontier for FanFicFare payloads.
     A ``"Name [N]"`` series is split into ``series`` and ``series_index``
-    (:func:`split_series`, ``LIB-D6``).
+    (:func:`split_series`, ``LIB-D6``). ``tags`` joins the details *Tags to keep* names
+    (:func:`_tags`, ``LIB-D48``).
+
+    Args:
+        data: FanFicFare's ``getAllMetadata()`` mapping.
+        kept: The details whose values become the book's tags (:func:`tag_keys`).
+
+    Returns:
+        The book's fields.
     """
     fields: dict[str, Any] = {col: _str_or_none(data.get(key)) for key, col in _TEXT_FIELDS.items()}
     fields.update({col: _int_or_none(data.get(key)) for key, col in _INT_FIELDS.items()})
     fields.update({col: parse_datetime(data.get(key)) for key, col in _DATE_FIELDS.items()})
     for col in _SANITISE_COLUMNS:
         fields[col] = sanitize(fields[col])
+    fields["tags"] = _tags(data, kept)
     fields["series"], fields["series_index"] = split_series(fields["series"])
     # Map language if present and non-empty
     language = _str_or_none(data.get("language"))

@@ -55,7 +55,8 @@ help = "When a story has images, the first one becomes the book's cover."
 key = "include_subject_tags"
 type = "string"
 label = "Tags to keep"
-default = "extratags, genre, category, characters, ships, lastupdate, status"
+default = "genre, characters, ships, freeformtags, eroticatags"
+previous_defaults = ["extratags, genre, category, characters, ships, lastupdate, status"]
 help = "The story details written as the book's tags, separated by commas."
 
 [[settings_schema.fields]]

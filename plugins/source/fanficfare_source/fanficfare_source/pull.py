@@ -44,6 +44,7 @@ from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
+    tag_keys,
 )
 from fanficfare_source.protocol import DownloadResult, FanFicFareGateway
 
@@ -346,8 +347,9 @@ class FanFicFarePull:
         ctx.report(97.0)
 
         now = datetime.now(UTC).replace(tzinfo=None).isoformat(sep=" ")
+        kept = tag_keys(ctx.settings.get("include_subject_tags"))
         fields: dict[str, Any] = {
-            **fanficfare_json_to_book_fields(json_data),
+            **fanficfare_json_to_book_fields(json_data, kept=kept),
             "book_update_time": now,
             "output_filename": filename,
             "format": "epub",
