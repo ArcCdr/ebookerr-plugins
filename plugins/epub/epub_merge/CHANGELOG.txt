@@ -1,3 +1,6 @@
+== 2.6.1 ==
+A merge that is refused is now counted as skipped for every selected book, with the reason, and a merge that fails as failed for each of them, instead of done.
+
 == 2.6.0 ==
 Updated for ebookerr's plugin interface 3.1; it works as before. Needs ebookerr 2.24.1 or later.
 
