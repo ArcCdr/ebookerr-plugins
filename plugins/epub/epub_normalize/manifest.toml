@@ -3,7 +3,7 @@ name = "EPUB Normalize"
 version = "1.3.1"
 type = "epub"
 spi_version = "3.1"
-description = "Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins."
+description = "Strip publisher styling that stops your reader applying its own fonts, colours, sizes, spacing and margins."
 priority = 70
 events = ["EpubCreated", "EpubModified"]
 run_timeout_s = 600
@@ -16,55 +16,20 @@ issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 entrypoint = "entrypoint.py"
 
 [settings_schema]
+summary = "Styling removed: {level}"
 
 [[settings_schema.fields]]
-key = "strip_fonts"
-type = "bool"
-label = "Strip embedded fonts"
-default = true
-help = "Remove font-family declarations and @font-face rules, and delete the embedded font files nothing points at any more, so your reader's own font choice applies."
-
-[[settings_schema.fields]]
-key = "strip_colors"
-type = "bool"
-label = "Strip hardcoded colours"
-default = true
-help = "Remove text and background colours the publisher fixed, so a dark or sepia reading theme works."
-
-[[settings_schema.fields]]
-key = "convert_font_sizes"
-type = "bool"
-label = "Convert absolute font sizes"
-default = true
-help = "Rewrite font sizes given in px/pt/cm as relative em values, and drop the size fixed on the whole document, so your reader's font-size control works."
-
-[[settings_schema.fields]]
-key = "strip_line_spacing"
-type = "bool"
-label = "Strip fixed line and letter spacing"
-default = true
-help = "Remove line-height, letter-spacing and word-spacing, which override your reader's own spacing controls."
-
-[[settings_schema.fields]]
-key = "strip_fixed_dimensions"
-type = "bool"
-label = "Strip fixed widths and heights"
-default = true
-help = "Remove absolute widths and heights on text containers, which cause sideways scrolling on a phone. Images and covers are never touched."
-
-[[settings_schema.fields]]
-key = "preserve_alignment"
-type = "bool"
-label = "Preserve text alignment"
-default = true
-help = "Keep text-align and text-indent, which carry real meaning in poetry, signatures and headings. Turn this off to strip them too."
-
-[[settings_schema.fields]]
-key = "normalize_margins"
-type = "bool"
-label = "Convert fixed margins and padding"
-default = false
-help = "Also rewrite absolute margins and padding as relative em values. Off by default: it is the change most likely to alter a book's intended layout."
+key = "level"
+type = "string"
+label = "Styling to remove"
+default = "standard"
+options = ["light", "standard", "strict"]
+options_strict = true
+option_labels = ["Colours and fonts only", "Everything your reader can set", "Everything but headings and emphasis"]
+help = """Colours and fonts only: removes the book's own text and background colours and its fonts, and deletes the embedded font files nothing uses any more, so a dark theme and your chosen font work. Sizes, spacing and layout stay as published.
+Everything your reader can set: also hands text size, line and letter spacing, justification, hyphenation and page margins to your reader. Body text takes your reader's size and headings stay proportionally larger; fixed widths, heights, margins and indents become sizes that reflow to fit your screen.
+Everything but headings and emphasis: also removes every other text size and the styling of drop caps, keeping only headings, bold, italic and the paragraphs themselves.
+At every level, paragraphs, line breaks and blank lines stay, images, covers, SVG and maths are left alone, and fixed-layout or DRM-protected books are never changed. Choosing a lower level later does not bring back what was removed."""
 
 [[ui_triggers]]
 scope = "book_selection_action"

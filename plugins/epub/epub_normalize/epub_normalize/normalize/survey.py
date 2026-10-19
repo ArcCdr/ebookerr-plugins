@@ -156,8 +156,7 @@ def survey_book(doc: EpubDocument, options: NormalizeOptions, *, name: str = "")
     base = _base(_pools(rules, styled, census, book), block_count)
     families: set[str] = set()
     if options.strip_fonts:
-        plain = bool(getattr(options, "plain_drop_caps", False))
-        families = _css_families(rules, book, plain) | _svg_families(
+        families = _css_families(rules, book, options.plain_drop_caps) | _svg_families(
             [m.group(0) for chapter in chapters for m in _SVG_RE.finditer(chapter)] + svg_members
         )
     logger.debug(

@@ -117,8 +117,8 @@ def _should_drop(
     ):
         return True
 
-    # Alignment properties (inverse: preserved by default)
-    if not options.preserve_alignment and name in ALIGNMENT_PROPERTIES:
+    # Alignment properties
+    if options.strip_text_alignment and name in ALIGNMENT_PROPERTIES:
         return True
 
     # Font size on root selectors is stripped (not converted)

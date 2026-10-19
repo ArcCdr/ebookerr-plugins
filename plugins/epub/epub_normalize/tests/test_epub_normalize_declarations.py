@@ -140,18 +140,18 @@ class TestDimensionStripping:
 
 
 class TestAlignmentPreservation:
-    """text-align and text-indent: preserved by default, stripped when disabled."""
+    """text-align and text-indent: stripped when strip_text_alignment is on."""
 
     def test_alignment_is_preserved_by_default(self) -> None:
-        """Alignment properties are kept by default."""
-        text, counts = _run("text-align: center; text-indent: 2em")
+        """Alignment properties are kept when strip_text_alignment is off."""
+        text, counts = _run("text-align: center; text-indent: 2em", strip_text_alignment=False)
         assert "text-align" in text
         assert "text-indent" in text
         assert counts.declarations_removed == 0
 
     def test_alignment_is_stripped_when_disabled(self) -> None:
-        """When preserve_alignment=False, both alignment properties are removed."""
-        text, counts = _run("text-align: center; text-indent: 2em", preserve_alignment=False)
+        """When strip_text_alignment=True, both alignment properties are removed."""
+        text, counts = _run("text-align: center; text-indent: 2em", strip_text_alignment=True)
         assert "text-align" not in text
         assert "text-indent" not in text
         assert counts.declarations_removed == 2
@@ -206,11 +206,11 @@ class TestFontSizeConversion:
 
 
 class TestMarginConversion:
-    """margin/padding: converted to em only when normalize_margins=True."""
+    """margin/padding: converted to em only when normalize_margins is on."""
 
     def test_margins_are_not_converted_by_default(self) -> None:
-        """By default, margins are not converted."""
-        text, counts = _run("margin: 20px")
+        """With normalize_margins off, margins are not converted."""
+        text, counts = _run("margin: 20px", normalize_margins=False)
         assert "20px" in text
         assert counts.declarations_converted == 0
 

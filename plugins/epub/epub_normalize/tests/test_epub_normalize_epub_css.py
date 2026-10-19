@@ -105,7 +105,7 @@ class TestCssNormalization:
         # Use CSS with margins to test that normalize_margins changes the output
         _set_css(path, "body { margin: 10px; padding: 5px }")
 
-        options1 = NormalizeOptions()
+        options1 = dataclasses.replace(NormalizeOptions(), normalize_margins=False)
         normalize_epub(path, options=options1)
 
         options2 = dataclasses.replace(options1, normalize_margins=True)

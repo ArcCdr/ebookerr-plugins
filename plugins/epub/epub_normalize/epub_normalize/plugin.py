@@ -102,87 +102,20 @@ from ebookerr_sdk.spi import (
     BookPatch,
     EpubItem,
     PluginContext,
-    SettingsField,
     SettingsSchema,
 )
 from ebookerr_sdk.spi.manifest import package_manifest
 
-from epub_normalize.normalize import NormalizeOptions, normalize_epub
+from epub_normalize.normalize import (
+    DEFAULT_LEVEL,
+    LEVELS,
+    NormalizeOptions,
+    normalize_epub,
+    options_for_level,
+)
 from epub_normalize.normalize.normalize import FIXED_LAYOUT_REASON
 
 logger = logging.getLogger(__name__)
-
-_SETTING_KEYS: tuple[str, ...] = (
-    "strip_fonts",
-    "strip_colors",
-    "convert_font_sizes",
-    "strip_line_spacing",
-    "strip_fixed_dimensions",
-    "preserve_alignment",
-    "normalize_margins",
-)
-
-_SETTINGS_SCHEMA = SettingsSchema(
-    fields=(
-        SettingsField(
-            key="strip_fonts",
-            type="bool",
-            label="Strip embedded fonts",
-            default=True,
-            help="Remove font-family declarations and @font-face rules, and delete the "
-            "embedded font files nothing points at any more, so your reader's own font "
-            "choice applies.",
-        ),
-        SettingsField(
-            key="strip_colors",
-            type="bool",
-            label="Strip hardcoded colours",
-            default=True,
-            help="Remove text and background colours the publisher fixed, so a dark or "
-            "sepia reading theme works.",
-        ),
-        SettingsField(
-            key="convert_font_sizes",
-            type="bool",
-            label="Convert absolute font sizes",
-            default=True,
-            help="Rewrite font sizes given in px/pt/cm as relative em values, and drop the "
-            "size fixed on the whole document, so your reader's font-size control works.",
-        ),
-        SettingsField(
-            key="strip_line_spacing",
-            type="bool",
-            label="Strip fixed line and letter spacing",
-            default=True,
-            help="Remove line-height, letter-spacing and word-spacing, which override your "
-            "reader's own spacing controls.",
-        ),
-        SettingsField(
-            key="strip_fixed_dimensions",
-            type="bool",
-            label="Strip fixed widths and heights",
-            default=True,
-            help="Remove absolute widths and heights on text containers, which cause "
-            "sideways scrolling on a phone. Images and covers are never touched.",
-        ),
-        SettingsField(
-            key="preserve_alignment",
-            type="bool",
-            label="Preserve text alignment",
-            default=True,
-            help="Keep text-align and text-indent, which carry real meaning in poetry, "
-            "signatures and headings. Turn this off to strip them too.",
-        ),
-        SettingsField(
-            key="normalize_margins",
-            type="bool",
-            label="Convert fixed margins and padding",
-            default=False,
-            help="Also rewrite absolute margins and padding as relative em values. Off by "
-            "default: it is the change most likely to alter a book's intended layout.",
-        ),
-    )
-)
 
 
 FIXED_LAYOUT_SKIP = "fixed-layout book"
@@ -254,18 +187,26 @@ class EpubNormalizePlugin:
         return self.manifest.settings_schema
 
     def _options(self, settings: Mapping[str, Any]) -> NormalizeOptions:
-        """Build NormalizeOptions from resolved settings.
+        """Build the rule groups of the stored styling level.
 
         Args:
             settings: The resolved settings from the context.
 
         Returns:
-            A NormalizeOptions object with settings applied.
+            The NormalizeOptions of the stored level; an unknown level is read as the default
+            level, with one WARNING.
         """
-        defaults = NormalizeOptions()
-        return NormalizeOptions(
-            **{key: bool(settings.get(key, getattr(defaults, key))) for key in _SETTING_KEYS}
-        )
+        level = str(settings.get("level", DEFAULT_LEVEL)).strip().lower()
+        try:
+            return options_for_level(level)
+        except ValueError:
+            logger.warning(
+                "Normalize level %r is not one of %s; using %s",
+                settings.get("level"),
+                ", ".join(LEVELS),
+                DEFAULT_LEVEL,
+            )
+            return options_for_level(DEFAULT_LEVEL)
 
     def process(self, items: tuple[EpubItem, ...], ctx: PluginContext) -> list[BookPatch]:
         """Normalize all EPUBs in the batch.
