@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-16T07:07:38Z",
+  "generated_at": "2026-10-17T16:04:06Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -973,6 +973,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.10.0",
+          "published_at": "2026-10-17T16:04:06Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.10.0/kavita_sync-1.10.0.zip",
+          "sha256": "692f02aa207c44aaf509bc240a9101959a2934f8e0f1966736d07a40797483cf",
+          "size": 40075,
+          "spi_version": "3.6",
+          "min_app_version": "",
+          "changelog": "A reading position saved while Kavita filed the book under a new entry now says so and asks you to try again after the next sync, instead of saying Kavita has not read the file yet. A place you saved in a chapter is no longer read back as an earlier place, so you no longer get a false \"moved back\" warning after reading in ebookerr or KOReader. Needs ebookerr 2.24.13 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.8.0",
           "published_at": "2026-10-16T07:07:22Z",
