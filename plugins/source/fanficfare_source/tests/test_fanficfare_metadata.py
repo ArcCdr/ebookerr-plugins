@@ -185,6 +185,12 @@ class TestSanitiseAtPersistence:
         assert f["title"] == "My Story"
         assert f["author"] == "Author & Co"
 
+    def test_the_description_keeps_its_paragraphs(self) -> None:
+        f = fanficfare_json_to_book_fields(
+            {"description": "<p>One.</p><p>Two.</p>", "storyUrl": "https://example.com/s/x"}
+        )
+        assert f["description"] == "One.\nTwo."
+
     def test_category_and_eroticatags_sanitised(self) -> None:
         f = fanficfare_json_to_book_fields(
             {
