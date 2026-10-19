@@ -100,28 +100,22 @@ class TestManifest:
     def test_settings_schema_keys_and_defaults(self) -> None:
         plugin = EpubNormalizePlugin()
         schema = plugin.settings_schema()
-        assert len(schema.fields) == 7
-        fields_dict = {f.key: f for f in schema.fields}
-        assert list(fields_dict.keys()) == [
-            "strip_fonts",
-            "strip_colors",
-            "convert_font_sizes",
-            "strip_line_spacing",
-            "strip_fixed_dimensions",
-            "preserve_alignment",
-            "normalize_margins",
-        ]
-        for key in fields_dict:
-            assert fields_dict[key].type == "bool"
-            assert fields_dict[key].label
-            assert fields_dict[key].help
-        assert fields_dict["strip_fonts"].default is True
-        assert fields_dict["strip_colors"].default is True
-        assert fields_dict["convert_font_sizes"].default is True
-        assert fields_dict["strip_line_spacing"].default is True
-        assert fields_dict["strip_fixed_dimensions"].default is True
-        assert fields_dict["preserve_alignment"].default is True
-        assert fields_dict["normalize_margins"].default is False
+        assert len(schema.fields) == 1
+        field = schema.fields[0]
+        assert field.key == "level"
+        assert field.type == "string"
+        assert field.options == ("light", "standard", "strict")
+        assert field.options_strict is True
+        assert field.option_labels == (
+            "Colours and fonts only",
+            "Everything your reader can set",
+            "Everything but headings and emphasis",
+        )
+        assert field.default == "standard"
+        assert field.label == "Styling to remove"
+        assert field.help.startswith("Colours and fonts only:")
+        assert field.help.count("\n") == 3
+        assert schema.summary == "Styling removed: {level}"
 
     def test_settings_schema_is_the_same_object_as_the_manifest_declares(self) -> None:
         plugin = EpubNormalizePlugin()
@@ -161,14 +155,14 @@ class TestBehaviour:
 
     def test_settings_are_honoured(self, build_epub: Callable[..., Path]) -> None:
         epub = build_epub([("Chapter One", "Test content")])
-        _set_css(epub, "body { font-family: Georgia; }")
+        _set_css(epub, "p { line-height: 2 }")
         item = _make_item(epub)
 
         plugin = EpubNormalizePlugin()
-        plugin.process((item,), FakeContext(settings={"strip_fonts": False}))
+        plugin.process((item,), FakeContext(settings={"level": "light"}))
 
         css = _get_css(epub)
-        assert "Georgia" in css
+        assert "line-height" in css
 
     def test_absent_settings_fall_back_to_defaults(self, build_epub: Callable[..., Path]) -> None:
         epub = build_epub([("Chapter One", "Test content")])
@@ -181,27 +175,46 @@ class TestBehaviour:
         css = _get_css(epub)
         assert "red" not in css
 
-    def test_normalize_margins_defaults_off(self, build_epub: Callable[..., Path]) -> None:
+    def test_light_keeps_fixed_margins(self, build_epub: Callable[..., Path]) -> None:
         epub = build_epub([("Chapter One", "Test content")])
         _set_css(epub, "p { margin: 20px }")
         item = _make_item(epub)
 
         plugin = EpubNormalizePlugin()
-        plugin.process((item,), FakeContext(settings={}))
+        plugin.process((item,), FakeContext(settings={"level": "light"}))
 
         css = _get_css(epub)
         assert "20px" in css
 
-    def test_normalize_margins_can_be_enabled(self, build_epub: Callable[..., Path]) -> None:
+    def test_standard_converts_fixed_margins(self, build_epub: Callable[..., Path]) -> None:
         epub = build_epub([("Chapter One", "Test content")])
         _set_css(epub, "p { margin: 20px }")
         item = _make_item(epub)
 
         plugin = EpubNormalizePlugin()
-        plugin.process((item,), FakeContext(settings={"normalize_margins": True}))
+        plugin.process((item,), FakeContext())
 
         css = _get_css(epub)
         assert "1.25em" in css
+
+    def test_an_unknown_level_falls_back_to_standard_with_a_warning(
+        self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        epub = build_epub([("Chapter One", "Test content")])
+        _set_css(epub, "p { margin: 20px }")
+        item = _make_item(epub)
+
+        with caplog.at_level(logging.WARNING):
+            plugin = EpubNormalizePlugin()
+            plugin.process((item,), FakeContext(settings={"level": "loud"}))
+
+        assert "1.25em" in _get_css(epub)
+        records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(records) == 1
+        assert (
+            "Normalize level 'loud' is not one of light, standard, strict; using standard"
+            in records[0].message
+        )
 
     def test_info_line_on_a_changed_book(
         self, build_epub: Callable[..., Path], caplog: pytest.LogCaptureFixture

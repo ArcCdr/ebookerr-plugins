@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import tinycss2
 from ebookerr_sdk.epub.document import EpubDocument
-from epub_normalize.normalize import NormalizeOptions
+from epub_normalize.normalize import NormalizeOptions, options_for_level
 from epub_normalize.normalize.survey import FontSize, parse_font_size, survey_book
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -115,6 +115,15 @@ class TestKeptFamilies:
 
         assert "goudy initials" in context.kept_families
         assert "lobster" in context.kept_families
+
+    def test_strict_keeps_no_drop_cap_family(self, build_epub: Callable[..., Path]) -> None:
+        """Strict makes drop caps plain, so their family is not kept."""
+        path = build_epub([("Chapter 1", "https://example.test/1")], include_title_page=False)
+        _set_css(path, 'p::first-letter { font-family: "Goudy Initials" }')
+
+        context = survey_book(EpubDocument.open(path), options_for_level("strict"))
+
+        assert "goudy initials" not in context.kept_families
 
 
 class TestFontSizeHelpers:
