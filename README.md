@@ -14,10 +14,10 @@
 | PDF download | `pdf_download_source` | Source | 1.4.0 | Downloads a PDF and converts it to EPUB in the library. |
 | RTF download | `rtf_download_source` | Source | 1.4.0 | Downloads an RTF and converts it to EPUB in the library. |
 | Text download | `text_download_source` | Source | 1.3.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
-| Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.4.1 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
-| EPUB Merge | `epub_merge` | EPUB | 2.6.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
-| EPUB Normalize | `epub_normalize` | EPUB | 1.3.0 | Strip publisher styling that stops your reader applying its own fonts, colours, spacing and margins. |
-| EPUB Validate | `epub_validate` | EPUB | 1.4.0 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |
+| Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.4.2 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
+| EPUB Merge | `epub_merge` | EPUB | 2.6.1 | Combines several books into one, moving every chapter into the first book and deleting the others. |
+| EPUB Normalize | `epub_normalize` | EPUB | 2.0.0 | Strip publisher styling that stops your reader applying its own fonts, colours, sizes, spacing and margins. |
+| EPUB Validate | `epub_validate` | EPUB | 1.4.1 | Check every EPUB ebookerr writes for structural problems, and report what it finds without ever changing the file. |
 | File metadata sync | `file_meta_sync` | Book | 2.2.0 | Syncs sidecar files (cover candidates, synopsis) with the library |
 | Kavita Sync | `kavita_sync` | Book | 1.10.0 | Publishes your books to a Kavita server and reads your reading progress back. |
 | Komga Sync | `komga_sync` | Book | 1.9.0 | Publishes your books to a Komga server and reads your reading progress back. |
