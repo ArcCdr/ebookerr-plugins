@@ -140,3 +140,23 @@ def test_a_scan_configures_fanficfare_from_the_calls_settings_and_sign_in(
     assert configuration.getConfig("slow_down_sleep_time") == "2"
     assert configuration.getConfig("username") == "me"
     assert configuration.getConfig("password") == "pw"
+
+
+def test_the_extractor_checks_its_advanced_options_at_save() -> None:
+    """The extractor refuses a sign-in in its advanced options when they are saved (FR-CFG-4)."""
+    settings = {"is_adult": True, "extra_options": "[www.example.org]\nusername: reader\n"}
+
+    terminal, _frames = run_wire(
+        UrlStoryExtractorPlugin(), make_request("validate_settings", settings=settings)
+    )
+
+    assert terminal["ok"] is True, terminal.get("error")
+    assert terminal["result"] == [
+        {
+            "field": "extra_options",
+            "message": "line 2: sign-ins belong in Settings → Credentials, not in these options",
+            "blocking": True,
+            "href": "/settings/credentials",
+        }
+    ]
+    assert UrlStoryExtractorPlugin.manifest.settings_schema.validator is True

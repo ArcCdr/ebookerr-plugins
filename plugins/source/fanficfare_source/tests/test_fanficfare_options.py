@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import pytest
 from ebookerr_sdk.spi import SiteCredential
+from ebookerr_sdk.testing import make_request, run_wire
 from fanficfare.configurable import Configuration
 from fanficfare_source.fff_support import (
     apply_sign_in,
@@ -16,6 +18,7 @@ from fanficfare_source.fff_support import (
     strip_naming_keys,
 )
 from fanficfare_source.library import FanFicFareLibraryGateway
+from fanficfare_source.plugin import FanFicFareSourcePlugin
 
 STORY = "http://test1.com?sid=1001"
 
@@ -194,3 +197,69 @@ def test_a_basic_sign_in_reaches_fanficfare() -> None:
     config = gateway._configuration(STORY)
     assert config.getConfig("username") == "me"
     assert config.getConfig("password") == "pw"
+
+
+def _check(text: str) -> list[dict[str, Any]]:
+    """Ask the plugin's save check about *text*, over the wire as the core asks it (FR-CFG-4)."""
+    request = make_request("validate_settings", settings={"is_adult": True, "extra_options": text})
+    terminal, _frames = run_wire(FanFicFareSourcePlugin(), request)
+    assert terminal["ok"] is True, terminal.get("error")
+    return terminal["result"]
+
+
+@pytest.mark.pins("EXP-380")
+def test_advanced_options_with_a_parse_error_or_a_sign_in_are_refused_at_save() -> None:
+    """An unreadable line is refused by its number, a sign-in line with a link; neither quoted."""
+    unreadable = _check("[defaults]\nslow_down_sleep_time: 2\nthis line has no separator")
+    sign_in = _check(
+        "[www.example.com]\nusername: reader\npassword: hunter2\nslow_down_sleep_time: 2"
+    )
+
+    assert unreadable == [
+        {
+            "field": "extra_options",
+            "message": "line 3: FanFicFare cannot read this line — write an option as name: value",
+            "blocking": True,
+            "href": None,
+        }
+    ]
+    assert sign_in == [
+        {
+            "field": "extra_options",
+            "message": (
+                "lines 2 and 3: sign-ins belong in Settings → Credentials, not in these options"
+            ),
+            "blocking": True,
+            "href": "/settings/credentials",
+        }
+    ]
+
+
+def test_valid_advanced_options_pass_the_save_check() -> None:
+    """Options FanFicFare reads, comments and a file-naming key included, raise nothing."""
+    text = "# mine\n[defaults]\nslow_down_sleep_time: 2\noutput_filename: x\n[www.example.com]\n"
+    assert _check(text) == []
+    assert _check("") == []
+
+
+def test_an_option_above_every_section_is_refused_by_its_line() -> None:
+    """A line before the first section line is refused with what it lacks (EXP-380 repro a)."""
+    (problem,) = _check("slow_down_sleep_time = 2\n[www.literotica.com\nfoo")
+    assert problem["message"] == (
+        "line 1: an option needs a section line above it, such as [defaults]"
+    )
+
+
+def test_a_sign_in_key_is_refused_in_any_section_and_any_case() -> None:
+    """``Password`` under ``[defaults]`` and ``cookie`` under ``[overrides]`` are sign-ins too."""
+    (problem,) = _check("[defaults]\nPassword: x\n[overrides]\ncookie = y\nkeep: 1")
+    assert problem["message"] == (
+        "lines 2 and 4: sign-ins belong in Settings → Credentials, not in these options"
+    )
+
+
+def test_the_manifest_declares_the_save_check() -> None:
+    """The manifest declares its validator and SPI 3.7, the interface that carries it (FR-CFG-4)."""
+    manifest = FanFicFareSourcePlugin.manifest
+    assert manifest.settings_schema.validator is True
+    assert manifest.spi_version == "3.7"
