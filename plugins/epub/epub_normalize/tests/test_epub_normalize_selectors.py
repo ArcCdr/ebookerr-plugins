@@ -153,9 +153,7 @@ class TestElementSelector:
         """The tag is lower-cased, classes are split, the id is kept."""
         selector = element_selector("IMG", "cover big", "c1")
         assert selector.text == "img.cover.big#c1"
-        assert selector.compounds == (
-            Compound(tag="img", classes=("cover", "big"), ids=("c1",)),
-        )
+        assert selector.compounds == (Compound(tag="img", classes=("cover", "big"), ids=("c1",)),)
 
     def test_body_element_is_root(self) -> None:
         """A body element is a root selector."""
