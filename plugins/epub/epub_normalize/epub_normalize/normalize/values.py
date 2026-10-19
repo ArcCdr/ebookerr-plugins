@@ -11,9 +11,8 @@ These functions read and rewrite the component values of a single declaration:
 - ``has_absolute_length``, ``is_viewport_length`` and ``convert_lengths`` find
   and rewrite absolute lengths as em against a base font size.
 
-The keyword sets and the monospace and gradient name sets are CSS vocabulary.
-``rules.py`` is meant to own the family and gradient sets; they are kept here
-until that module takes them over.
+The keyword sets are CSS vocabulary; the monospace and gradient name sets are
+owned by ``rules.py``.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ from typing import Any
 import tinycss2
 from tinycss2.color4 import parse_color
 
+from .rules import GRADIENT_FUNCTIONS, MONOSPACE_FAMILIES
 from .units import VIEWPORT_UNITS, is_absolute_unit, to_em
 
 FONT_STYLE_KEYWORDS = frozenset({"italic", "oblique"})
@@ -65,49 +65,6 @@ SYSTEM_FONT_KEYWORDS = frozenset(
     }
 )
 CSS_WIDE_KEYWORDS = frozenset({"inherit", "initial", "unset", "revert", "revert-layer"})
-
-_GRADIENT_FUNCTIONS: frozenset[str] = frozenset(
-    {
-        "linear-gradient",
-        "radial-gradient",
-        "conic-gradient",
-        "repeating-linear-gradient",
-        "repeating-radial-gradient",
-        "repeating-conic-gradient",
-        "-webkit-linear-gradient",
-        "-webkit-radial-gradient",
-        "-moz-linear-gradient",
-        "-webkit-gradient",
-    }
-)
-_MONOSPACE_FAMILIES: frozenset[str] = frozenset(
-    {
-        "monospace",
-        "ui-monospace",
-        "courier",
-        "courier new",
-        "courier prime",
-        "courier std",
-        "consolas",
-        "menlo",
-        "monaco",
-        "lucida console",
-        "lucida sans typewriter",
-        "andale mono",
-        "dejavu sans mono",
-        "liberation mono",
-        "source code pro",
-        "fira code",
-        "fira mono",
-        "inconsolata",
-        "sf mono",
-        "roboto mono",
-        "ubuntu mono",
-        "noto sans mono",
-        "pt mono",
-        "cousine",
-    }
-)
 
 
 def _significant(value: list[Any]) -> list[Any]:
@@ -185,7 +142,7 @@ def is_monospace(value: list[Any]) -> bool:
     Returns:
         True if one of the family names is in the monospace set.
     """
-    return any(name in _MONOSPACE_FAMILIES for name in family_names(value))
+    return any(name in MONOSPACE_FAMILIES for name in family_names(value))
 
 
 def _read_font_prefix(tokens: list[Any]) -> tuple[str, str, str, int]:
@@ -302,7 +259,7 @@ def _is_gradient(node: Any) -> bool:
     Returns:
         True for a function token naming a gradient.
     """
-    return node.type == "function" and node.lower_name in _GRADIENT_FUNCTIONS
+    return node.type == "function" and node.lower_name in GRADIENT_FUNCTIONS
 
 
 def _is_image(node: Any) -> bool:

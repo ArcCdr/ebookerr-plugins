@@ -123,6 +123,260 @@ ROOT_SELECTOR_RE: re.Pattern[str] = re.compile(
     re.IGNORECASE,
 )
 
+COLOR_PROPERTIES_2: frozenset[str] = frozenset(
+    {
+        "color",
+        "background-color",
+        "border-color",
+        "border-top-color",
+        "border-right-color",
+        "border-bottom-color",
+        "border-left-color",
+        "border-block-color",
+        "border-block-start-color",
+        "border-block-end-color",
+        "border-inline-color",
+        "border-inline-start-color",
+        "border-inline-end-color",
+        "outline-color",
+        "text-decoration-color",
+        "text-emphasis-color",
+        "column-rule-color",
+        "caret-color",
+        "accent-color",
+        "scrollbar-color",
+        "-webkit-text-fill-color",
+        "-webkit-text-stroke-color",
+        "-webkit-text-stroke",
+        "-webkit-tap-highlight-color",
+        "text-shadow",
+        "box-shadow",
+        "-webkit-box-shadow",
+        "-moz-box-shadow",
+    }
+)
+"""Colour-bearing longhands (and shadows), removed whole."""
+
+COLOR_SHORTHAND_PROPERTIES_2: frozenset[str] = frozenset(
+    {
+        "background",
+        "border",
+        "border-top",
+        "border-right",
+        "border-bottom",
+        "border-left",
+        "border-block",
+        "border-block-start",
+        "border-block-end",
+        "border-inline",
+        "border-inline-start",
+        "border-inline-end",
+        "outline",
+        "text-decoration",
+        "text-emphasis",
+        "column-rule",
+        "-webkit-column-rule",
+    }
+)
+"""Shorthands that may carry a colour: the colour component (and any gradient) is removed and the
+rest kept; one left empty is removed."""
+
+GRADIENT_FUNCTIONS: frozenset[str] = frozenset(
+    {
+        "linear-gradient",
+        "radial-gradient",
+        "conic-gradient",
+        "repeating-linear-gradient",
+        "repeating-radial-gradient",
+        "repeating-conic-gradient",
+        "-webkit-linear-gradient",
+        "-webkit-radial-gradient",
+        "-moz-linear-gradient",
+        "-webkit-gradient",
+    }
+)
+
+BACKGROUND_IMAGE_PROPERTY = "background-image"
+
+FONT_FAMILY_PROPERTY = "font-family"
+FONT_SHORTHAND_PROPERTY = "font"
+
+MONOSPACE_FAMILIES: frozenset[str] = frozenset(
+    {
+        "monospace",
+        "ui-monospace",
+        "courier",
+        "courier new",
+        "courier prime",
+        "courier std",
+        "consolas",
+        "menlo",
+        "monaco",
+        "lucida console",
+        "lucida sans typewriter",
+        "andale mono",
+        "dejavu sans mono",
+        "liberation mono",
+        "source code pro",
+        "fira code",
+        "fira mono",
+        "inconsolata",
+        "sf mono",
+        "roboto mono",
+        "ubuntu mono",
+        "noto sans mono",
+        "pt mono",
+        "cousine",
+    }
+)
+"""Family names (lower-case) that make a family list monospace."""
+
+HYPHENATION_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "hyphens",
+        "-webkit-hyphens",
+        "-moz-hyphens",
+        "-ms-hyphens",
+        "-epub-hyphens",
+        "adobe-hyphenate",
+        "hyphenate-character",
+        "-webkit-hyphenate-character",
+        "hyphenate-limit-chars",
+        "-webkit-hyphenate-limit-before",
+        "-webkit-hyphenate-limit-after",
+        "-webkit-hyphenate-limit-lines",
+    }
+)
+"""The hyphenation group of properties."""
+
+ALIGNMENT_PROPERTIES_2: frozenset[str] = frozenset({"text-align", "text-align-last"})
+
+BODY_ALIGNMENTS: frozenset[str] = frozenset(
+    {"justify", "left", "start", "auto", "inherit", "initial", "unset"}
+)
+"""Alignment values that only set body-text alignment, the reader's own setting."""
+
+FIXED_SIZE_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "width",
+        "height",
+        "min-width",
+        "min-height",
+        "max-height",
+        "inline-size",
+        "block-size",
+        "min-inline-size",
+        "min-block-size",
+        "max-block-size",
+    }
+)
+"""Removed when absolute, outside image contexts. ``max-width`` and ``max-inline-size`` are not
+here: they are removed only on the root (ROOT_LAYOUT_PROPERTIES)."""
+
+ROOT_LAYOUT_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "margin",
+        "margin-top",
+        "margin-right",
+        "margin-bottom",
+        "margin-left",
+        "margin-block",
+        "margin-block-start",
+        "margin-block-end",
+        "margin-inline",
+        "margin-inline-start",
+        "margin-inline-end",
+        "padding",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+        "padding-block",
+        "padding-block-start",
+        "padding-block-end",
+        "padding-inline",
+        "padding-inline-start",
+        "padding-inline-end",
+        "width",
+        "min-width",
+        "max-width",
+        "inline-size",
+        "min-inline-size",
+        "max-inline-size",
+        "column-count",
+        "column-width",
+        "columns",
+        "column-gap",
+        "-webkit-column-count",
+        "-webkit-column-width",
+        "-webkit-columns",
+        "-webkit-column-gap",
+        "-epub-column-count",
+        "-epub-column-width",
+        "-epub-columns",
+        "-epub-column-gap",
+    }
+)
+"""The root layout group, removed whatever the value, on root contexts only."""
+
+PAGE_MARGIN_DESCRIPTORS: frozenset[str] = frozenset(
+    {
+        "margin",
+        "margin-top",
+        "margin-right",
+        "margin-bottom",
+        "margin-left",
+        "padding",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+    }
+)
+"""The ``@page`` descriptors of the page layout group."""
+
+BOX_PROPERTIES_2: frozenset[str] = frozenset(
+    {
+        "margin",
+        "margin-top",
+        "margin-right",
+        "margin-bottom",
+        "margin-left",
+        "margin-block",
+        "margin-block-start",
+        "margin-block-end",
+        "margin-inline",
+        "margin-inline-start",
+        "margin-inline-end",
+        "padding",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+        "padding-block",
+        "padding-block-start",
+        "padding-block-end",
+        "padding-inline",
+        "padding-inline-start",
+        "padding-inline-end",
+        "text-indent",
+    }
+)
+"""Absolute lengths here convert to ``em``, never removed."""
+
+SEMANTIC_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "font-weight",
+        "font-style",
+        "font-variant",
+        "font-variant-caps",
+        "text-decoration",
+        "text-decoration-line",
+        "text-transform",
+    }
+)
+"""What a drop cap keeps at the ``strict`` level."""
+
 FONT_MEDIA_TYPES: frozenset[str] = frozenset(
     {
         "application/font-sfnt",
