@@ -40,6 +40,12 @@ def test_image_like_elements_keep_everything() -> None:
         assert _strip(tag, attrs, "strict") == attrs, tag
 
 
+def test_image_like_elements_keep_a_bgcolor() -> None:
+    attrs = [("bgcolor", '"#fff"'), ("alt", '"a"')]
+    for tag in ("img", "object", "svg", "video", "canvas", "iframe", "embed", "input"):
+        assert _strip(tag, attrs, "light") == attrs, tag
+
+
 def test_body_attributes() -> None:
     attrs = [
         ("text", '"#000"'),
