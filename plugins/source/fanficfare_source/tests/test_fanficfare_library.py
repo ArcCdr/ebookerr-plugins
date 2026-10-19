@@ -447,6 +447,17 @@ def test_fetch_metadata_writes_no_file(tmp_path: Path, monkeypatch: pytest.Monke
     assert list(tmp_path.rglob("*.epub")) == []
 
 
+def test_fetch_metadata_records_the_chapter_urls() -> None:
+    """The site's chapter addresses ride in the metadata, in order (LIB-D54)."""
+    meta = FanFicFareLibraryGateway(story_settings("One,Two,Three")).fetch_metadata(STORY)
+    assert meta is not None
+    assert meta["zchapterurls"] == [
+        "http://test1.com?sid=1001&chapter=1",
+        "http://test1.com?sid=1001&chapter=2",
+        "http://test1.com?sid=1001&chapter=3",
+    ]
+
+
 def test_fetch_metadata_of_a_missing_story_is_none(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

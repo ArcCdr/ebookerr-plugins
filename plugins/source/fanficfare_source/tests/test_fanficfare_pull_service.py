@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
-from ebookerr_sdk.spi import BookPatch, ChapterLink, SourcePullError
+from ebookerr_sdk.spi import BookPatch, ChapterLink, ChapterView, SourcePullError
 from ebookerr_sdk.testing import FakeContext, make_book_view
 from fanficfare_source.metadata import (
     chapter_links_from_fanficfare,
@@ -590,6 +590,63 @@ def test_no_new_content_false_when_date_unparseable() -> None:
     prior = prior_view(num_chapters=3, date_updated="2026-02-02")
     meta = {"dateUpdated": "sometime", "numChapters": "3"}
     assert FanFicFarePull._no_new_content(prior, meta) is False
+
+
+SITE_URLS = [f"https://test1.com/story/chapter-{n}" for n in range(1, 6)]
+
+
+def _chapter_table(*keys: str) -> tuple[ChapterView, ...]:
+    """Build a chapter table whose rows carry *keys* as their identities."""
+    return tuple(
+        ChapterView(ordinal=i, key=key, title=f"Ch {i}", number="", role="content", href="")
+        for i, key in enumerate(keys, start=1)
+    )
+
+
+def test_no_new_content_when_every_site_url_is_a_chapter_key() -> None:
+    """Kept chapters (a book holding 6 where the site lists 5) never trigger a pull (LIB-D54)."""
+    prior = dataclasses.replace(
+        prior_view(num_chapters=6, date_updated="2026-02-02"),
+        chapter_table=_chapter_table(*SITE_URLS, "https://test1.com/story/removed-chapter"),
+    )
+    meta = {"dateUpdated": "2026-02-02", "numChapters": "5", "zchapterurls": SITE_URLS}
+    check = make_engine(FakeGateway(meta=meta)).check_for_update(URL, prior=prior, ctx=None)
+    assert check.needs_update is False
+
+
+def test_a_new_site_url_needs_an_update_whatever_the_counts() -> None:
+    """A site URL the book lacks is new content even when the book holds more chapters (LIB-D54)."""
+    new_site = [*SITE_URLS[:4], "https://test1.com/story/brand-new"]
+    kept = ("https://test1.com/story/kept-1", "https://test1.com/story/kept-2")
+    prior = dataclasses.replace(
+        prior_view(num_chapters=6, date_updated="2026-02-02"),
+        chapter_table=_chapter_table(*SITE_URLS[:4], *kept),
+    )
+    meta = {"dateUpdated": "2026-02-02", "numChapters": "5", "zchapterurls": new_site}
+    check = make_engine(FakeGateway(meta=meta)).check_for_update(URL, prior=prior, ctx=None)
+    assert check.needs_update is True
+
+
+def test_site_urls_are_compared_normalised() -> None:
+    """http/https, www. and a trailing slash do not make a chapter new (LIB-D54)."""
+    prior = dataclasses.replace(
+        prior_view(num_chapters=2, date_updated="2026-02-02"),
+        chapter_table=_chapter_table("http://www.test1.com/story/chapter-1/"),
+    )
+    meta = {
+        "dateUpdated": "2026-02-02",
+        "numChapters": "1",
+        "zchapterurls": ["https://test1.com/story/chapter-1"],
+    }
+    assert FanFicFarePull._no_new_content(prior, meta) is True
+
+
+def test_an_empty_chapter_table_uses_the_counts() -> None:
+    """A book with no chapter table falls back to the count rule (LIB-D54)."""
+    prior = prior_view(num_chapters=6, date_updated="2026-02-02")
+    meta = {"dateUpdated": "2026-02-02", "numChapters": "5", "zchapterurls": SITE_URLS}
+    check = make_engine(FakeGateway(meta=meta)).check_for_update(URL, prior=prior, ctx=None)
+    assert check.needs_update is False
 
 
 # ── progress reporting ──────────────────────────────────────────────────────
