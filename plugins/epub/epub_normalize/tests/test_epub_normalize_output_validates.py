@@ -1,37 +1,29 @@
-"""Regression net: EPUB output from normalize_epub() validates with zero errors."""
+"""Regression net: EPUB output from normalize_epub() is sound by the integrity kit."""
 
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
-from ebookerr_sdk.validate import validate_epub
+from ebookerr_sdk.epub.integrity import inspect_epub
 from epub_normalize.normalize import NormalizeOptions, normalize_epub
 
 _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample_alpha.epub"
 
 
-def _errors(path: Path) -> list[str]:
-    """Every error-severity finding, rendered as 'CODE at LOCATION: MESSAGE'."""
-    report = validate_epub(path)
-    return [
-        f"{f.code} at {f.location}: {f.message}" for f in report.findings if f.severity == "error"
-    ]
-
-
 class TestNormalize:
     """Tests for normalize_epub()."""
 
-    def test_normalize_output_has_no_errors(self, tmp_path: Path) -> None:
-        """Normalized EPUBs validate with zero errors."""
+    def test_normalize_output_has_no_findings(self, tmp_path: Path) -> None:
+        """Normalized EPUBs carry no integrity findings."""
         p = tmp_path / "n.epub"
         shutil.copy(_FIXTURE, p)
         normalize_epub(p, options=NormalizeOptions())
-        assert _errors(p) == []
+        assert inspect_epub(p).findings == ()
 
-    def test_normalize_output_is_still_valid(self, tmp_path: Path) -> None:
-        """Normalized EPUBs retain valid status."""
+    def test_normalize_output_is_still_sound(self, tmp_path: Path) -> None:
+        """Normalized EPUBs remain sound by the integrity kit."""
         p = tmp_path / "n.epub"
         shutil.copy(_FIXTURE, p)
         normalize_epub(p, options=NormalizeOptions())
-        assert validate_epub(p).status == "valid"
+        assert inspect_epub(p).findings == ()

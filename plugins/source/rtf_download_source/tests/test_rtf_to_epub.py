@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from ebookerr_sdk.epub import EpubDocument
-from ebookerr_sdk.validate.validate import validate_epub
+from ebookerr_sdk.epub.integrity import inspect_epub
 from rtf_download_source.rtf_to_epub import (
     RTF_DAMAGED,
     RTF_NO_TEXT,
@@ -75,9 +75,7 @@ def test_every_par_becomes_its_own_paragraph_and_info_names_the_book(tmp_path: P
         for n in (1, 2, 3):
             chapter = archive.read(f"OEBPS/chapter_{n:03d}.xhtml").decode("utf-8")
             assert chapter.count("<p>") == 5
-    report = validate_epub(out)
-    assert report.status == "valid"
-    assert report.findings == ()
+    assert inspect_epub(out).findings == ()
 
 
 def test_an_rtf_without_info_falls_back_as_before(tmp_path: Path) -> None:
