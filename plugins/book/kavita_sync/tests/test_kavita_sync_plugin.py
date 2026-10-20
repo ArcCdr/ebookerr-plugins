@@ -133,9 +133,9 @@ class TestManifest:
         )
 
     def test_manifest_version_and_group(self) -> None:
-        """Manifest version is 1.11.0 with correct exclusive library_server role and events."""
+        """Manifest version is 1.12.0 with correct exclusive library_server role and events."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.version == "1.11.0"
+        assert plugin.manifest.version == "1.12.0"
         assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -1892,15 +1892,17 @@ def test_a_weak_reanchor_notice_reaches_the_user() -> None:
         event_type=api.PluginEventType.BOOK_UPDATED,
     )
 
-    notify_calls: list[tuple[str, str, bool]] = []
+    notify_calls: list[tuple[str, str, bool, str | None]] = []
 
-    def fake_notify(kind: str, message: str, *, durable: bool = False) -> None:
-        notify_calls.append((kind, message, durable))
+    def fake_notify(
+        kind: str, message: str, *, durable: bool = False, book_id: str | None = None
+    ) -> None:
+        notify_calls.append((kind, message, durable, book_id))
 
     ctx.notify = fake_notify  # type: ignore[attr-defined]
 
     notice = (
-        'The reading position for "Test Book" was re-anchored by number rather than by '
+        "The reading position for {book} was re-anchored by number rather than by "
         "chapter title — check where your reader resumes."
     )
     mock_service = MagicMock()
@@ -1916,10 +1918,11 @@ def test_a_weak_reanchor_notice_reaches_the_user() -> None:
 
     # Should have called ctx.notify with warning, the notice verbatim, and durable=True
     assert len(notify_calls) == 1
-    kind, message, durable = notify_calls[0]
+    kind, message, durable, book_id = notify_calls[0]
     assert kind == "warning"
     assert message == notice
     assert durable is True
+    assert book_id == "b1"
 
 
 # ---------------------------------------------------------------------------
