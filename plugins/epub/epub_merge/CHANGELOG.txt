@@ -1,5 +1,5 @@
 == 2.7.0 ==
-A book whose only chapter has no number but carries the story's name is now taken as part 1, so it is the book kept and the merged title's range starts at 1. A merged title's range ends at the last chapter of a range such as 441-450. Needs ebookerr 2.24.18 or later.
+Changing the book to keep in the merge dialog now moves its lock at once: the kept book is ticked and marked Kept, and the book you kept before can be unticked. The dialog counts only the books to merge, and its button says how many. A book whose only chapter has no number but carries the story's name is now taken as part 1, so it is the book kept and the merged title's range starts at 1. A merged title's range ends at the last chapter of a range such as 441-450. Needs ebookerr 2.24.18 or later.
 
 == 2.6.2 ==
 A merge that fails on a book's internal structure now tells you to re-pull the book or run Normalize styling on it; EPUB Validate is gone. Needs ebookerr 2.24.17 or later.

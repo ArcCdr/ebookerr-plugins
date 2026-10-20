@@ -106,10 +106,10 @@ def _build_view(
            The picker's options are book_ids (options_strict=True).
         2. NOTE section with survivor-neutral text (``DEC-77``).
         3. ITEM_LIST section (name ``"orphans"``, heading **Books to merge**) of every
-           book, with the survivor's row locked and unselected; all others pre-selected.
-           Each checkbox is named ``"Merge <title>"`` — what its checked state does.
-           The submit label names how many non-survivors the merge destroys
-           (``EXP-049``/``EXP-101``): e.g. "Merge 3 books" or "Merge 1 book".
+           book, with the kept book's row ticked and locked by the picker (``locked_by``,
+           ``PV-D15``); all others pre-selected. Each checkbox is named ``"Merge <title>"``
+           — what its checked state does. The submit label counts the books to merge
+           (``submit_label_counted``, ``PV-D16``): e.g. "Merge 3 books" or "Merge 1 book".
     """
     # Survivor picker section
     survivor_section = ViewSection(
@@ -138,21 +138,16 @@ def _build_view(
     )
     note_section = ViewSection(name="note", kind=ViewSectionKind.NOTE, text=note_text)
 
-    # Item list: all selected books, with survivor locked. `locked` (SPI 2.4) means "a
-    # locked, SELECTED item can never be deselected" — the survivor's row is therefore
-    # `selected=True` like every other row, not False: a locked-but-unselected row fails
-    # the server's own validation (plugin_view_wire.py's "locked item may not be
-    # deselected"), which only ever accepts a locked item that stays selected. The row's
-    # checkbox still renders disabled (locked=True), so the user cannot uncheck it either
-    # way; the merge itself always excludes the survivor from `others` by id, never by
-    # reading its selected state, so this carries no behavior change downstream.
+    # The kept book's row is locked by the picker (locked_by, PV-D15): the browser ticks and
+    # disables the row the picker names and frees the one it named before; the server checks
+    # the submitted lock against the submitted picker value. The merge excludes the kept book
+    # from `others` by id.
     list_items = tuple(
         ViewItem(
             id=item.book.book_id,
             label=item.book.title or item.book.book_id,
             sublabel=item.book.author or "",
             selected=True,
-            locked=item.book.book_id == elected_survivor_id,
         )
         for item in items
     )
@@ -163,6 +158,8 @@ def _build_view(
         selectable=True,
         items=list_items,
         item_verb="Merge",
+        locked_by="survivor.survivor",
+        locked_badge="Kept",
     )
 
     # Count non-survivors for the submit label
@@ -173,6 +170,7 @@ def _build_view(
         title="Merge chapters",
         sections=(survivor_section, note_section, orphans_section),
         submit_label=f"Merge {non_survivors} {noun}",
+        submit_label_counted=("Merge {count} book", "Merge {count} books"),
         danger=True,
     )
 
