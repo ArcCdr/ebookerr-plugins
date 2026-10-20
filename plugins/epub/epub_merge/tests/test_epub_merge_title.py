@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 import pytest
 from epub_merge.merge.metadata import rewrite_book_title
@@ -112,6 +113,24 @@ class TestRewriteBookTitle:
         chapters = [_chapter("Chapter 1", 1), _chapter("Chapter 3", 3)]
         result = rewrite_book_title(survivor_title, chapters)
         assert result == "Sample Grove 1-3"
+
+    def test_an_implied_first_part_starts_the_range(self) -> None:
+        """A chapter numbered 1 by the implied-first rule starts the range."""
+        chapters = [
+            _chapter("Sample Gamma", 1),
+            _chapter("Sample Gamma 2", 2),
+            _chapter("Gamma3", 3),
+            _chapter("Gamma 4", 4),
+        ]
+        assert rewrite_book_title("Sample Gamma", chapters) == "Sample Gamma 1-4"
+
+    def test_a_range_ends_at_its_last_chapter(self) -> None:
+        """A chapter labelled 441-450 ends the title range at 450, not 441."""
+        chapters = [
+            _chapter("Ch. 430", 430),
+            replace(_chapter("Ch. 441-450", 441), end=450),
+        ]
+        assert rewrite_book_title("Sample Jade Ch. 430", chapters) == "Sample Jade 430-450"
 
     def test_logs_info_on_rewrite(self, caplog: pytest.LogCaptureFixture) -> None:
         """When title is rewritten, log at INFO level with both titles."""

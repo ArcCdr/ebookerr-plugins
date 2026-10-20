@@ -20,7 +20,7 @@ def test_the_manifest_declares_the_merge_proposals_role() -> None:
     assert "handles_merge_proposals" not in data
 
     # Verify SPI version
-    assert data["spi_version"] == "3.1"
+    assert data["spi_version"] == "3.9"
 
 
 def test_the_merge_action_shows_the_plugin_glyph() -> None:

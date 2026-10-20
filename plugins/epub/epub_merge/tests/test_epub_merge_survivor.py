@@ -122,6 +122,38 @@ class TestElectSurvivor:
         assert elect_survivor([unnumbered, numbered]) == "numbered"
         assert elect_survivor([numbered, unnumbered]) == "numbered"
 
+    def test_a_book_named_like_the_work_without_a_number_is_part_1(self) -> None:
+        """An unnumbered book titled like the work of numbered ones is part 1 (CHC-D15)."""
+        g1 = SurvivorCandidate("g1", "Sample Gamma", None, None, 1, None)
+        g2 = SurvivorCandidate("g2", "Sample Gamma 2", 2, 2, 1, None)
+        g3 = SurvivorCandidate("g3", "Sample Gamma 3", 3, 3, 1, None)
+
+        assert elect_survivor([g1, g2, g3]) == "g1"
+        assert elect_survivor([g3, g2, g1]) == "g1"
+
+    def test_an_implied_part_needs_numbers_from_2(self) -> None:
+        """When a numbered book already covers chapter 1, the unnumbered one is not part 1."""
+        g1 = SurvivorCandidate("g1", "Sample Gamma", None, None, 1, None)
+        g2 = SurvivorCandidate("g2", "Sample Gamma 2", 1, 1, 1, None)
+        g3 = SurvivorCandidate("g3", "Sample Gamma 3", 3, 3, 1, None)
+
+        assert elect_survivor([g1, g2, g3]) == "g2"
+        assert elect_survivor([g3, g2, g1]) == "g2"
+
+    def test_the_implied_part_is_logged(self, caplog) -> None:
+        """Taking an unnumbered book as part 1 emits a DEBUG line naming it."""
+        g1 = SurvivorCandidate("g1", "Sample Gamma", None, None, 1, None)
+        g2 = SurvivorCandidate("g2", "Sample Gamma 2", 2, 2, 1, None)
+
+        with caplog.at_level(logging.DEBUG):
+            elect_survivor([g1, g2])
+        assert any(
+            r.levelname == "DEBUG"
+            and '"Sample Gamma" (book_id=g1) carries no number and is part 1 of the work'
+            in r.message
+            for r in caplog.records
+        )
+
     def test_two_unnumbered_books_fall_through_to_chapter_count(self) -> None:
         """Two unnumbered books: the one with more chapters wins."""
         small = SurvivorCandidate(
