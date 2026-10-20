@@ -326,6 +326,7 @@ def _reject_unmergeable_selection(items: tuple[EpubItem, ...], ctx: PluginContex
 def _announce_outcome(
     ctx: PluginContext,
     *,
+    survivor_id: str,
     survivor_title: str,
     chapters_gained: int,
     books_deleted: int,
@@ -341,6 +342,7 @@ def _announce_outcome(
 
     Args:
         ctx: The plugin invocation context (``notify``, ``logger``).
+        survivor_id: The kept book, named in the toast as a link (SPI 3.9).
         survivor_title: The surviving book's title, already resolved.
         chapters_gained: How many chapters the survivor absorbed, never negative.
         books_deleted: How many merged-away books were removed.
@@ -356,8 +358,8 @@ def _announce_outcome(
         )
         ctx.notify(
             "success",
-            f'Merged {chapters_gained} chapter(s) into "{survivor_title}"; '
-            f"{books_deleted} book(s) deleted",
+            f"Merged {chapters_gained} chapter(s) into {{book}}; {books_deleted} book(s) deleted",
+            book_id=survivor_id,
         )
     else:
         ctx.logger.info(
@@ -613,6 +615,7 @@ class EpubMergePlugin:
         chapters_gained = max((outcome.chapter_count or 0) - (survivor.book.num_chapters or 0), 0)
         _announce_outcome(
             ctx,
+            survivor_id=survivor.book.book_id,
             survivor_title=title,
             chapters_gained=chapters_gained,
             books_deleted=len(others),
