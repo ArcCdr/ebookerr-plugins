@@ -103,6 +103,7 @@ from ebookerr_sdk.domain.dates import log_clock, parse_datetime
 from ebookerr_sdk.providers import ProviderAnchor, ProviderBookmark
 from ebookerr_sdk.providers.anchoring import (
     REANCHOR_ALREADY,
+    REANCHOR_NEWER,
     REANCHOR_REJECTED,
     REANCHOR_STALE,
     REANCHOR_UNMATCHED,
@@ -146,6 +147,7 @@ _EPOCH_MARKER = "1970-01-01T00:00:00+00:00"
 _WRITE_STATUSES: Mapping[str, str] = {
     REANCHOR_WRITTEN: "written",
     REANCHOR_ALREADY: "already",
+    REANCHOR_NEWER: "newer",
     REANCHOR_STALE: "stale",
     REANCHOR_UNMATCHED: "unmatched",
     REANCHOR_REJECTED: "rejected",

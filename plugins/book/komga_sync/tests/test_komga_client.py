@@ -489,9 +489,11 @@ def test_a_409_older_than_existing_raises_newer(caplog: pytest.LogCaptureFixture
         status=409,
         json={"message": "Progression is older than existing"},
     )
-    with caplog.at_level(logging.ERROR, logger="komga_sync.client"):
-        with pytest.raises(ServerHasNewerPositionError):
-            _client().put_progression("B", {"locator": {"href": "OEBPS/file0001.xhtml"}})
+    with (
+        caplog.at_level(logging.ERROR, logger="komga_sync.client"),
+        pytest.raises(ServerHasNewerPositionError),
+    ):
+        _client().put_progression("B", {"locator": {"href": "OEBPS/file0001.xhtml"}})
 
     assert [r for r in caplog.records if r.levelname == "ERROR"] == []
 

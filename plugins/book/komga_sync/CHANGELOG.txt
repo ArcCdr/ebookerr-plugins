@@ -1,5 +1,5 @@
 == 1.12.0 ==
-A book whose chapters Komga has not re-read yet is reported once, not at every sync. Needs ebookerr 2.24.17 or later.
+A book whose chapters Komga has not re-read yet is reported once, not at every sync. Books merged before 2.24.17 now keep their reading position in Komga. When Komga already holds a newer position from another app, ebookerr keeps it quietly. Needs ebookerr 2.24.17 or later.
 
 == 1.11.0 ==
 A place you saved in a chapter is no longer read back as an earlier place, so you no longer get a false "moved back" warning after reading in ebookerr or KOReader. Needs ebookerr 2.24.13 or later.

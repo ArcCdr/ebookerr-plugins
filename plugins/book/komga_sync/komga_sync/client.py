@@ -18,6 +18,7 @@ import requests
 from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.text_encoding import nfc
 from ebookerr_sdk.download.availability import NO_ANSWER_ERRORS, is_unavailable_status
+from ebookerr_sdk.providers.anchoring import ServerHasNewerPositionError
 from ebookerr_sdk.providers.connection import (
     ConnectionTestResult,
     ProviderUnreachable,
@@ -29,6 +30,27 @@ logger = logging.getLogger(__name__)
 
 _REDACTED = "***"
 _BODY_CLIP = 200
+_OLDER_THAN_EXISTING = "older than existing"
+
+
+def _is_newer_position_refusal(response: requests.Response) -> bool:
+    """True iff a 409 body says the progression is older than the one Komga holds.
+
+    Args:
+        response: A non-2xx response from a Komga mutation.
+
+    Returns:
+        ``True`` for a 409 carrying the "older than existing" message; ``False`` otherwise,
+        including when the body is not JSON.
+    """
+    if response.status_code != 409:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    message = body.get("message") if isinstance(body, dict) else None
+    return isinstance(message, str) and _OLDER_THAN_EXISTING in message
 
 
 def _clip(text: str | None) -> str:
@@ -425,6 +447,8 @@ class RequestsKomgaClient:
         """Send a mutation; log the server's explanation and payload on any non-2xx, return False.
 
         Raises:
+            ServerHasNewerPositionError: When Komga answers 409 that the progression is older
+                than the one it holds; that is not an error, so nothing is logged.
             ProviderUnreachable: On any transport error.
         """
         kwargs: dict[str, Any] = {}
@@ -432,6 +456,8 @@ class RequestsKomgaClient:
             kwargs["json"] = payload
         response = self._request(method, path, **kwargs)
         if not response.ok:
+            if _is_newer_position_refusal(response):
+                raise ServerHasNewerPositionError("Komga already holds a newer reading position")
             logger.debug(
                 "Komga %s %s -> HTTP %s headers=%s payload=%s body=%s",
                 method,
