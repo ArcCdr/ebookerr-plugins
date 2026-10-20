@@ -937,7 +937,12 @@ class KavitaService:
         # skips read-position work here.
         stale = stale or (bool(join.anchors) and not join.consistent)
         if stale:
-            logger.warning(
+            # Repeats each sync until Kavita re-indexes the file: warn once per file size.
+            first = self._capture_warnings is None or self._capture_warnings.first_time(
+                str(ref.chapter_id), f"stale-table:{book.file_size}"
+            )
+            logger.log(
+                logging.WARNING if first else logging.DEBUG,
                 'Read-position capture, re-anchor and restore skipped for "%s" (book_id=%s): '
                 "Kavita's chapter table does not describe the file on disk (%d chapter(s) "
                 "have no anchor)",

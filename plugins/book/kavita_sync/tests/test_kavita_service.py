@@ -4288,6 +4288,7 @@ def test_a_stale_toc_warns_once_per_file(caplog: pytest.LogCaptureFixture) -> No
     sync_lines = [
         r.levelno
         for r in caplog.records
-        if r.name == "kavita_sync.service" and "does not describe the file on disk" in r.getMessage()
+        if r.name == "kavita_sync.service"
+        and "does not describe the file on disk" in r.getMessage()
     ]
     assert sync_lines == [logging.WARNING, logging.DEBUG, logging.WARNING]

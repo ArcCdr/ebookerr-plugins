@@ -1247,7 +1247,12 @@ class KomgaService:
         # skips read-position work here.
         stale = stale or (bool(join.anchors) and not join.consistent)
         if stale:
-            logger.warning(
+            # Repeats each sync until Komga re-reads the file: warn once per file size.
+            first = self._capture_warnings is None or self._capture_warnings.first_time(
+                komga_book_id, f"stale-table:{book.file_size}"
+            )
+            logger.log(
+                logging.WARNING if first else logging.DEBUG,
                 'Read-position capture, re-anchor and restore skipped for "%s" (book_id=%s): '
                 "Komga's chapter table does not describe the file on disk (%d anchor(s) name no "
                 "document, %d chapter(s) have no anchor)",
