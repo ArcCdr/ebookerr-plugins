@@ -1,3 +1,6 @@
+== 2.5.0 ==
+Chapter numbers written in words or Roman numerals (Chapter One, Part II) are ordered like numbers, and a number after Book, Volume or Season is no longer read as a chapter. When a story's chapters are numbered from 2, its first chapter — the one named like the story, with no number — is put first. A split chapter (3a) now comes before a chapter range that starts at the same number (3-5). Needs ebookerr 2.24.18 or later.
+
 == 2.4.2 ==
 A book whose table of contents cannot be reordered safely is now counted as skipped, with the reason, instead of done; a file that cannot be read is counted as failed, also instead of done.
 

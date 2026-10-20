@@ -13,9 +13,10 @@ preferring the caller's record title (which already holds the user's edit), fall
 preferring ``<navLabel>`` over XHTML title. Each chapter's number is derived by the shared
 :func:`~ebookerr_sdk.epub.chapter_numbers.nav_chapter_numbers` (F8's
 :func:`~ebookerr_sdk.domain.chapter_number.extract_chapter_info` with the resolved book title as a
-hint), the same derivation chapter adoption uses (``TR-AMG-8``), and sorted by a
-structured key, not string padding: the leading integer, then any letter/range suffix,
-so ``2`` < ``10``, ``7a`` < ``10``, and a range like ``441-450`` orders by its start.
+hint), the same derivation chapter adoption uses (``TR-AMG-8``), and sorted by the SDK's
+chapter-number model (``CHC-D14``): ``2`` < ``10``, ``3`` < ``3a`` < ``3-5`` < ``4``, a number
+in words or Roman numerals like its digits, and an unnumbered first chapter named like the work
+as chapter 1 (``CHC-D15``).
 
 NavPoints are sorted into four zones, in output order:
 - **Zone 0**: title page (``classify_special_chapter(title) == "title"``).
@@ -24,9 +25,9 @@ NavPoints are sorted into four zones, in output order:
 - **Zone 3**: back-matter (epilogue, appendix, bonus, …; no chapter number).
 
 Classification precedence: title wins over a number; a number wins over
-front/back; anything left is content. The title→role classification itself is the shared
-:func:`~ebookerr_sdk.epub.chapters.chapter_role` (``CHC-D5``); this module only maps a role to its
-output zone. Within zone 2 (content):
+front/back; anything left is content. The title→role classification is the shared
+:func:`~ebookerr_sdk.epub.chapters.chapter_role` and the role→zone map is the SDK's
+:func:`~ebookerr_sdk.epub.chapters.chapter_zone` (``CHC-D5``). Within zone 2 (content):
 - Chapters **with** a number are sorted by ``(_sort_key(number), original_index)`` and occupy
   exactly the slots numbered chapters originally held (relative to the zone-2 sub-sequence).
 - Chapters **without** a number keep their own original slot, so an unnumbered chapter never
@@ -41,17 +42,16 @@ already-ordered book is a no-op (the EPUB is not rewritten).
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from ebookerr_sdk.domain.chapter_number import special_section_number
+from ebookerr_sdk.domain.chapter_number import ChapterNumber, special_section_number
 from ebookerr_sdk.epub import EpubDocument, NavPoint
 from ebookerr_sdk.epub.chapter_numbers import nav_chapter_numbers
 from ebookerr_sdk.epub.chapters import (
-    ChapterRole,
     chapter_keys,
     chapter_role,
+    chapter_zone,
     classify_spine,
 )
 from ebookerr_sdk.epub.titles import resolve_book_title, resolve_nav_title
@@ -137,21 +137,13 @@ def sort_number(title: str, number: str) -> str:
     return "" if special_section_number(title) is not None else number
 
 
-def _sort_key(number: str) -> tuple[int, str]:
-    """Order by the leading integer, then any letter/range suffix (so ``7a`` < ``10``)."""
-    match = re.match(r"(\d+)(.*)", number)
-    if match:
-        return int(match.group(1)), match.group(2)
-    return (1 << 30, number)
+def _sort_key(number: str) -> tuple[int, int, str]:
+    """Order numbered chapters by the SDK's chapter-number model (CHC-D14): 3 < 3a < 3-5 < 4.
 
-
-_ZONE_BY_ROLE: dict[ChapterRole, int] = {
-    ChapterRole.TITLE: 0,
-    ChapterRole.FRONT: 1,
-    ChapterRole.CONTENT: 2,
-    ChapterRole.BACK: 3,
-    ChapterRole.OTHER: 2,
-}
+    An unparsable token sorts after every number.
+    """
+    parsed = ChapterNumber.parse(number)
+    return parsed.sort_key() if parsed is not None else (1 << 30, 1 << 30, number)
 
 
 def _desired_order(
@@ -164,12 +156,13 @@ def _desired_order(
     and re-placed into exactly the slots numbered entries originally occupied. Entries without
     a number keep their own slot — so an unnumbered chapter never crosses a numbered one.
 
-    Zone assignment is via :func:`~ebookerr_sdk.epub.chapters.chapter_role`, which classifies
-    each chapter from its title and number alone.
+    Zone assignment is via :func:`~ebookerr_sdk.epub.chapters.chapter_zone` applied to
+    :func:`~ebookerr_sdk.epub.chapters.chapter_role`, which classifies each chapter from its
+    title and number alone.
     """
     zones: dict[int, list[str]] = {0: [], 1: [], 2: [], 3: []}
     for nav_id in nav_ids:
-        zones[_ZONE_BY_ROLE[chapter_role(titles[nav_id], numbers[nav_id])]].append(nav_id)
+        zones[chapter_zone(chapter_role(titles[nav_id], numbers[nav_id]))].append(nav_id)
     content = zones[2]
     slots = [i for i, nav_id in enumerate(content) if sort_number(titles[nav_id], numbers[nav_id])]
     ranked = sorted(
@@ -319,7 +312,7 @@ def reorder_epub(
 
     automatic = _desired_order(current, titles, numbers)
     zone_counts = {
-        z: sum(1 for n in current if _ZONE_BY_ROLE[chapter_role(titles[n], numbers[n])] == z)
+        z: sum(1 for n in current if chapter_zone(chapter_role(titles[n], numbers[n])) == z)
         for z in (0, 1, 2, 3)
     }
     logger.debug(
@@ -367,7 +360,7 @@ def reorder_epub(
         # front matter and back matter always keep their automatic zone placement, so
         # a book with no stored key for them is never treated as a spliced-in "new" chapter.
         zone_of = {
-            nav_id: _ZONE_BY_ROLE[chapter_role(titles[nav_id], numbers[nav_id])]
+            nav_id: chapter_zone(chapter_role(titles[nav_id], numbers[nav_id]))
             for nav_id in current
         }
         content_current = [nav_id for nav_id in current if zone_of[nav_id] == 2]
