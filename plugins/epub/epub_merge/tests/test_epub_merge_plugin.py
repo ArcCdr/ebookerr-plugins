@@ -3326,9 +3326,8 @@ def test_the_confirmation_view_lists_every_other_book(
     item_list = next(s for s in view.sections if s.kind == api.ViewSectionKind.ITEM_LIST)
     ids = {item.id for item in item_list.items}
     assert ids == {"b1", "b2", "b3"}
-    # The elected survivor (b2) is locked
-    survivor_item = next(item for item in item_list.items if item.id == "b2")
-    assert survivor_item.locked is True
+    # The elected survivor (b2) is locked by the picker
+    assert item_list.locked_by == "survivor.survivor"
 
 
 def test_a_two_book_merge_still_works(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3580,15 +3579,11 @@ def test_the_note_no_longer_names_a_survivor_in_prose(tmp_path: Path) -> None:
     assert "Book C" not in note.text
 
 
-def test_the_survivor_row_is_locked_in_the_list(tmp_path: Path) -> None:
-    """The ITEM_LIST contains the elected survivor with locked=True and selected=True.
+def test_the_kept_book_is_locked_by_the_picker(tmp_path: Path) -> None:
+    """The ITEM_LIST is bound to the picker: locked_by names it and every row is selected.
 
-    SPI 2.4's own contract: "a locked, SELECTED item can never be deselected" — a locked
-    row that is NOT selected fails the server's own validation
-    (plugin_view_wire.py's "locked item may not be deselected"), so every locked row,
-    including the survivor's, must submit selected=True. The checkbox still renders
-    disabled (locked=True), so the user cannot uncheck it either way, and the merge
-    itself always excludes the survivor from `others` by id, never by its selected state.
+    The picker's value locks its row (the browser ticks and disables it); no item carries
+    a build-time ``locked`` flag, which a bound list refuses.
     """
     ctx = FakeContext(mode=api.InvocationMode.HEADED)
     items = (
@@ -3601,10 +3596,26 @@ def test_the_survivor_row_is_locked_in_the_list(tmp_path: Path) -> None:
 
     view = ctx.views[0]
     item_list = next(s for s in view.sections if s.kind == api.ViewSectionKind.ITEM_LIST)
-    survivor_item = next((item for item in item_list.items if item.id == "b1"), None)
-    assert survivor_item is not None
-    assert survivor_item.locked is True
-    assert survivor_item.selected is True
+    assert item_list.locked_by == "survivor.survivor"
+    assert item_list.locked_badge == "Kept"
+    assert all(item.selected is True for item in item_list.items)
+    assert all(item.locked is False for item in item_list.items)
+
+
+def test_the_view_counts_its_button(tmp_path: Path) -> None:
+    """The submit label counts the books to merge; the headless label names two of three."""
+    ctx = FakeContext(mode=api.InvocationMode.HEADED)
+    items = (
+        _make_item("b1", tmp_path / "a.epub", "Book A"),
+        _make_item("b2", tmp_path / "b.epub", "Book B"),
+        _make_item("b3", tmp_path / "c.epub", "Book C"),
+    )
+
+    _ = EpubMergePlugin().process(items, ctx)
+
+    view = ctx.views[0]
+    assert view.submit_label_counted == ("Merge {count} book", "Merge {count} books")
+    assert view.submit_label == "Merge 2 books"
 
 
 def test_choosing_another_survivor_changes_the_outcome(
