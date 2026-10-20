@@ -988,6 +988,35 @@ def test_restore_failure_logs_warning_and_sync_remains_ok(
     assert any(r.levelname == "WARNING" and "KB1" in r.message for r in caplog.records)
 
 
+def test_a_newer_progression_at_the_restore_is_kept_without_a_warning(
+    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Komga holds a newer progression than the snapshot: it is kept, the sync stays ok, quietly."""
+    saved = {"locator": {"locations": {"position": 11, "progression": 0.68}}, "device": {}}
+    reset = {"locator": {"locations": {"position": 0, "progression": 0.0}}}
+    client = FakeKomga()
+    client.progression_sequence = [saved, reset]  # snapshot, then post-analyze (lost)
+    client.put_progression_conflict = True  # Komga answers 409: it holds a newer position
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    book = repo.get(book.book_id)
+
+    with caplog.at_level(logging.DEBUG, logger="komga_sync.service"):
+        result = service(client).sync(book_to_view(book))
+
+    assert result.ok is True
+    assert "external_locator" not in result.fields
+    messages = [(r.levelname, r.getMessage()) for r in caplog.records]
+    assert not any("restore failed" in message for _, message in messages)
+    assert (
+        "DEBUG",
+        "Komga already holds a newer progression for book KB1; the pre-sync snapshot was not "
+        "written back",
+    ) in messages
+
+
 def test_a_reset_page_is_repaired_by_re_writing_the_locator(
     repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -1200,6 +1229,47 @@ def test_a_refused_re_write_is_logged_at_debug(
         and "KB1" in r.message
         for r in caplog.records
     )
+
+
+def test_a_newer_progression_at_the_page_repair_leaves_the_page_as_reported(
+    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Komga answers that it holds a newer progression: the page repair is skipped, the sync ok."""
+    locator_payload = {
+        "locator": {"locations": {"position": 118, "progression": 0.64, "totalProgression": 0.64}},
+        "device": {},
+    }
+    client = FakeKomga()
+    client.progression_sequence = [locator_payload, locator_payload, locator_payload]
+    client.put_progression_conflict = True
+    client.book_sequence = [
+        komga_book(
+            pages=185,
+            read={"page": 1, "completed": False},
+            metadata=MATCHING_BOOK_METADATA,
+        ),
+        komga_book(
+            pages=185,
+            read={"page": 1, "completed": False},
+            metadata=MATCHING_BOOK_METADATA,
+        ),
+    ]
+    client.series = {"metadata": MATCHING_SERIES_METADATA}
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    book = repo.get(book.book_id)
+
+    with caplog.at_level(logging.DEBUG, logger="komga_sync.service"):
+        result = service(client).sync(book_to_view(book))
+
+    assert result.ok is True
+    assert result.fields["external_read_position"] == 1
+    messages = [(r.levelname, r.getMessage()) for r in caplog.records]
+    assert (
+        "DEBUG",
+        'Komga already holds a newer progression for "Sample Beta" (item_id=KB1); '
+        "leaving its page as reported",
+    ) in messages
 
 
 def test_records_link_and_timestamps(repo: _FakeBookRepository) -> None:
