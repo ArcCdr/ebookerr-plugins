@@ -3953,6 +3953,7 @@ def test_an_incomplete_merge_records_the_diagnostic(caplog: Any) -> None:
     with caplog.at_level(logging.INFO):
         _announce_outcome(
             ctx,
+            survivor_id="a1",
             survivor_title="Alpha",
             chapters_gained=0,
             books_deleted=0,
