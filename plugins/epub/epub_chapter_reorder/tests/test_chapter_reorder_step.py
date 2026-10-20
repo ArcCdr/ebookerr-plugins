@@ -149,6 +149,59 @@ class TestZoneOrdering:
         labels = [p.label for p in doc.ncx.nav_points()]
         assert labels == ["Title Page", "Gamma 30", "Gamma-Bonus Material Two", "Gamma 32"]
 
+    def test_split_and_ranged_chapters_sort_by_the_model(
+        self, build_epub: Callable[..., Path]
+    ) -> None:
+        """A split chapter (3a) orders before a range starting at the same number (3-5)."""
+        chapters = [
+            ("Book Ch. 3-5", _L + "a"),
+            ("Book Ch. 3a", _L + "b"),
+            ("Book Ch. 3", _L + "c"),
+            ("Book Ch. 4", _L + "d"),
+        ]
+        epub = build_epub(chapters, doc_title="Book")
+        _run(epub)
+        doc = EpubDocument.open(epub)
+        assert [p.id for p in doc.ncx.nav_points()] == [
+            "title_page",
+            "file0003",
+            "file0002",
+            "file0001",
+            "file0004",
+        ]
+
+    def test_numbers_in_words_sort_like_digits(self, build_epub: Callable[..., Path]) -> None:
+        """A chapter numbered in words orders by its value, like its digits."""
+        chapters = [
+            ("Sample Delta Chapter Two", _L + "a"),
+            ("Sample Delta Chapter One", _L + "b"),
+        ]
+        epub = build_epub(chapters, doc_title="Sample Delta")
+        _run(epub)
+        doc = EpubDocument.open(epub)
+        assert [p.id for p in doc.ncx.nav_points()] == ["title_page", "file0002", "file0001"]
+
+    def test_an_implied_first_chapter_moves_to_the_front(
+        self, build_epub: Callable[..., Path]
+    ) -> None:
+        """An unnumbered first chapter named like the work is chapter 1 and leads the content."""
+        chapters = [
+            ("Sample Gamma 2", _L + "g2"),
+            ("Gamma3", _L + "g3"),
+            ("Gamma 4", _L + "g4"),
+            ("Sample Gamma", _L + "g1"),
+        ]
+        epub = build_epub(chapters, doc_title="Sample Gamma 2-4")
+        _run(epub)
+        doc = EpubDocument.open(epub)
+        assert [p.id for p in doc.ncx.nav_points()] == [
+            "title_page",
+            "file0004",
+            "file0001",
+            "file0002",
+            "file0003",
+        ]
+
     def test_numbered_chapters_still_sort_around_a_fixed_unnumbered_slot(
         self, build_epub: Callable[..., Path]
     ) -> None:
@@ -316,19 +369,18 @@ class TestZoneOrdering:
 class TestInternals:
     def test_zone_mapping_uses_shared_chapter_role(self) -> None:
         """Zone mapping uses the shared chapter_role classification."""
-        from ebookerr_sdk.epub.chapters import chapter_role
-        from epub_chapter_reorder.reorder_step import _ZONE_BY_ROLE
+        from ebookerr_sdk.epub.chapters import chapter_role, chapter_zone
 
-        # Verify _ZONE_BY_ROLE maps roles to expected zones
-        assert _ZONE_BY_ROLE[chapter_role("Title Page", "")] == 0
-        assert _ZONE_BY_ROLE[chapter_role("Book Ch. 3", "3")] == 2
-        assert _ZONE_BY_ROLE[chapter_role("Prologue", "")] == 1
-        assert _ZONE_BY_ROLE[chapter_role("Epilogue", "")] == 3
-        assert _ZONE_BY_ROLE[chapter_role("Interlude", "")] == 2
+        assert chapter_zone(chapter_role("Title Page", "")) == 0
+        assert chapter_zone(chapter_role("Book Ch. 3", "3")) == 2
+        assert chapter_zone(chapter_role("Prologue", "")) == 1
+        assert chapter_zone(chapter_role("Epilogue", "")) == 3
+        assert chapter_zone(chapter_role("Interlude", "")) == 2
 
     def test_sort_key_non_numeric_sorts_last(self) -> None:
-        assert _sort_key("abc") == (1 << 30, "abc")
+        assert _sort_key("abc") == (1 << 30, 1 << 30, "abc")
         assert _sort_key("3a") < _sort_key("10")  # leading int dominates
+        assert _sort_key("3a") < _sort_key("3-5") < _sort_key("4")
 
     def test_spine_order_skips_navpoint_without_manifest_item(
         self, build_epub: Callable[..., Path]
