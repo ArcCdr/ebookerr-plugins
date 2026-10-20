@@ -7862,6 +7862,32 @@ def test_a_book_komga_cannot_capture_is_warned_about_once(
     assert len(warnings) == 1
 
 
+def test_a_stale_table_warns_once_per_file(
+    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A stale chapter table warns once per file size, and again when the file changes."""
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    stored = repo.get(book.book_id)
+    assert stored is not None
+    chapters = _chapters(("file9999.xhtml", "Not on disk"))
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.progression_sequence = [_CAPTURED_PROGRESSION] * 3
+    svc = service(client, now=lambda: FIXED_NOW, capture_warnings=CaptureWarnings(FakeContext()))
+
+    with caplog.at_level(logging.DEBUG):
+        for file_size in (1000, 1000, 2000):
+            svc.sync(book_to_view(stored, chapter_table=chapters, file_size=file_size))
+
+    sync_lines = [
+        r.levelno
+        for r in caplog.records
+        if r.name == "komga_sync.service" and "does not describe the file on disk" in r.getMessage()
+    ]
+    assert sync_lines == [logging.WARNING, logging.DEBUG, logging.WARNING]
+
+
 def test_restore_target_is_delivered_through_the_join(repo: _FakeBookRepository) -> None:
     """A restore target identified only by chapter_key still matches, via the join's candidates."""
     client = FakeKomga()

@@ -4262,3 +4262,32 @@ def test_a_book_kavita_cannot_capture_is_warned_about_once(
     ]
     assert len(warnings) == 1
     assert len(debugs) == 2
+
+
+def test_a_stale_toc_warns_once_per_file(caplog: pytest.LogCaptureFixture) -> None:
+    """A stale chapter table warns once per file size, and again when the file changes."""
+    client = FakeKavita()
+    client.find_chapter_result = _ref(chapter_id=11, total_pages=10)
+    client.get_progress_result = {"pageNum": 4}
+    client.book_chapters_result = TOC_FIXTURE
+    external = ExternalLink(provider="kavita", item_id="11", collection_id="7", library_id="1")
+    chapters = _chapters("Not in Kavita")
+    svc = service(client, now=lambda: FIXED_NOW, capture_warnings=CaptureWarnings(FakeContext()))
+
+    with caplog.at_level(logging.DEBUG):
+        for file_size in (1000, 1000, 2000):
+            svc.sync(
+                make_book_view(
+                    title="The Long Orbit",
+                    external=external,
+                    chapter_table=chapters,
+                    file_size=file_size,
+                )
+            )
+
+    sync_lines = [
+        r.levelno
+        for r in caplog.records
+        if r.name == "kavita_sync.service" and "does not describe the file on disk" in r.getMessage()
+    ]
+    assert sync_lines == [logging.WARNING, logging.DEBUG, logging.WARNING]
