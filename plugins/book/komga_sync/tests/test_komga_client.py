@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 import requests
 import responses
+from ebookerr_sdk.providers.anchoring import ServerHasNewerPositionError
 from ebookerr_sdk.providers.connection import ProviderUnreachable
 from komga_sync.client import RequestsKomgaClient
 from komga_sync.protocol import KomgaClient
@@ -477,6 +478,22 @@ def test_put_progression_failure_logs_details(
     assert any(
         r.levelname == "ERROR" and "PUT" in r.message and "400" in r.message for r in caplog.records
     )
+
+
+@responses.activate
+def test_a_409_older_than_existing_raises_newer(caplog: pytest.LogCaptureFixture) -> None:
+    """A 409 saying the progression is older than the stored one raises, without an ERROR line."""
+    responses.add(
+        responses.PUT,
+        f"{BASE}/api/v1/books/B/progression",
+        status=409,
+        json={"message": "Progression is older than existing"},
+    )
+    with caplog.at_level(logging.ERROR, logger="komga_sync.client"):
+        with pytest.raises(ServerHasNewerPositionError):
+            _client().put_progression("B", {"locator": {"href": "OEBPS/file0001.xhtml"}})
+
+    assert [r for r in caplog.records if r.levelname == "ERROR"] == []
 
 
 @responses.activate

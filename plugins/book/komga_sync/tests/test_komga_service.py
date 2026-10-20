@@ -20,6 +20,7 @@ from unittest.mock import patch
 import pytest
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
+from ebookerr_sdk.providers.anchoring import ServerHasNewerPositionError
 from ebookerr_sdk.providers.capture_warnings import CaptureWarnings
 from ebookerr_sdk.providers.connection import ConnectionTestResult, ProviderUnreachable
 from ebookerr_sdk.providers.link_refusal import LinkRefusal
@@ -132,6 +133,7 @@ class FakeKomga:
         self.series_patches: list[tuple[str, dict[str, Any]]] = []
         self.put_progressions: list[tuple[str, dict[str, Any]]] = []
         self.put_progression_ok = True
+        self.put_progression_conflict = False
         self.find_calls = 0
         self.library_books: list[tuple[str, str]] = []
         self.library_books_sequence: list[list[tuple[str, str]]] = []
@@ -204,6 +206,8 @@ class FakeKomga:
 
     def put_progression(self, komga_book_id: str, progression: dict[str, Any]) -> bool:
         self.put_progressions.append((komga_book_id, progression))
+        if self.put_progression_conflict:
+            raise ServerHasNewerPositionError("Komga holds a newer position")
         return self.put_progression_ok
 
     def list_library_books(self) -> list[tuple[str, str]]:

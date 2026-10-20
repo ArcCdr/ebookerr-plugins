@@ -177,6 +177,15 @@ def test_komga_refusing_the_write_is_rejected() -> None:
     assert len(client.put_progressions) == 1
 
 
+def test_komga_holding_a_newer_position_reports_newer() -> None:
+    """Komga already holds a newer position: the write-through reports newer, with no read-back."""
+    client = FakeKomga()
+    client.book = komga_book(pages=14, read=_READ)
+    client.put_progression_conflict = True
+
+    assert service(client).write_position(_view(), _TARGET) == ("newer", None)
+
+
 def test_a_vanished_komga_book_is_rejected() -> None:
     """Komga no longer has the stored id: rejected."""
     client = FakeKomga()
