@@ -404,7 +404,7 @@ def _sync_book(ctx: PluginContext, service: KavitaService, view: BookView) -> Bo
     _report_sync_problems(ctx, view, result)
     if result.reanchor_notice:
         # A bookmark re-anchored on a facet weaker than key/title gets a durable notice (RPH-ANC-5).
-        ctx.notify("warning", result.reanchor_notice, durable=True)
+        ctx.notify("warning", result.reanchor_notice, durable=True, book_id=view.book_id)
 
     fields: dict[str, Any] = dict(result.fields)
     # A one-shot marker is consumed by a sync that actually attempted the provider write, never

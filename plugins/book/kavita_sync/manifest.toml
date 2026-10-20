@@ -1,8 +1,8 @@
 id = "kavita_sync"
 name = "Kavita Sync"
-version = "1.11.0"
+version = "1.12.0"
 type = "book"
-spi_version = "3.8"
+spi_version = "3.9"
 description = "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time."
 priority = 900
 accepts_list = true

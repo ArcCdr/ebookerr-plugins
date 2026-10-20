@@ -342,7 +342,7 @@ def _sync_book(
         ctx.report_skip(view.book_id, result.message)
     if result.reanchor_notice:
         # A bookmark re-anchored on a facet weaker than key/title gets a durable notice (RPH-ANC-5).
-        ctx.notify("warning", result.reanchor_notice, durable=True)
+        ctx.notify("warning", result.reanchor_notice, durable=True, book_id=view.book_id)
     if view.restore_target is not None and result.restore_attempted and not result.restore_landed:
         ctx.report_failure(view.book_id, "read position could not be restored")
         ctx.logger.warning(

@@ -1,3 +1,6 @@
+== 1.13.0 ==
+The notice about a reading position re-anchored by a weaker match names the book as a link to it. Needs ebookerr 2.24.18 or later.
+
 == 1.12.0 ==
 Books merged before 2.24.17 now keep their reading position in Komga. A book whose chapters Komga has not re-read yet is reported once, not at every sync. When Komga already holds a newer position from another app, ebookerr keeps it quietly. Needs ebookerr 2.24.17 or later.
 
