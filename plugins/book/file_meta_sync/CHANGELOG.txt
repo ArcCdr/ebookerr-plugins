@@ -1,3 +1,6 @@
+== 2.3.0 ==
+A sidecar conflict's notice names the book as a link to it. Needs ebookerr 2.24.18 or later.
+
 == 2.2.1 ==
 A sidecar file is replaced whole: when a sync is stopped half-way, the file keeps its previous content instead of being left empty or cut short.
 

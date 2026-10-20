@@ -362,9 +362,9 @@ def merge_text(
         logs.append({"level": "warning", "message": msg})
         if notify is not None:
             notify_msg = (
-                f'Sidecar conflict on "{label}": kept the ebookerr {field} '
+                f"Sidecar conflict on {{book}}: kept the ebookerr {field} "
                 f"and rewrote {file_path.name} — the file's previous content "
-                "was replaced"
+                "was replaced."
             )
             notify("warning", notify_msg)
         return None, db_hash, file_mtime_float
@@ -492,9 +492,9 @@ def merge_bytes(  # noqa: C901
         logs.append({"level": "warning", "message": msg})
         if notify is not None:
             notify_msg = (
-                f'Sidecar conflict on "{label}": kept the ebookerr {field} '
+                f"Sidecar conflict on {{book}}: kept the ebookerr {field} "
                 f"and rewrote {file_path.name} — the file's previous content "
-                "was replaced"
+                "was replaced."
             )
             notify("warning", notify_msg)
         return None, db_hash, file_mtime_float
@@ -919,6 +919,29 @@ def process_book(
     return result
 
 
+def _for_book(
+    notify: Callable[[str, str, str], None] | None, book_id: str
+) -> Callable[[str, str], None] | None:
+    """Bind *notify* to one book, so its notice names the book (SPI 3.9).
+
+    Args:
+        notify: Receives ``(kind, message, book_id)``, or ``None``.
+        book_id: The book the bound notices are about.
+
+    Returns:
+        A ``(kind, message)`` callable that sends through *notify* with *book_id*, or ``None``.
+    """
+    if notify is None:
+        return None
+    send = notify
+
+    def bound(kind: str, message: str) -> None:
+        """Send one notice about the bound book."""
+        send(kind, message, book_id)
+
+    return bound
+
+
 def _process_books(  # noqa: C901
     books: list[dict[str, Any]],
     library_root: Path,
@@ -930,7 +953,7 @@ def _process_books(  # noqa: C901
     interactive: bool = False,
     ask: Callable[[str, str, str], bool] | None = None,
     report: Callable[[float], None] | None = None,
-    notify: Callable[[str, str], None] | None = None,
+    notify: Callable[[str, str, str], None] | None = None,
 ) -> list[Any]:
     """Process *books* for one call: the BookDeleted clean-up, a purge action, or the sync.
 
@@ -947,7 +970,8 @@ def _process_books(  # noqa: C901
         interactive: Whether a conflict may ask the user.
         ask: Asks a Yes/No question; raises ``PromptAbandoned`` when abandoned.
         report: Receives the percentage of books done after each book.
-        notify: Receives ``(kind, message)`` for a durable notice.
+        notify: Receives ``(kind, message, book_id)`` for a durable notice about one book
+            (SPI 3.9).
 
     Returns:
         The patch mappings (empty for a delete or a purge).
@@ -985,7 +1009,11 @@ def _process_books(  # noqa: C901
     else:
         for index, book in enumerate(books):
             patch = process_book(
-                book, library_root, ask=ask, interactive=interactive, notify=notify
+                book,
+                library_root,
+                ask=ask,
+                interactive=interactive,
+                notify=_for_book(notify, book.get("book_id", "")),
             )
             if patch:
                 result.append(patch)
@@ -1113,7 +1141,9 @@ class FileMetaSyncPlugin:
                 interactive=ctx.mode == InvocationMode.HEADED,
                 ask=_asker(ctx),
                 report=lambda percent: ctx.report(percent),
-                notify=lambda kind, message: ctx.notify(kind, message, durable=True),
+                notify=lambda kind, message, book_id: ctx.notify(
+                    kind, message, durable=True, book_id=book_id or None
+                ),
             )
         except PromptAbandoned:
             logs.append(
