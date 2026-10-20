@@ -110,6 +110,7 @@ from ebookerr_sdk.providers.anchoring import (
     REANCHOR_WRITTEN,
     AnchorJoin,
     ReanchorOutcome,
+    ServerHasNewerPositionError,
     capture_position,
     join_anchors,
     reanchor_bookmark,
@@ -2746,7 +2747,17 @@ class KomgaService:
 
         # All conditions met: re-write the locator with a fresh modified timestamp
         payload = {**current, "modified": self._now().isoformat()}
-        if not self._client.put_progression(komga_book_id, payload):
+        try:
+            rewritten = self._client.put_progression(komga_book_id, payload)
+        except ServerHasNewerPositionError:
+            logger.debug(
+                'Komga already holds a newer progression for "%s" (item_id=%s); '
+                "leaving its page as reported",
+                book.title,
+                komga_book_id,
+            )
+            return komga_book
+        if not rewritten:
             logger.debug(
                 'Komga refused the progression re-write for "%s" (item_id=%s); '
                 "leaving its page as reported",
@@ -2791,7 +2802,7 @@ class KomgaService:
         Returns:
             ``{"external_locator": ...}`` (the progression to persist, JSON-encoded)
             on either outcome that has one to record; ``{}`` when there was nothing to
-            protect or the restore write failed.
+            protect, the restore write failed, or Komga already held a newer progression.
         """
         if not _has_progress(snapshot):
             return {}  # nothing meaningful to protect
@@ -2815,7 +2826,17 @@ class KomgaService:
                 book.read_position.chapter_index,
                 book.read_position.captured_at,
             )
-        if self._client.put_progression(komga_book_id, restored):
+        try:
+            written = self._client.put_progression(komga_book_id, restored)
+        except ServerHasNewerPositionError:
+            # Komga's record is newer than the snapshot: it keeps it, and nothing is lost.
+            logger.debug(
+                "Komga already holds a newer progression for book %s; the pre-sync snapshot was "
+                "not written back",
+                komga_book_id,
+            )
+            return {}
+        if written:
             title = book.title if book is not None else None
             logger.info(
                 'Restored read progression for "%s" (komga_book_id=%s)',
