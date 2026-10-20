@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 def plan_chapters(
-    books: Sequence[InputBook], *, reserved: Collection[str] = ()
+    books: Sequence[InputBook],
+    *,
+    reserved: Collection[str] = (),
+    book_title: str | None = None,
 ) -> list[PlannedChapter]:
     """Flatten every book's chapters into one renamed, collision-free list (input order).
 
@@ -34,6 +37,8 @@ def plan_chapters(
         books: InputBooks in merge order (survivor first, then sources).
         reserved: Stems already taken by something outside this call, forwarded
             to :func:`ebookerr_sdk.domain.chapter_naming.plan_chapter_filenames`.
+        book_title: The survivor's title, so an unnumbered first part named like the work is
+            chapter 1 (CHC-D15).
 
     Returns:
         A list of PlannedChapter, one per input chapter, in input order.
@@ -55,7 +60,7 @@ def plan_chapters(
 
     # Step 2: Extract labels in order and plan filenames
     labels = [label for _, _, label in chapters_with_book_index]
-    named_chapters = plan_chapter_filenames(labels, reserved=reserved)
+    named_chapters = plan_chapter_filenames(labels, reserved=reserved, book_title=book_title)
 
     # Step 3: Build PlannedChapter objects by zipping with original chapters
     planned: list[PlannedChapter] = []
@@ -82,6 +87,7 @@ def plan_chapters(
                     filename=named.filename,
                     item_id=named.stem,
                     number=named.number,
+                    end=named.end,
                     book_index=book_index,
                     source_href=chapter.href,
                     xhtml=chapter.xhtml,

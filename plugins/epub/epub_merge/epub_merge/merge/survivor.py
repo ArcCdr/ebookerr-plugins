@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
 from ebookerr_sdk.domain.adoption import expand_number
+from ebookerr_sdk.domain.chapter_number import is_implied_first, work_name
 from ebookerr_sdk.epub.chapters import ChapterRole, classify_spine
 from ebookerr_sdk.epub.document import EpubDocument
 from ebookerr_sdk.epub.errors import MalformedEpubError
@@ -31,7 +32,7 @@ class SurvivorCandidate:
 
     Attributes:
         book_id: The book's id; the final, total tie-break.
-        title: The book's title, for logging only — never scored.
+        title: The book's title: logged, and read by the implied-part-1 rule (CHC-D15).
         first_number: The lowest integer the book's **first** content chapter covers, or
             ``None`` when that chapter carries no parsable number.
         min_number: The lowest integer any of the book's chapters covers, or ``None``.
@@ -47,6 +48,26 @@ class SurvivorCandidate:
     created_at: datetime | None
 
 
+def _with_implied_first(candidates: Sequence[SurvivorCandidate]) -> list[SurvivorCandidate]:
+    """Give an unnumbered book named like the work part 1 (CHC-D15), before ranking."""
+    numbered = [c for c in candidates if c.min_number is not None]
+    work_names = [work_name(c.title) for c in numbered]
+    numbers = [str(c.min_number) for c in numbered]
+    ranked: list[SurvivorCandidate] = []
+    for candidate in candidates:
+        if candidate.first_number is None and is_implied_first(
+            candidate.title, work_names=work_names, numbers=numbers
+        ):
+            logger.debug(
+                'Merge survivor: "%s" (book_id=%s) carries no number and is part 1 of the work',
+                candidate.title,
+                candidate.book_id,
+            )
+            candidate = replace(candidate, first_number=1, min_number=1)
+        ranked.append(candidate)
+    return ranked
+
+
 def elect_survivor(candidates: Sequence[SurvivorCandidate]) -> str:
     """Elect the book a merge should keep, from the books themselves.
 
@@ -54,7 +75,8 @@ def elect_survivor(candidates: Sequence[SurvivorCandidate]) -> str:
     actually has, not the earliest chapters that exist. The key, in order:
 
     1. ``first_number`` ascending — the lowest number the book's first content chapter covers.
-       A book whose first chapter carries no number sorts last on this facet.
+       A book whose first chapter carries no number sorts last on this facet — unless its
+       title is the work's name of the numbered books (CHC-D15): then it is part 1.
     2. ``min_number`` ascending — the lowest number anywhere in the book, same rule.
     3. ``chapter_count`` **descending** — on an otherwise even tie, the book that already holds
        more of the work keeps its identity.
@@ -76,6 +98,8 @@ def elect_survivor(candidates: Sequence[SurvivorCandidate]) -> str:
     """
     if not candidates:
         raise ValueError("No candidates to elect from")
+
+    candidates = _with_implied_first(candidates)
 
     # Sort with None values sorting last via sentinel
     def sort_key(

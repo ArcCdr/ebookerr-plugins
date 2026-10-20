@@ -177,6 +177,8 @@ class PlannedChapter:
         filename: Flat output filename (e.g. "chapter_174_sample_delta.xhtml").
         item_id: Unique identifier for this chapter (== filename stem).
         number: Optional chapter number.
+        end: The last chapter a range label names; equal to ``number`` for a single number;
+            ``None`` when unnumbered.
         book_index: Index of the source book this chapter came from.
         source_href: The input's OPF-relative href it came from.
         xhtml: The bytes to write (possibly rewritten).
@@ -189,3 +191,4 @@ class PlannedChapter:
     book_index: int
     source_href: str
     xhtml: bytes
+    end: int | None = None

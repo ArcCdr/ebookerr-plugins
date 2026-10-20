@@ -543,6 +543,7 @@ def build_merge_plan(
         plan_chapters(
             books_without_auto_title_pages,
             reserved=_reserved_chapter_stems([*system_paths, *assets.files]),
+            book_title=books[0].title,
         )
     )
     for chapter in chapters:

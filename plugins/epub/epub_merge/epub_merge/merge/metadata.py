@@ -258,6 +258,9 @@ def resolve_page_direction(books: Sequence[InputBook]) -> str | None:
 def rewrite_book_title(survivor_title: str, chapters: Sequence[PlannedChapter]) -> str | None:
     """Reconstruct ``"<stem> <min>-<max>"`` from the merged chapter numbers (``MR-PARAM-2``).
 
+    ``<min>`` is the lowest chapter number and ``<max>`` the highest chapter covered (a range's
+    end counts), an implied chapter 1 included (CHC-D15).
+
     Args:
         survivor_title: The title of the survivor book (first input).
         chapters: Chapters in the merged output.
@@ -275,6 +278,7 @@ def rewrite_book_title(survivor_title: str, chapters: Sequence[PlannedChapter]) 
     info = extract_chapter_info(survivor_title)
     stem = info.book_name.strip() or survivor_title.strip()
 
-    new_title = f"{stem} {min(numbers)}-{max(numbers)}"
+    ends = [c.end if c.end is not None else c.number for c in chapters if c.number is not None]
+    new_title = f"{stem} {min(numbers)}-{max(ends)}"
     logger.info('Merge book title rewritten: "%s" -> "%s"', survivor_title, new_title)
     return new_title
