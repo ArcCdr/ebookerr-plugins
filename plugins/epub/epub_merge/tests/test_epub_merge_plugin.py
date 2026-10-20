@@ -3918,6 +3918,7 @@ def test_a_completed_merge_announces_what_it_absorbed(caplog: Any) -> None:
     with caplog.at_level(logging.INFO):
         _announce_outcome(
             ctx,
+            survivor_id="a1",
             survivor_title="Alpha",
             chapters_gained=3,
             books_deleted=1,
@@ -3925,11 +3926,12 @@ def test_a_completed_merge_announces_what_it_absorbed(caplog: Any) -> None:
             failed=0,
         )
 
-    # Verify exactly one notify call with success kind
+    # Verify exactly one notify call with success kind, naming the kept book as a link
     assert len(ctx.notices) == 1
     kind, message, _ = ctx.notices[0]
     assert kind == "success"
-    assert message == 'Merged 3 chapter(s) into "Alpha"; 1 book(s) deleted'
+    assert message == "Merged 3 chapter(s) into {book}; 1 book(s) deleted"
+    assert ctx.notice_books == ["a1"]
 
     # Verify info log contains the absorbed message
     logs_info = [r.message for r in caplog.records if r.levelname == "INFO"]
