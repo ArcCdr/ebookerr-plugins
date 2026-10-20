@@ -8979,3 +8979,45 @@ def test_pushed_tags_recall_reads_what_remember_wrote() -> None:
 def test_komga_only_tags_excludes_what_was_pushed() -> None:
     """A Komga tag this plugin pushed last time is ebookerr's echo, never a Komga-only tag."""
     assert _komga_only_tags(["Paranormal", "zebra"], "Horror", "alpha", ["paranormal"]) == ["zebra"]
+
+
+def test_a_merged_book_with_one_basename_per_folder_is_anchored(
+    repo: _FakeBookRepository, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Chapters sharing a basename in separate folders are each anchored, not warned about."""
+    book = make_book(repo)
+    repo.update_fields(book.book_id, {"external_item_id": "KB1"})
+    stored = repo.get(book.book_id)
+    assert stored is not None
+    view = book_to_view(
+        stored,
+        chapter_table=_chapters(
+            ("file0001.xhtml", "Chapter One"),
+            ("merged_1/OEBPS/file0001.xhtml", "Chapter Two"),
+            ("merged_2/OEBPS/file0001.xhtml", "Chapter Three"),
+        ),
+    )
+    client = FakeKomga()
+    client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
+    client.positions = [  # type: ignore[attr-defined]
+        {"href": href, "title": None, "locations": {"position": i, "progression": 0.0}}
+        for i, href in enumerate(
+            (
+                "OEBPS/titlepage.xhtml",
+                "OEBPS/file0001.xhtml",
+                "merged_1/OEBPS/file0001.xhtml",
+                "merged_2/OEBPS/file0001.xhtml",
+            ),
+            start=1,
+        )
+    ]
+    client.progression_sequence = [
+        {"locator": {"href": "merged_2/OEBPS/file0001.xhtml", "locations": {"progression": 0.3}}}
+    ] * 3
+
+    with caplog.at_level(logging.WARNING):
+        result = service(client, now=lambda: FIXED_NOW).refresh(view)
+
+    assert not [r for r in caplog.records if "does not describe the file on disk" in r.getMessage()]
+    assert result.read_position is not None
+    assert result.read_position.chapter_index == 3
