@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import tomllib
@@ -537,7 +538,7 @@ class TestConflictMostRecentWins:
             assert len(notify_calls) == 1
             assert notify_calls[0][0] == "warning"
             assert "Sidecar conflict" in notify_calls[0][1]
-            assert "Wuthering Heights" in notify_calls[0][1]
+            assert "{book}" in notify_calls[0][1]
             assert "ebookerr synopsis" in notify_calls[0][1]
 
     def test_a_first_sync_adopts_the_sidecar_over_the_db_value(self) -> None:
@@ -696,6 +697,34 @@ class TestConflictMostRecentWins:
             assert resolved_mtime is not None
             assert len(logs) == 1
             assert "first sync — adopted the sidecar cover" in logs[0]["message"]
+
+    def test_process_books_names_the_book_of_each_notice(self) -> None:
+        """A durable conflict notice reaches the host with the book it is about (SPI 3.9)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "books").mkdir()
+            (root / "books" / "book.back_cover.txt").write_text("FILE SIDE")
+            book = {
+                "book_id": "b9",
+                "output_filename": "books/book.epub",
+                "synopsis": "APP SIDE",
+                "cover_ref": None,
+                "assets": [],
+                "custom_values": {
+                    "synopsis.synced_hash": {"value": hashlib.sha256(b"Old").hexdigest()}
+                },
+            }
+            calls: list[tuple[str, str, str]] = []
+
+            _module._process_books(
+                [book],
+                root,
+                [],
+                notify=lambda kind, message, book_id: calls.append((kind, message, book_id)),
+            )
+
+            assert len(calls) == 1
+            assert calls[0][2] == "b9"
 
     def test_bytes_unattended_conflict_keeps_the_app_cover(self) -> None:
         """Unattended conflict for cover: keep app version, notify."""

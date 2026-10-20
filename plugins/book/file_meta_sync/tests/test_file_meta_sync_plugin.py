@@ -161,7 +161,9 @@ def test_a_headless_conflict_keeps_the_app_value_with_a_durable_notice(tmp_path:
     assert len(ctx.notices) == 1
     assert ctx.notices[0][0] == "warning"
     assert "Sidecar conflict" in ctx.notices[0][1]
+    assert "{book}" in ctx.notices[0][1]
     assert ctx.notices[0][2] is True
+    assert ctx.notice_books == ["b1"]
 
 
 def test_runs_on_the_sdk_host(tmp_path: Path) -> None:
