@@ -1,8 +1,8 @@
 id = "pdf_download_source"
 name = "PDF download"
-version = "1.4.0"
+version = "1.5.0"
 type = "source"
-spi_version = "3.0"
+spi_version = "3.10"
 description = "Downloads a PDF and converts it to EPUB in the library."
 url_patterns = ["(?i)^[^:/?#]+://[^/?#]*/[^?#]*\\.pdf(?:[?#]|$)"]
 update_check = true
@@ -15,6 +15,7 @@ source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_sour
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
 requirements = ["pymupdf==1.28.2"]
 formats = ["pdf"]
+defer_to_listing = ["title", "author", "author_url"]
 auth_sites = ["*"]
 entrypoint = "entrypoint.py"
 

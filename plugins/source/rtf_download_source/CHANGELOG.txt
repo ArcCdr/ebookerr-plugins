@@ -1,3 +1,6 @@
+== 1.5.0 ==
+A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.
+
 == 1.4.0 ==
 Keeps every paragraph of an RTF file instead of running each chapter together, takes the title and author from the file's own document information, and puts the text above the first chapter on the title page instead of making it a chapter. An RTF it cannot convert says why in one sentence. Needs ebookerr 2.24.9 or later.
 

@@ -1,3 +1,6 @@
+== 1.5.0 ==
+A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.
+
 == 1.4.0 ==
 A PDF it cannot convert now says why in one sentence — damaged, password-protected, or without text — instead of a technical error. A chapter from a PDF's outline no longer repeats its heading as its first paragraph.
 

@@ -1,3 +1,6 @@
+== 1.4.0 ==
+A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.
+
 == 1.3.0 ==
 An EPUB pulled from a link now keeps every author, its publisher (unless it only names the site), its identifiers, series and tags, and its language, exactly as the same file uploaded would; before, only the first author was kept. Needs ebookerr 2.24.10 or later.
 
