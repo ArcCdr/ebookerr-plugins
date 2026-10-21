@@ -22,6 +22,7 @@ from typing import Any
 from ebookerr_sdk.domain.chapter_number import extract_chapter_info
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import normalise_url, site_key
+from ebookerr_sdk.domain.series_rules import split_series
 from ebookerr_sdk.domain.story_url import (
     author_from_listing_url,
     author_page_url_from_listing_url,
@@ -275,7 +276,7 @@ def _apply_metadata(patch: StoryPatch, meta: dict[str, Any]) -> StoryPatch:
     dateUpdated→date_updated, averrating→rating. Text values are HTML-unescaped and stripped;
     those that result in empty strings are dropped. Counts tolerate digit-group separators
     (commas, spaces). Empty values and parsing failures are dropped; existing patch fields are
-    never blanked.
+    never blanked. A series written with its position (``"Name [3]"``) keeps only its name.
 
     Args:
         patch: The URL-only StoryPatch to enrich.
@@ -295,6 +296,9 @@ def _apply_metadata(patch: StoryPatch, meta: dict[str, Any]) -> StoryPatch:
     if part:
         return _enrich_part_metadata(patch, meta, changes)
 
+    # A series written with its position ("Name [3]") keeps its name: no series number.
+    if "series" in changes:
+        changes["series"] = split_series(changes["series"])[0]
     changes.update(_whole_story_numeric_fields(meta))
     return replace(patch, **changes)
 

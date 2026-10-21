@@ -1,3 +1,6 @@
+== 2.4.0 ==
+A story's series shows its name without its number in brackets. Needs ebookerr 2.24.21 or later.
+
 == 2.3.0 ==
 Asks for your stored sign-in only on sites where FanFicFare can sign in. Needs ebookerr 2.24.17 or later.
 
