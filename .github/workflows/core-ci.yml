@@ -1,0 +1,30 @@
+name: core-ci
+
+# The core's CI checks this repository out beside it, so a core push that ships before this one
+# is verified against the previous plugins. After a push to main that changes plugin code, ask
+# the core to re-run its ci on its base branch, now against this state. The generated files
+# (README.md, site/) are CI's own commits and never trigger it.
+# Needs the repository secret CORE_DISPATCH_TOKEN: a fine-grained token on ArcCdr/lit-ebookerr
+# with "Actions: read and write" (the default GITHUB_TOKEN cannot dispatch across repositories).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ["README.md", "site/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run the core's ci against this state
+        env:
+          GH_TOKEN: ${{ secrets.CORE_DISPATCH_TOKEN }}
+        run: gh workflow run ci.yml --repo ArcCdr/lit-ebookerr --ref feat/implementation
