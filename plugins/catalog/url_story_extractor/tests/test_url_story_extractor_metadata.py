@@ -1428,6 +1428,28 @@ class TestWholeWorkMetadataIsAppliedInFull:
         assert patches[0].series == "The Tales"
         assert patches[0].series_url == "https://x.test/series/9"
 
+    def test_a_whole_works_series_drops_its_position(self) -> None:
+        """A whole work's "Name [2]" series keeps its name; the listing has no series number."""
+        pages = FakePages(
+            urls_by_listing={"https://x.test/l": ["https://x.test/s/a-tale"]},
+            metadata_by_url={
+                "https://x.test/s/a-tale": {
+                    "storyUrl": "https://x.test/s/a-tale",
+                    "title": "A Tale",
+                    "series": "The Tales [2]",
+                    "seriesUrl": "https://x.test/series/9",
+                }
+            },
+        )
+        plugin = UrlStoryExtractorPlugin(pages=pages)
+        ctx = FakeCtx(settings={"max_new_metadata_per_scan": 25, "request_delay_ms": 750})
+
+        patches = plugin.extract_stories("https://x.test/l", ctx)
+
+        assert len(patches) == 1
+        assert patches[0].series == "The Tales"
+        assert patches[0].series_url == "https://x.test/series/9"
+
 
 class TestListingFailureFailsTheScan:
     """Test that a listing failure propagates and fails the whole scan."""
