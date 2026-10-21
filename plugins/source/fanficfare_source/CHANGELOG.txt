@@ -1,3 +1,6 @@
+== 2.3.0 ==
+A series' number is read by the same rule as the rest of ebookerr. Needs ebookerr 2.24.21 or later.
+
 == 2.2.0 ==
 Merged books update again: FanFicFare now recognises the chapters of a book you merged. Chapters a site removes are kept by ebookerr itself, with their own titles. A book with chapters ebookerr kept is checked by chapter address, so it is pulled only when the site has something new. A story that no longer exists on its site is reported as gone, so ebookerr can stop checking it. FanFicFare asks for your stored sign-in only on sites where it can sign in. Needs ebookerr 2.24.17 or later.
 

@@ -20,6 +20,7 @@ from typing import Any
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.domain.metadata import sanitize_multiline
+from ebookerr_sdk.domain.series_rules import split_series
 
 # FanFicFare JSON key -> Book text field. Empty strings become None.
 _TEXT_FIELDS: dict[str, str] = {
@@ -101,25 +102,6 @@ def _int_or_none(value: Any) -> int | None:
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
-_SERIES_WITH_INDEX = re.compile(r"^(?P<name>.*\S)\s*\[(?P<index>\d+(?:\.\d+)?)\]$")
-
-
-def split_series(value: str | None) -> tuple[str | None, float | None]:
-    """Split FanFicFare's ``"Name [3]"`` into ``("Name", 3.0)``; a plain name keeps index ``None``.
-
-    Args:
-        value: The sanitised series text, or ``None``.
-
-    Returns:
-        ``(series, series_index)``; a value with no ``[N]`` suffix (or only ``"[3]"``) is
-        returned as it is with ``None``.
-    """
-    if not value:
-        return value, None
-    match = _SERIES_WITH_INDEX.match(value)
-    if match is None:
-        return value, None
-    return match.group("name"), float(match.group("index"))
 
 
 def sanitize(value: str | None) -> str | None:
@@ -182,8 +164,8 @@ def fanficfare_json_to_book_fields(
     ``datePublished``/``dateUpdated`` are parsed into timezone-aware UTC datetimes here
     — the parse frontier for FanFicFare payloads.
     A ``"Name [N]"`` series is split into ``series`` and ``series_index``
-    (:func:`split_series`, ``LIB-D6``). ``tags`` joins the details *Tags to keep* names
-    (:func:`_tags`, ``LIB-D48``).
+    (:func:`ebookerr_sdk.domain.series_rules.split_series`, ``LIB-D6``). ``tags`` joins the
+    details *Tags to keep* names (:func:`_tags`, ``LIB-D48``).
 
     Args:
         data: FanFicFare's ``getAllMetadata()`` mapping.
