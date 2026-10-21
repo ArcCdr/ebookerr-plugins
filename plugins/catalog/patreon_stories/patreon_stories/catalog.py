@@ -12,7 +12,8 @@ parses the membership campaigns from the account API response and ``is_authentic
 signed-in payload from the one Patreon answers a refused session cookie with. ``membership_label``
 describes a membership the way its member sees it. ``parse_posts_page`` parses one page of a
 campaign's posts, ``select_story_media`` selects the best media file by format preference and
-``build_story`` builds the story dict (the ``StoryPatch`` fields) from a post and its file.
+``build_story`` builds the story dict (the ``StoryPatch`` fields) from a post and its file; a
+post in a creator's collection takes that collection as its series (``series``/``series_url``).
 ``scan`` scans every membership for posts within a look-back window and returns the stories and
 the log entries.
 
@@ -52,10 +53,13 @@ MEMBERSHIPS_URL = (
 )
 POSTS_URL_TEMPLATE = (
     API_BASE + "/posts?filter[campaign_id]={campaign_id}&sort=-published_at"
-    "&include=attachments_section,media"
+    "&include=attachments_section,media,collections"
     "&fields[post]=title,url,published_at,post_file,post_type,current_user_can_view,content"
+    "&fields[collection]=title"
     "&json-api-version=1.0&page[count]=20"
 )
+COLLECTION_URL_TEMPLATE = "https://www.patreon.com/collection/{collection_id}"
+"""The public page of a creator's collection — a post's series (``LIB-D45``)."""
 
 _TIMEOUT_S = 30
 # A campaign scan stops after this many posts pages (20 posts each), even before the cutoff.
@@ -355,6 +359,30 @@ def _build_media_list(media_ids: list[str], media_by_id: dict[str, Any]) -> list
     return media_list
 
 
+def _collection_titles(included: Any) -> dict[str, str]:
+    """Map each included collection's id to its title; a blank title is left out (``LIB-D45``)."""
+    titles: dict[str, str] = {}
+    for item in included:
+        if isinstance(item, dict) and item.get("type") == "collection":
+            title = (item.get("attributes") or {}).get("title")
+            if isinstance(title, str) and title.strip():
+                titles[str(item.get("id"))] = title
+    return titles
+
+
+def _first_collection(
+    post: dict[str, object], titles: dict[str, str]
+) -> tuple[str | None, str | None]:
+    """Return the id of the post's first collection and that collection's title, else ``None``."""
+    rels: Any = post.get("relationships", {})
+    data: Any = (rels.get("collections") or {}).get("data") or []
+    first = data[0] if isinstance(data, list) and data else None
+    if not isinstance(first, dict) or not first.get("id"):
+        return None, None
+    collection_id = str(first["id"])
+    return collection_id, titles.get(collection_id)
+
+
 def parse_posts_page(
     page_json: dict[str, object],
 ) -> tuple[list[dict[str, object]], str | None]:
@@ -366,10 +394,12 @@ def parse_posts_page(
     Returns:
         Tuple of (posts_list, next_cursor).
         Each post dict has keys: post_id, title, published_at, post_type, can_view,
-        content, media (list of {media_id, file_name, mimetype, download_url})
+        content, media (list of {media_id, file_name, mimetype, download_url}),
+        collection_id and collection_title (the post's first collection, else None).
     """
     posts: list[dict[str, object]] = []
     included: Any = page_json.get("included", [])
+    collection_titles = _collection_titles(included)
 
     # Build media lookup
     media_by_id: dict[str, Any] = {}
@@ -386,6 +416,9 @@ def parse_posts_page(
         # Collect media from both attachments_section and media relationships
         media_ids = _collect_media_ids(cast(dict[str, object], post))
         media_list = _build_media_list(media_ids, media_by_id)
+        collection_id, collection_title = _first_collection(
+            cast(dict[str, object], post), collection_titles
+        )
 
         posts.append(
             {
@@ -396,6 +429,8 @@ def parse_posts_page(
                 "can_view": bool(attrs.get("current_user_can_view", False)),
                 "content": attrs.get("content") or "",
                 "media": media_list,
+                "collection_id": collection_id,
+                "collection_title": collection_title,
             }
         )
 
@@ -514,7 +549,8 @@ def build_story(
     Every patch declares ``metadata_fetched=True``: a listing row already carries the full
     metadata the site offers, so the core never offers it to a metadata pass (SPI 2.11).
     The campaign's membership state, when known, becomes the ``Membership`` custom label
-    (e.g. ``"Free"``).
+    (e.g. ``"Free"``). A post in one of the creator's collections takes that collection as its
+    series, with the collection's page as the series link (``LIB-D45``).
 
     Args:
         post: Post dict from parse_posts_page
@@ -553,7 +589,7 @@ def build_story(
     if file_name_str:
         custom["source_filename"] = file_name_str
 
-    return {
+    story: dict[str, object] = {
         "url": f"https://www.patreon.com/file?h={post_id}&m={media_id}",
         "format": format_str,
         "title": title,
@@ -566,6 +602,12 @@ def build_story(
         "custom": custom,
         "metadata_fetched": True,
     }
+    collection_id = post.get("collection_id")
+    collection_title = post.get("collection_title")
+    if collection_id and collection_title:
+        story["series"] = collection_title
+        story["series_url"] = COLLECTION_URL_TEMPLATE.format(collection_id=collection_id)
+    return story
 
 
 def _process_post(
@@ -672,6 +714,27 @@ def _scan_campaign(
 
 
 _MEMBERSHIP_STATES = ("Active", "Cancelled", "Payment declined", "Former", "Free")
+
+
+def _collection_log(
+    campaign_name: object, campaign_id: object, stories: list[dict[str, object]]
+) -> dict[str, object]:
+    """The DEBUG log entry counting a campaign's stories that sit in a collection.
+
+    Args:
+        campaign_name: The campaign's name.
+        campaign_id: The campaign's id.
+        stories: The campaign's kept stories.
+
+    Returns:
+        A ``{"level": "debug", "message": …}`` log entry.
+    """
+    in_series = sum(1 for story in stories if story.get("series"))
+    message = (
+        f'Campaign "{campaign_name}" (campaign_id={campaign_id}): {in_series} of {len(stories)}'
+        " stories belong to a collection"
+    )
+    return {"level": "debug", "message": message}
 
 
 def _membership_summary(campaigns: list[dict[str, object]]) -> str:
@@ -810,6 +873,7 @@ def scan(
                 f" {skipped_no_file} posts without a supported file"
             )
             logs.append({"level": "info", "message": log_msg})
+            logs.append(_collection_log(campaign_name, campaign_id, camp_stories))
             if truncated:
                 warning_msg = (
                     f'Stopped scanning campaign "{campaign_name}" (campaign_id={campaign_id})'

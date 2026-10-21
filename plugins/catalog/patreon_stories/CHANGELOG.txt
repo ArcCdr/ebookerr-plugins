@@ -1,3 +1,6 @@
+== 2.6.0 ==
+A post in one of the creator's collections shows that collection as its series, with a link to it. Needs ebookerr 2.24.21 or later.
+
 == 2.5.0 ==
 A post no longer gets the campaign's name as its series; the campaign stays in the Campaign column.
 
