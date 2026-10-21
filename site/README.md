@@ -6,13 +6,13 @@
 |---|---|---|---|---|
 | Literotica search | `literotica_stories` | Catalog | 2.5.0 | Fetches stories with Literotica search |
 | Literotica - My Home | `my_literotica` | Catalog | 1.4.0 | Lists new story publications from the authors you follow on Literotica (from "My Home" activity wall) |
-| Patreon memberships | `patreon_stories` | Catalog | 2.5.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
+| Patreon memberships | `patreon_stories` | Catalog | 2.6.0 | Scans every Patreon membership you hold — paid, cancelled or free — for posts you can open that carry a story file |
 | URL Story Extractor | `url_story_extractor` | Catalog | 2.2.0 | Extracts the stories listed on any page — an author's works, a series, a favourites list — using FanFicFare's site adapters, falling back to generic link scraping. |
 | DOCX download | `docx_download_source` | Source | 1.4.0 | Downloads a DOCX and converts it to EPUB in the library. |
-| EPUB download | `epub_download_source` | Source | 1.3.0 | Downloads a story EPUB from a direct download URL. |
-| FanFicFare | `fanficfare_source` | Source | 2.2.0 | Downloads stories from any site FanFicFare supports. |
-| PDF download | `pdf_download_source` | Source | 1.4.0 | Downloads a PDF and converts it to EPUB in the library. |
-| RTF download | `rtf_download_source` | Source | 1.4.0 | Downloads an RTF and converts it to EPUB in the library. |
+| EPUB download | `epub_download_source` | Source | 1.4.0 | Downloads a story EPUB from a direct download URL. |
+| FanFicFare | `fanficfare_source` | Source | 2.3.0 | Downloads stories from any site FanFicFare supports. |
+| PDF download | `pdf_download_source` | Source | 1.5.0 | Downloads a PDF and converts it to EPUB in the library. |
+| RTF download | `rtf_download_source` | Source | 1.5.0 | Downloads an RTF and converts it to EPUB in the library. |
 | Text download | `text_download_source` | Source | 1.3.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
 | Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.5.0 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
 | EPUB Merge | `epub_merge` | EPUB | 2.7.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |
