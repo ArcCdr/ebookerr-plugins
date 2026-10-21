@@ -743,7 +743,7 @@ def test_manifest_parses_with_auth_sites() -> None:
     manifest = parse_manifest(manifest_data)
 
     assert manifest.auth_sites == ("patreon.com",)
-    assert manifest.spi_version == "3.1"
+    assert manifest.spi_version == "3.10"
     assert manifest.ui_triggers[0].icon == "volunteer_activism"
 
     # Check settings_schema has recent_weeks field
@@ -773,7 +773,7 @@ def test_the_manifest_declares_a_complete_listing() -> None:
 
 
 def test_manifest_loads_via_loader() -> None:
-    """The staged manifest parses to the catalog patreon_stories, version 2.4.0."""
+    """The staged manifest parses to the catalog patreon_stories, version 2.6.0."""
     import tomllib
 
     from ebookerr_sdk.spi.manifest import parse_manifest
@@ -781,7 +781,7 @@ def test_manifest_loads_via_loader() -> None:
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest = parse_manifest(tomllib.loads(manifest_path.read_text(encoding="utf-8")))
     assert manifest.id == "patreon_stories"
-    assert manifest.version == "2.5.0"
+    assert manifest.version == "2.6.0"
 
 
 def test_build_story_includes_source_filename() -> None:
@@ -2035,3 +2035,134 @@ def test_scan_failure_names_the_campaign_in_double_quotes() -> None:
 
     expected = 'Campaign "Demo Campaign" (campaign_id=111): scan failed: boom'
     assert str(exc_info.value) == expected
+
+
+def _collection_post_page(
+    relationships: dict[str, object], included: list[dict[str, object]]
+) -> dict[str, object]:
+    """A posts page holding one viewable post (id 501, one EPUB file) with *relationships*.
+
+    Args:
+        relationships: The post's relationships besides its file; ``collections`` goes here.
+        included: Extra included objects (collections); the post's media object is added.
+
+    Returns:
+        A JSON-API page as the posts endpoint answers it, with no next cursor.
+    """
+    return {
+        "data": [
+            {
+                "id": "501",
+                "type": "post",
+                "attributes": {
+                    "title": "Sample Saga, Chapter 2",
+                    "published_at": "2026-07-15T10:00:00Z",
+                    "post_type": "text_post",
+                    "current_user_can_view": True,
+                    "content": "<p>Text</p>",
+                },
+                "relationships": {
+                    "attachments_section": {"data": [{"id": "601", "type": "media"}]},
+                    **relationships,
+                },
+            }
+        ],
+        "included": [
+            {
+                "id": "601",
+                "type": "media",
+                "attributes": {
+                    "file_name": "saga-2.epub",
+                    "mimetype": "application/epub+zip",
+                    "download_url": "https://download.patreon.com/601/saga-2.epub",
+                },
+            },
+            *included,
+        ],
+        "meta": {"pagination": {"cursors": {}}},
+    }
+
+
+_IN_SAGA = {
+    "collections": {
+        "data": [{"id": "9001", "type": "collection"}, {"id": "9002", "type": "collection"}]
+    }
+}
+"""Relationships naming two collections, Sample Saga first."""
+
+_SAGA_COLLECTIONS = [
+    {"type": "collection", "id": "9001", "attributes": {"title": "Sample Saga"}},
+    {"type": "collection", "id": "9002", "attributes": {"title": "Other"}},
+]
+"""The included objects of the two collections."""
+
+
+def test_the_posts_request_asks_for_collections() -> None:
+    """The posts request includes each post's collections with their titles."""
+    assert "include=attachments_section,media,collections" in _MODULE.POSTS_URL_TEMPLATE
+    assert "fields[collection]=title" in _MODULE.POSTS_URL_TEMPLATE
+
+
+def test_parse_posts_page_reads_the_first_collection() -> None:
+    """A post in two collections takes the first one's id and title."""
+    (post,), _cursor = _MODULE.parse_posts_page(_collection_post_page(_IN_SAGA, _SAGA_COLLECTIONS))
+    assert post["collection_id"] == "9001"
+    assert post["collection_title"] == "Sample Saga"
+
+
+def test_parse_posts_page_without_a_collection() -> None:
+    """A post in no collection has neither an id nor a title."""
+    (post,), _cursor = _MODULE.parse_posts_page(_collection_post_page({}, []))
+    assert post["collection_id"] is None
+    assert post["collection_title"] is None
+
+
+def test_a_collection_with_a_blank_title_is_none() -> None:
+    """A collection whose title is blank gives the post no collection title."""
+    blank = [{"type": "collection", "id": "9001", "attributes": {"title": ""}}]
+    (post,), _cursor = _MODULE.parse_posts_page(_collection_post_page(_IN_SAGA, blank))
+    assert post["collection_id"] == "9001"
+    assert post["collection_title"] is None
+
+
+def test_build_story_takes_the_collection_as_its_series() -> None:
+    """A post in a collection is a story of that series, linked to the collection's page."""
+    (post,), _cursor = _MODULE.parse_posts_page(_collection_post_page(_IN_SAGA, _SAGA_COLLECTIONS))
+    campaign = _MODULE.parse_campaigns(_MEMBERSHIPS_FIXTURE_DATA)[0]
+    media = _MODULE.select_story_media(post["media"])
+    assert media is not None
+
+    story = _MODULE.build_story(post, campaign, media)
+
+    assert story["series"] == "Sample Saga"
+    assert story["series_url"] == "https://www.patreon.com/collection/9001"
+
+
+def test_scan_logs_how_many_stories_belong_to_a_collection() -> None:
+    """Each campaign's summary is followed by a DEBUG count of its stories in a collection."""
+    from datetime import datetime
+
+    def fake_now() -> datetime:
+        return datetime(2026, 7, 18, 0, 0, 0, tzinfo=UTC)
+
+    memberships = _memberships_payload([("camp1", "Campaign 1", "Creator 1")])
+
+    def mock_get_json(
+        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+    ) -> dict:
+        if "api/current_user" in url:
+            return memberships
+        if "api/posts" in url:
+            return _collection_post_page(_IN_SAGA, _SAGA_COLLECTIONS)
+        raise ValueError(f"Unexpected URL: {url}")
+
+    credential = SiteCredential("cookie", "session_id", "test_cookie")
+    with mock.patch.object(_MODULE, "_get_json", side_effect=mock_get_json):
+        stories, logs = _MODULE.scan(credential, {}, FakeContext(), now_fn=fake_now)
+
+    assert [s.get("series") for s in stories] == ["Sample Saga"]
+    assert {
+        "level": "debug",
+        "message": 'Campaign "Campaign 1" (campaign_id=camp1): 1 of 1 stories belong to a'
+        " collection",
+    } in logs
