@@ -16,7 +16,6 @@ from fanficfare_source.metadata import (
     fanficfare_book_id,
     fanficfare_json_to_book_fields,
     sanitize,
-    split_series,
     tag_keys,
 )
 
@@ -331,18 +330,12 @@ class TestChapterLinksFromFanficfare:
         assert result == [("https://x/1", None, 2)]
 
 
-def test_split_series_parses_the_number() -> None:
-    """Split FanFicFare's "Name [3]" into ("Name", 3.0); decimal indices supported."""
-    assert split_series("Harbour Stories [2]") == ("Harbour Stories", 2.0)
-    assert split_series("X [2.5]") == ("X", 2.5)
+def test_the_series_parser_is_the_sdks() -> None:
+    """The plugin splits a "Name [N]" series with the SDK's one parser, not a copy of its own."""
+    from ebookerr_sdk.domain import series_rules
+    from fanficfare_source import metadata
 
-
-def test_split_series_keeps_a_plain_name() -> None:
-    """Plain names and edge cases return name with index None."""
-    assert split_series("Plain") == ("Plain", None)
-    assert split_series("[3]") == ("[3]", None)
-    assert split_series(None) == (None, None)
-    assert split_series("") == ("", None)
+    assert metadata.split_series is series_rules.split_series
 
 
 def test_fields_carry_the_series_number() -> None:
