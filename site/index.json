@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-20T12:42:06Z",
+  "generated_at": "2026-10-21T17:22:49Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -326,6 +326,30 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.4.0",
+          "published_at": "2026-10-21T17:22:26Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_download_source-1.4.0/epub_download_source-1.4.0.zip",
+          "sha256": "002fb26c8769c24dba8b145e004fc1196df5bd595840e5a12052a7d981257fc4",
+          "size": 7546,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [
+            "epub"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.3.0",
           "published_at": "2026-10-16T07:07:25Z",
@@ -758,6 +782,32 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.3.0",
+          "published_at": "2026-10-21T17:22:30Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/fanficfare_source-2.3.0/fanficfare_source-2.3.0.zip",
+          "sha256": "bcf8e3ac93998b54095703961fa41688fd379dd934b08b48fdc241591af48e87",
+          "size": 32754,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A series' number is read by the same rule as the rest of ebookerr. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "fallback_source"
+            ]
+          },
+          "requirements": [
+            "fanficfare==4.62.0"
+          ]
+        },
         {
           "version": "2.2.0",
           "published_at": "2026-10-20T12:42:00Z",
@@ -1983,6 +2033,30 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.6.0",
+          "published_at": "2026-10-21T17:22:36Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/patreon_stories-2.6.0/patreon_stories-2.6.0.zip",
+          "sha256": "a90d46c08b2e3471f73be1003e40859248a7dcc3d8ffe23843e37ea9c1ab6fd3",
+          "size": 14481,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A post in one of the creator's collections shows that collection as its series, with a link to it. Needs ebookerr 2.24.21 or later.",
+          "sites": [
+            "patreon.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "patreon.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.5.0",
           "published_at": "2026-10-13T21:43:55Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/patreon_stories-2.5.0/patreon_stories-2.5.0.zip",
@@ -2095,6 +2169,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.5.0",
+          "published_at": "2026-10-21T17:22:37Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/pdf_download_source-1.5.0/pdf_download_source-1.5.0.zip",
+          "sha256": "19ac4346a66f0bcf6cf08945affe797408d0c1810a1c91d083894b3c57f8c404",
+          "size": 8534,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [
+            "pdf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "pymupdf==1.28.2"
+          ]
+        },
         {
           "version": "1.4.0",
           "published_at": "2026-10-16T07:07:28Z",
@@ -2246,6 +2348,35 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.5.0",
+          "published_at": "2026-10-21T17:22:41Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.5.0/rtf_download_source-1.5.0.zip",
+          "sha256": "22dfad0f1e83b016fa5a206d385957c800e1b842e63343539fe3b291b05a86d9",
+          "size": 6028,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [
+            "rtf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "striprtf==0.0.33",
+            "charset-normalizer>=3.3"
+          ]
+        },
         {
           "version": "1.4.0",
           "published_at": "2026-10-16T07:07:38Z",
@@ -2403,6 +2534,34 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.4.0",
+          "published_at": "2026-10-21T17:22:49Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.4.0/text_download_source-1.4.0.zip",
+          "sha256": "4304c5ff27966840cecdbb4613eb3a2e7249b3da8fd1d81b9a9edd5f00742226",
+          "size": 3982,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A book pulled from a catalog's listing still takes its title, author and author link from the listing when the listing has them from the site, rather than from the downloaded file. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [
+            "txt"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "charset-normalizer>=3.3"
+          ]
+        },
+        {
           "version": "1.3.0",
           "published_at": "2026-10-08T18:19:46Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.3.0/text_download_source-1.3.0.zip",
@@ -2497,6 +2656,32 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.4.0",
+          "published_at": "2026-10-21T17:22:46Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/url_story_extractor-2.4.0/url_story_extractor-2.4.0.zip",
+          "sha256": "13e2f65591d35937a9b363aa215e335ae2f07f76b2794a6284a5bdb0b6d3d0b7",
+          "size": 22895,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "A story's series shows its name without its number in brackets. Needs ebookerr 2.24.21 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "story_extractor"
+            ]
+          },
+          "requirements": [
+            "fanficfare==4.62.0"
+          ]
+        },
         {
           "version": "2.2.0",
           "published_at": "2026-10-19T18:31:20Z",
