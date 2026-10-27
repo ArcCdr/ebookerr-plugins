@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-21T17:22:49Z",
+  "generated_at": "2026-10-27T15:57:00Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -2169,6 +2169,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.5.1",
+          "published_at": "2026-10-27T15:57:00Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/pdf_download_source-1.5.1/pdf_download_source-1.5.1.zip",
+          "sha256": "75c5efabc5aceaa6532e8261fa0e18456071ad573146ca050d4836dc31bc83dc",
+          "size": 8544,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "Updated to pymupdf 2.0.",
+          "sites": [],
+          "formats": [
+            "pdf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "pymupdf==2.0"
+          ]
+        },
         {
           "version": "1.5.0",
           "published_at": "2026-10-21T17:22:37Z",
