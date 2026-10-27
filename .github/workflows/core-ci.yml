@@ -4,8 +4,9 @@ name: core-ci
 # is verified against the previous plugins. After a push to main that changes plugin code, ask
 # the core to re-run its ci on its base branch, now against this state. The generated files
 # (README.md, site/) are CI's own commits and never trigger it.
-# Needs the repository secret CORE_DISPATCH_TOKEN: a fine-grained token on ArcCdr/lit-ebookerr
-# with "Actions: read and write" (the default GITHUB_TOKEN cannot dispatch across repositories).
+# Needs the ebookerr-deps-bot App (the core's docs/RELEASE.md) installed on ArcCdr/lit-ebookerr too
+# with "Actions: read and write": the default GITHUB_TOKEN cannot dispatch across repositories, and
+# one App credential replaces a separate personal token that would expire.
 
 on:
   workflow_dispatch:
@@ -24,7 +25,15 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          app-id: ${{ vars.DEPS_BOT_APP_ID }}
+          private-key: ${{ secrets.DEPS_BOT_PRIVATE_KEY }}
+          owner: ArcCdr
+          repositories: lit-ebookerr
+          permission-actions: write
       - name: Re-run the core's ci against this state
         env:
-          GH_TOKEN: ${{ secrets.CORE_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         run: gh workflow run ci.yml --repo ArcCdr/lit-ebookerr --ref feat/implementation
