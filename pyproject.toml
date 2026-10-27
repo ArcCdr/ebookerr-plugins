@@ -9,7 +9,7 @@ dev = [
     # the plugins' own runtime requirements (each manifest.toml `requirements`); a `==` pin is
     # tracked by scripts/requirement_pins.py (plan/apply) and must equal every manifest's (its check)
     "fanficfare==4.62.0",
-    "pymupdf==1.28.2",
+    "pymupdf==2.0",
     "python-docx==1.2.0",
     "striprtf==0.0.33",
     "charset-normalizer>=3.3",
