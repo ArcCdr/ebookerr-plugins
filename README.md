@@ -12,7 +12,7 @@
 | EPUB download | `epub_download_source` | Source | 1.4.0 | Downloads a story EPUB from a direct download URL. |
 | FanFicFare | `fanficfare_source` | Source | 2.3.0 | Downloads stories from any site FanFicFare supports. |
 | PDF download | `pdf_download_source` | Source | 1.5.1 | Downloads a PDF and converts it to EPUB in the library. |
-| RTF download | `rtf_download_source` | Source | 1.5.0 | Downloads an RTF and converts it to EPUB in the library. |
+| RTF download | `rtf_download_source` | Source | 1.5.1 | Downloads an RTF and converts it to EPUB in the library. |
 | Text download | `text_download_source` | Source | 1.4.0 | Downloads a TXT/Markdown file and converts it to EPUB in the library. |
 | Chapter Reorder | `epub_chapter_reorder` | EPUB | 2.5.0 | Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. |
 | EPUB Merge | `epub_merge` | EPUB | 2.7.0 | Combines several books into one, moving every chapter into the first book and deleting the others. |

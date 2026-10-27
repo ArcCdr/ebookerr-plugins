@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-27T15:57:00Z",
+  "generated_at": "2026-10-27T15:57:17Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -2376,6 +2376,35 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.5.1",
+          "published_at": "2026-10-27T15:57:17Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.5.1/rtf_download_source-1.5.1.zip",
+          "sha256": "e5b322deade1e2a820124119995b1fc11386fe2722bb6fa87eabfa1c87def542",
+          "size": 6037,
+          "spi_version": "3.10",
+          "min_app_version": "",
+          "changelog": "Updated to striprtf 0.0.35.",
+          "sites": [],
+          "formats": [
+            "rtf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "striprtf==0.0.35",
+            "charset-normalizer>=3.3"
+          ]
+        },
         {
           "version": "1.5.0",
           "published_at": "2026-10-21T17:22:41Z",
