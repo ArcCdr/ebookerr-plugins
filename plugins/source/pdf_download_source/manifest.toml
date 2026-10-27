@@ -1,6 +1,6 @@
 id = "pdf_download_source"
 name = "PDF download"
-version = "1.5.0"
+version = "1.5.1"
 type = "source"
 spi_version = "3.10"
 description = "Downloads a PDF and converts it to EPUB in the library."
@@ -13,7 +13,7 @@ license = "AGPL-3.0-or-later"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source"
 source = "https://github.com/ArcCdr/ebookerr-plugins/tree/main/pdf_download_source"
 issues = "https://github.com/ArcCdr/ebookerr-plugins/issues"
-requirements = ["pymupdf==1.28.2"]
+requirements = ["pymupdf==2.0"]
 formats = ["pdf"]
 defer_to_listing = ["title", "author", "author_url"]
 auth_sites = ["*"]
