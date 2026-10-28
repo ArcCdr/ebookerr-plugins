@@ -2,7 +2,7 @@
 
 A deferred, long-running BookPlugin with a two-stage flow: a text-to-image prompt is generated
 from a book's opening chapters, then one or more image-generation API calls produce candidate
-covers. Runs automatically for new or imported books and on the "Generate cover candidates"
+covers. Runs automatically for new or imported books and on the "Generate covers"
 action. Never selects a candidate automatically (``GEN-D8``) and never regenerates what exists
 (``GEN-D7``).
 """
