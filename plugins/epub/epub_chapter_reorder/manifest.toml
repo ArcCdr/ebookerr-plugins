@@ -1,6 +1,6 @@
 id = "epub_chapter_reorder"
 name = "Chapter Reorder"
-version = "2.5.0"
+version = "2.5.1"
 type = "epub"
 spi_version = "3.9"
 description = "Puts an EPUB's chapters back into numbered order when the source delivered them shuffled. A file already in order is left untouched."
@@ -22,5 +22,5 @@ label = "Manual chapter order set"
 
 [[ui_triggers]]
 scope = "book_selection_action"
-label = "Chapters"
-description = "Reorder chapters or set a manual order for this book."
+label = "Chapters Reorder"
+description = "Reorder book chapters"

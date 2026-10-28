@@ -1,6 +1,6 @@
 id = "llm_cover"
 name = "Cover generator"
-version = "1.3.1"
+version = "1.3.2"
 type = "book"
 spi_version = "3.1"
 description = "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. Candidates are never set as the cover automatically."
@@ -166,5 +166,5 @@ summary = "{image_models|No image models}"
 
 [[ui_triggers]]
 scope = "book_selection_action"
-label = "Generate cover candidates"
-description = "Create candidate covers for each selected book with the configured image models."
+label = "Generate covers"
+description = "Generate book cover image(s) from the configured image models."

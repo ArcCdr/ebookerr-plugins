@@ -1,6 +1,6 @@
 id = "epub_normalize"
 name = "EPUB Normalize"
-version = "2.0.1"
+version = "2.0.2"
 type = "epub"
 spi_version = "3.1"
 description = "Strip publisher styling that stops your reader applying its own fonts, colours, sizes, spacing and margins."
@@ -34,4 +34,4 @@ At every level, paragraphs, line breaks and blank lines stay, images, covers, SV
 [[ui_triggers]]
 scope = "book_selection_action"
 label = "Normalize styling"
-description = "Remove publisher CSS that overrides your reader's font, theme and text size."
+description = "Remove hardcoded book styling that may interfere with your reader's font, theme and text size."

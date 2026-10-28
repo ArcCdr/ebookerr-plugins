@@ -1,3 +1,6 @@
+== 2.0.2 ==
+The Normalize styling action describes more clearly what it removes.
+
 == 2.0.1 ==
 Internal tidy-up for ebookerr 2.24.17; nothing changes for you. Needs ebookerr 2.24.16 or later.
 

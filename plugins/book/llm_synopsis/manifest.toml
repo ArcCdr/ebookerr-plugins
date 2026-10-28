@@ -1,6 +1,6 @@
 id = "llm_synopsis"
 name = "Synopsis generator"
-version = "1.3.1"
+version = "1.3.2"
 type = "book"
 spi_version = "3.1"
 description = "Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. Only books without a synopsis from the configured model are processed."
@@ -90,4 +90,4 @@ summary = "{input_words} words in · {max_completion_tokens|no output limit} out
 [[ui_triggers]]
 scope = "book_selection_action"
 label = "Generate synopsis"
-description = "Write a synopsis for each selected book with the configured model."
+description = "Generate a back cover synopsis with the configured model."

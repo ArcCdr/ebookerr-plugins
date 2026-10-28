@@ -1,6 +1,6 @@
 id = "kavita_sync"
 name = "Kavita Sync"
-version = "1.12.0"
+version = "1.12.1"
 type = "book"
 spi_version = "3.9"
 description = "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time."
@@ -30,7 +30,7 @@ write_read_state = true
 [[ui_triggers]]
 scope = "book_selection_action"
 label = "Sync to Kavita"
-description = "Push this book's metadata and cover to your library server."
+description = "Sync book's data and read progress to Kavita."
 
 [settings_schema]
 summary = "{server|No server URL} · folder {library_path|No library folder} · API key {api_key|No API key}"

@@ -1,6 +1,6 @@
 id = "komga_sync"
 name = "Komga Sync"
-version = "1.13.0"
+version = "1.13.1"
 type = "book"
 spi_version = "3.9"
 description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
@@ -30,7 +30,7 @@ write_read_state = true
 [[ui_triggers]]
 scope = "book_selection_action"
 label = "Sync to Komga"
-description = "Push this book's metadata and cover to your library server."
+description = "Syncs book's data and read progress to Komga."
 
 [settings_schema]
 summary = "{server|No server URL} · library {library_id|No library id} · API key {api_key|No API key}"

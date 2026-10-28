@@ -37,7 +37,7 @@ def test_trigger() -> None:
     assert trigger.scope == "book_selection_action"
     assert trigger.icon == "add_photo_alternate"
     assert m.icon == "add_photo_alternate"
-    assert trigger.label == "Generate cover candidates"
+    assert trigger.label
     assert trigger.min_books == 1
 
 

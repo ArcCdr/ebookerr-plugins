@@ -1,3 +1,6 @@
+== 1.12.1 ==
+The Sync to Kavita action now says it syncs the book's data and read progress.
+
 == 1.12.0 ==
 The notice about a reading position re-anchored by a weaker match names the book as a link to it. Needs ebookerr 2.24.18 or later.
 

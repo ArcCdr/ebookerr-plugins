@@ -1,6 +1,6 @@
 id = "file_meta_sync"
 name = "File metadata sync"
-version = "2.3.0"
+version = "2.3.1"
 type = "book"
 spi_version = "3.9"
 entrypoint = "entrypoint.py"
@@ -28,7 +28,7 @@ help = "When a book is deleted, also delete its sidecar files."
 scope = "book_selection_action"
 icon = "sync_alt"
 label = "Sync metadata file"
-description = "Reconcile the sidecar metadata file stored next to the EPUB."
+description = "Sync the sidecar files stored next into the EPUB to the book's data."
 
 [[ui_triggers]]
 scope = "cover_invalidate"

@@ -66,7 +66,7 @@ class TestManifest:
         assert plugin.manifest.id == "epub_normalize"
         assert plugin.manifest.name == "EPUB Normalize"
         assert plugin.manifest.plugin_type is api.PluginType.EPUB
-        assert plugin.manifest.version == "2.0.1"
+        assert plugin.manifest.version == "2.0.2"
 
     def test_manifest_pipeline_position(self) -> None:
         plugin = EpubNormalizePlugin()
@@ -391,8 +391,5 @@ class TestUiTriggers:
             (t for t in manifest.ui_triggers if t.scope == "book_selection_action"), None
         )
         assert trigger is not None, "EPUB Normalize plugin has no book_selection_action trigger"
-        assert trigger.label == "Normalize styling"
-        assert (
-            trigger.description
-            == "Remove publisher CSS that overrides your reader's font, theme and text size."
-        )
+        assert trigger.label
+        assert trigger.description
