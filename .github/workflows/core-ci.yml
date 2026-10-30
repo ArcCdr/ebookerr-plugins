@@ -1,12 +1,15 @@
 name: core-ci
 
 # The core's CI checks this repository out beside it, so a core push that ships before this one
-# is verified against the previous plugins. After a push to main that changes plugin code, ask
-# the core to re-run its ci on its base branch, now against this state. The generated files
-# (README.md, site/) are CI's own commits and never trigger it.
+# is verified against the previous plugins. After a push to main that changes plugin code, bring
+# the core up to this state: when a plugin's exact requirement pin moved (a dependency release),
+# the core's dev dependency group and uv.lock follow it (`sync-pins`, committed to the core's base
+# branch, whose push runs its ci); otherwise just re-run its ci. The generated files (README.md,
+# site/) are CI's own commits and never trigger it.
 # Needs the ebookerr-deps-bot App (the core's docs/RELEASE.md) installed on ArcCdr/lit-ebookerr too
-# with "Actions: read and write": the default GITHUB_TOKEN cannot dispatch across repositories, and
-# one App credential replaces a separate personal token that would expire.
+# with "Actions: read and write" and "Contents: read and write": the default GITHUB_TOKEN cannot
+# act across repositories, and one App credential replaces a separate personal token that would
+# expire. A push made with the App's token starts the core's ci, which the default token's would not.
 
 on:
   workflow_dispatch:
@@ -21,9 +24,14 @@ concurrency:
   group: core-ci
   cancel-in-progress: true
 
+env:
+  UV_VERSION: "0.12.18"
+  UV_PYTHON: "3.14"
+
 jobs:
-  dispatch:
+  sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app
@@ -33,7 +41,40 @@ jobs:
           owner: ArcCdr
           repositories: lit-ebookerr
           permission-actions: write
+          permission-contents: write
+      # Side by side, as on a developer machine: the core finds ../ebookerr-plugins by itself.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ebookerr-plugins
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArcCdr/lit-ebookerr
+          ref: feat/implementation
+          path: lit-ebookerr
+          token: ${{ steps.app.outputs.token }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Sync the core's dev pins with this repository
+        id: sync
+        working-directory: lit-ebookerr
+        run: |
+          uv sync --frozen
+          git config user.name "ebookerr-deps-bot[bot]"
+          git config user.email "ebookerr-deps-bot[bot]@users.noreply.github.com"
+          before="$(git rev-parse HEAD)"
+          uv run --no-sync python -m src.tools.plugins_repo sync-pins
+          if [ "$(git rev-parse HEAD)" = "$before" ]; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A push from the owner may have landed meanwhile: rebase over it once.
+          git push origin HEAD:feat/implementation \
+            || { git pull --rebase origin feat/implementation \
+                 && git push origin HEAD:feat/implementation; }
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: Re-run the core's ci against this state
+        if: steps.sync.outputs.pushed != 'true'
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: gh workflow run ci.yml --repo ArcCdr/lit-ebookerr --ref feat/implementation
