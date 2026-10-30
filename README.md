@@ -20,5 +20,5 @@
 | File metadata sync | `file_meta_sync` | Book | 2.3.1 | Syncs sidecar files (cover candidates, synopsis) with the library |
 | Kavita Sync | `kavita_sync` | Book | 1.12.1 | Publishes your books to a Kavita server and reads your reading progress back. |
 | Komga Sync | `komga_sync` | Book | 1.13.1 | Publishes your books to a Komga server and reads your reading progress back. |
-| Cover generator | `llm_cover` | Book | 1.3.1 | Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. |
-| Synopsis generator | `llm_synopsis` | Book | 1.3.1 | Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. |
+| Cover generator | `llm_cover` | Book | 1.3.2 | Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. |
+| Synopsis generator | `llm_synopsis` | Book | 1.3.2 | Writes a book's synopsis from its opening chapters with a language model you run or subscribe to. |

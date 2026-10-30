@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-30T09:06:26Z",
+  "generated_at": "2026-10-30T09:06:36Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -1831,6 +1831,29 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.3.2",
+          "published_at": "2026-10-30T09:06:33Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.3.2/llm_cover-1.3.2.zip",
+          "sha256": "db78be934e690e30e0a97ca2bfe0133d28817d06d688c12e5a8473d6c4669aa4",
+          "size": 8126,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "The book action is now called Generate covers.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "1.3.1",
           "published_at": "2026-10-13T21:43:45Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.3.1/llm_cover-1.3.1.zip",
@@ -1939,6 +1962,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.3.2",
+          "published_at": "2026-10-30T09:06:36Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_synopsis-1.3.2/llm_synopsis-1.3.2.zip",
+          "sha256": "f5935580922306a64c8008211eac184c3e7cebbab3c483870b233c8c391dae87",
+          "size": 5525,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "The book action's description is clearer: it generates a back cover synopsis.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "1.3.1",
           "published_at": "2026-10-13T21:43:51Z",
