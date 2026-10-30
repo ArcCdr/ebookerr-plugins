@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-10-27T15:57:17Z",
+  "generated_at": "2026-10-30T09:06:26Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -148,6 +148,29 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.5.1",
+          "published_at": "2026-10-30T09:06:12Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_chapter_reorder-2.5.1/epub_chapter_reorder-2.5.1.zip",
+          "sha256": "3dc7e5d3073c69ad17120fea56b60e4903e1a1cf44cfc71734a67c77543361e5",
+          "size": 15345,
+          "spi_version": "3.9",
+          "min_app_version": "",
+          "changelog": "The book action is now called Chapters Reorder.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.5.0",
           "published_at": "2026-10-20T12:41:49Z",
@@ -651,6 +674,29 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.0.2",
+          "published_at": "2026-10-30T09:06:22Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_normalize-2.0.2/epub_normalize-2.0.2.zip",
+          "sha256": "05b060d01f926c209c61a9ce141df17652b82870a72b0d9088c3acf6a3864ca9",
+          "size": 52614,
+          "spi_version": "3.1",
+          "min_app_version": "",
+          "changelog": "The Normalize styling action describes more clearly what it removes.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": true,
+            "events": [
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.0.1",
           "published_at": "2026-10-20T12:42:06Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/epub_normalize-2.0.1/epub_normalize-2.0.1.zip",
@@ -1026,6 +1072,33 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "2.3.1",
+          "published_at": "2026-10-30T09:06:18Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.3.1/file_meta_sync-2.3.1.zip",
+          "sha256": "aa9b9e4f8deac6d152f47a8ea21615cdb182fdff059d3f3fb6a4f6dcaeb884ed",
+          "size": 11769,
+          "spi_version": "3.9",
+          "min_app_version": "",
+          "changelog": "The Sync metadata file action describes what it does more clearly.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "2.3.0",
           "published_at": "2026-10-20T12:41:56Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.3.0/file_meta_sync-2.3.0.zip",
@@ -1150,6 +1223,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.12.1",
+          "published_at": "2026-10-30T09:06:18Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/kavita_sync-1.12.1/kavita_sync-1.12.1.zip",
+          "sha256": "3acffe145e6b222a32aa3c6f5cf453d3a1097778dbff584d78af1214d3341318",
+          "size": 40292,
+          "spi_version": "3.9",
+          "min_app_version": "",
+          "changelog": "The Sync to Kavita action now says it syncs the book's data and read progress.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.12.0",
           "published_at": "2026-10-20T12:42:01Z",
@@ -1387,6 +1488,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.13.1",
+          "published_at": "2026-10-30T09:06:26Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/komga_sync-1.13.1/komga_sync-1.13.1.zip",
+          "sha256": "7edd494f4cb2d72e575844fc9bef07b5367607a780bb74fd3778a95eac944e5c",
+          "size": 57109,
+          "spi_version": "3.9",
+          "min_app_version": "",
+          "changelog": "The Sync to Komga action now says it syncs the book's data and read progress.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubModified"
+            ],
+            "deferred": true,
+            "roles": [
+              "library_server"
+            ]
+          },
+          "requirements": []
+        },
         {
           "version": "1.13.0",
           "published_at": "2026-10-20T12:42:04Z",
