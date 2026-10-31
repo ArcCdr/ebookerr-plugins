@@ -1,3 +1,6 @@
+== 1.4.0 ==
+Image prompts now run together with other text work that uses the same model, such as the Synopsis generator's, book by book, so the model stays loaded and can reuse the book's opening it just read. Needs ebookerr 2.24.29 or later.
+
 == 1.3.2 ==
 The book action is now called Generate covers.
 
