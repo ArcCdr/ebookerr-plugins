@@ -29,6 +29,14 @@ def test_manifest_identity_and_flags() -> None:
     assert set(m.events) == {p.PluginEventType.BOOK_CREATED, p.PluginEventType.BOOK_IMPORTED}
 
 
+def test_the_image_prompt_shares_a_turn_with_text_work_on_its_model() -> None:
+    """Verify the text stage names its model and no image stage does (GEN-D30)."""
+    m = LlmCoverPlugin.manifest
+    assert m.affinity == (("", ("base_url", "model")),)
+    assert [s for s, _ in m.affinity] == [""]
+    assert m.spi_version == "3.11"
+
+
 def test_trigger() -> None:
     """Verify the UI trigger configuration."""
     m = LlmCoverPlugin.manifest
