@@ -145,8 +145,11 @@ def test_image_step_generates_for_a_book_without_a_cover(
 
 
 @responses.activate
-def test_entry_step_reads_the_automatic_flag_without_an_event(tmp_path: Path) -> None:
+def test_entry_step_reads_the_automatic_flag_without_an_event(
+    tmp_path: Path, build_epub: Any
+) -> None:
     """An entry run carrying only the automatic flag skips a book with a cover."""
+    build_epub([("Chapter 1", "https://x/1")])
     ctx = _ctx(tmp_path, {"automatic": "1"})
 
     patches = LlmCoverPlugin().enrich((_view(tmp_path, cover_ref="covers/c.jpg"),), ctx)

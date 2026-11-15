@@ -647,7 +647,9 @@ def test_scan_and_poll_until_found(repo: _FakeBookRepository) -> None:
     client.book = komga_book(metadata=MATCHING_BOOK_METADATA)
     client.series = {"metadata": MATCHING_SERIES_METADATA}
 
-    result = service(client).sync(book_to_view(make_book(repo)))
+    result = service(client).sync(
+        book_to_view(make_book(repo, output_filename="author/title.epub"))
+    )
 
     assert result.ok is True
     assert client.scan_calls == 1
@@ -657,7 +659,9 @@ def test_scan_and_poll_until_found(repo: _FakeBookRepository) -> None:
 def test_gives_up_after_max_retries(repo: _FakeBookRepository) -> None:
     client = FakeKomga()
     client.find_results = []  # always None
-    result = service(client, scan_retry_max=3).sync(book_to_view(make_book(repo)))
+    result = service(client, scan_retry_max=3).sync(
+        book_to_view(make_book(repo, output_filename="author/title.epub"))
+    )
     assert result.ok is False
     assert client.scan_calls == 1
     assert client.find_calls == 4  # 1 initial + 3 polls
@@ -1995,7 +1999,7 @@ def test_poll_delay_zero_floors_to_2_seconds(repo: _FakeBookRepository) -> None:
     sleep_calls: list[float] = []
 
     service(client, scan_retry_delay=0, scan_retry_max=2, sleep=sleep_calls.append).sync(
-        book_to_view(make_book(repo))
+        book_to_view(make_book(repo, output_filename="author/title.epub"))
     )
 
     assert sleep_calls == [2.0, 2.0]
@@ -2008,7 +2012,7 @@ def test_poll_delay_explicit_positive_honoured(repo: _FakeBookRepository) -> Non
     sleep_calls: list[float] = []
 
     service(client, scan_retry_delay=0.5, scan_retry_max=2, sleep=sleep_calls.append).sync(
-        book_to_view(make_book(repo))
+        book_to_view(make_book(repo, output_filename="author/title.epub"))
     )
 
     assert sleep_calls == [0.5, 0.5]
