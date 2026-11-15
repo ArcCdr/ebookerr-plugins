@@ -1144,11 +1144,12 @@ class KomgaService:
         if isinstance(resolved, LinkRefusal):
             return SyncResult(False, resolved.message, refused=True)
         if resolved is None:
-            msg = (
-                "book not found in Komga (scan skipped)"
-                if not allow_scan
-                else "book did not appear in Komga"
-            )
+            if not allow_scan:
+                msg = "book not found in Komga (scan skipped)"
+            elif not book.output_filename:
+                msg = "the book has no file to find in Komga"
+            else:
+                msg = "book did not appear in Komga"
             return SyncResult(False, msg, not_found=True)
         komga_book_id = resolved
 
@@ -2143,9 +2144,10 @@ class KomgaService:
         finishes; (2) ``find_book_id(title, author)`` — the fallback for a book whose
         file Komga has not indexed under the expected path, which needs Komga's
         asynchronously-populated author metadata. If still not found and ``allow_scan``
-        is ``True``, trigger a **library scan** and poll up to ``scan_retry_max`` times
-        (``scan_retry_delay`` apart), invalidating the cached URL index each attempt and
-        retrying path-then-title.
+        is ``True`` and the book has an ``output_filename`` (a book with no file can never
+        appear after a scan, so it gets neither scan nor poll), trigger a **library scan** and
+        poll up to ``scan_retry_max`` times (``scan_retry_delay`` apart), invalidating the cached
+        URL index each attempt and retrying path-then-title.
 
         Analyze is off by default because Komga's ``analyze`` re-imports the EPUB's
         ``dc:description`` metadata into the book's ``summary``, which would cause
@@ -2212,6 +2214,9 @@ class KomgaService:
             logger.debug('Found "%s" in Komga by title', book.title)
             return found
         if not allow_scan:
+            return None
+        if not book.output_filename:
+            logger.debug('Komga scan skipped for "%s": the book has no file', book.title)
             return None
         logger.info('Triggering Komga library scan to locate "%s"', book.title)
         self._client.trigger_library_scan()

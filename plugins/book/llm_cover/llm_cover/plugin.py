@@ -4,7 +4,8 @@ A deferred, long-running BookPlugin with a two-stage flow: a text-to-image promp
 from a book's opening chapters, then one or more image-generation API calls produce candidate
 covers. Runs automatically for new or imported books and on the "Generate covers"
 action. Never selects a candidate automatically (``GEN-D8``) and never regenerates what exists
-(``GEN-D7``).
+(``GEN-D7``). The cover guard (``GEN-D8``) applies to every step of a chain nobody started by
+hand: the entry step and each image step skip a book that has a cover.
 """
 
 from __future__ import annotations
@@ -249,10 +250,27 @@ def _valid_rows(rows: object) -> list[dict[str, Any]]:
     return result
 
 
-def _has_cover(view: BookView, epub: Path) -> bool:
-    """Return True if the book has a confirmed or embedded cover image."""
+def _automatic(ctx: PluginContext) -> bool:
+    """Return True when the run belongs to a chain nobody started by hand (``GEN-D8``).
+
+    An event-driven run is automatic, and so is any later step the core marks with
+    ``ui_context["automatic"] == "1"``; an older core sets no such key.
+    """
+    return is_automatic_run(ctx) or ctx.ui_context.get("automatic") == "1"
+
+
+def _has_cover(view: BookView, epub: Path | None) -> bool:
+    """Return True if the book has a confirmed or embedded cover image.
+
+    Args:
+        view: The book.
+        epub: The book's EPUB, or ``None`` when it is unknown — then only the confirmed cover
+            (``view.cover_ref``) answers.
+    """
     if view.cover_ref:
         return True
+    if epub is None:
+        return False
     try:
         doc = EpubDocument.open(epub)
         return doc.cover_image() is not None
@@ -355,7 +373,7 @@ class LlmCoverPlugin:
             ctx.report_failure(view.book_id, "the book has no EPUB file", retryable=False)
             return None
 
-        if is_automatic_run(ctx) and _has_cover(view, epub):
+        if _automatic(ctx) and _has_cover(view, epub):
             _skip(ctx, view, "the book already has a cover")
             return None
 
@@ -443,6 +461,11 @@ class LlmCoverPlugin:
         )
         if row is None:
             _skip(ctx, view, f"image model {model_key_str} is no longer configured")
+            return None
+
+        # Cover guard (GEN-D8): a book that gained a cover while its image rows waited draws no more
+        if _automatic(ctx) and _has_cover(view, epub_path_for(ctx, view)):
+            _skip(ctx, view, "the book already has a cover")
             return None
 
         # Step 2: Read the text model's prompt
