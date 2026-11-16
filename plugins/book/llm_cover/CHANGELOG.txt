@@ -1,3 +1,6 @@
+== 1.5.0 ==
+Automatic image generation now skips a book that got a cover while its images were queued; generating covers by hand still draws them. Needs ebookerr 2.25.1 or later.
+
 == 1.4.0 ==
 Image prompts now run together with other text work that uses the same model, such as the Synopsis generator's, book by book, so the model stays loaded and can reuse the book's opening it just read. Needs ebookerr 2.24.29 or later.
 
