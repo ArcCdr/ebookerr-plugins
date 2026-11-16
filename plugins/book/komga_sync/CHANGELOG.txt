@@ -1,3 +1,6 @@
+== 1.13.2 ==
+A book that has no file no longer makes Komga scan its library: the sync skips it and says why. Needs ebookerr 2.25.1 or later.
+
 == 1.13.1 ==
 The Sync to Komga action now says it syncs the book's data and read progress.
 
