@@ -1,3 +1,6 @@
+== 2.3.1 ==
+Updated to FanFicFare 4.63.0.
+
 == 2.3.0 ==
 A series' number is read by the same rule as the rest of ebookerr. Needs ebookerr 2.24.21 or later.
 
