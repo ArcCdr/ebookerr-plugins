@@ -293,3 +293,12 @@ def test_the_gateway_quiets_fanficfare_logging() -> None:
     assert len(log.handlers) == 1
     assert type(log.handlers[0]).__name__ == "_ForwardHandler"
     assert type(log.handlers[0]).__module__ == "url_story_extractor.fff_support"
+
+
+def test_the_default_lister_lists_a_fanficfare_series_page() -> None:
+    """The gateway's own lister lists FanFicFare's offline test site's nine stories."""
+    gateway = FanFicFarePagesGateway({})
+
+    result = gateway.list_story_urls("http://test1.com?sid=1")
+
+    assert result == [f"http://test1.com?sid={n}" for n in range(1, 10)]

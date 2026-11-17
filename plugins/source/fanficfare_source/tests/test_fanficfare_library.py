@@ -124,6 +124,7 @@ def _rename_chapter_files(epub: Path, *, keep_marks: bool = True) -> None:
 def _stamp_story_url(epub: Path, story_url: str) -> int:
     """Stamp *story_url* on every chapterurl meta, as releases before 2.22.2 did.
 
+    Also drops the ``fff_chapter_data`` meta those older FanFicFare versions never wrote.
     Return the count."""
     with zipfile.ZipFile(epub) as zin:
         items = [(info.filename, zin.read(info.filename)) for info in zin.infolist()]
@@ -138,6 +139,7 @@ def _stamp_story_url(epub: Path, story_url: str) -> int:
                     data.decode("utf-8"),
                 )
                 stamped += count
+                text = re.sub(r'<meta name="fff_chapter_data" content="[^"]*"></meta>\s*', "", text)
                 data = text.encode("utf-8")
             compress = zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED
             zout.writestr(name, data, compress_type=compress)
