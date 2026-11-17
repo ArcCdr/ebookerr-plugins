@@ -1,4 +1,4 @@
-"""scripts/check.py's steps: the workflow and dependabot schema checks after the requirement pins."""
+"""scripts/check.py steps: workflow and dependabot schema checks after the pins."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def test_check_validates_the_workflows_and_dependabot_after_the_pins(tmp_path: P
     (tmp_path / ".github" / "workflows" / "a.yml").write_text("name: a\n", encoding="utf-8")
     steps = CHECK.steps(tmp_path, "py")
     labels = [s.label for s in steps]
-    assert labels[labels.index("requirement pins") + 1:][:2] == ["workflows", "dependabot"]
+    assert labels[labels.index("requirement pins") + 1 :][:2] == ["workflows", "dependabot"]
     workflow_step = next(s for s in steps if s.label == "workflows")
     assert workflow_step.command == [
         "py",
