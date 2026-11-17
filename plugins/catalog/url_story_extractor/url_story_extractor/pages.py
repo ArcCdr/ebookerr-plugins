@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from ebookerr_sdk.spi import SiteCredential
 from fanficfare import adapters
-from fanficfare.geturls import get_urls_from_page
+from fanficfare.geturls import GetURLs
 
 from url_story_extractor.fff_support import (
     apply_sign_in,
@@ -34,6 +34,24 @@ logger = logging.getLogger(__name__)
 
 Lister = Callable[[str, Any, bool], dict[str, Any]]
 MetadataFetcher = Callable[[str, Any], dict[str, Any] | None]
+
+
+def get_urls_from_page(url: str, configuration: Any, normalize: bool) -> dict[str, Any]:
+    """List the story URLs FanFicFare finds at *url*, through its ``GetURLs`` (FanFicFare 4.63+).
+
+    Takes the place of the module function FanFicFare removed in 4.63, with its signature.
+
+    Args:
+        url: The listing page URL.
+        configuration: The FanFicFare configuration built for *url*'s site.
+        normalize: Ask for each story's canonical URL instead of the longest link seen.
+
+    Returns:
+        FanFicFare's answer: ``{"urllist": [...]}``, plus a series page's name and description.
+    """
+    listing: dict[str, Any] = GetURLs(configuration).get_urls_from_page(url, normalize)
+    return listing
+
 
 # one retry instead of FanFicFare's four, through its own max_request_retries option
 # (EXP-073); one-shot listing must fail in seconds
@@ -81,7 +99,8 @@ class FanFicFarePagesGateway:
             credentials: Looks up the stored sign-in of a page's site (``ctx.credentials``);
                 ``None`` applies no sign-in.
             lister: Callable ``(url, configuration, normalize) -> dict``; defaults to
-                ``fanficfare.geturls.get_urls_from_page``. Injected in tests.
+                this module's ``get_urls_from_page``, which lists through FanFicFare's
+                ``GetURLs``. Injected in tests.
             metadata_fetcher: Callable ``(url, configuration) -> dict | None``; defaults to
                 the adapter-driven metadata poll. Injected in tests.
         """

@@ -320,7 +320,9 @@ class FanFicFareLibraryGateway:
             with captured_stdout():
                 adapter = adapters.getAdapter(self._configuration(url), url)
                 metadata = dict(adapter.getStoryMetadataOnly().getAllMetadata())
-                metadata["zchapterurls"] = [str(chapter["url"]) for chapter in adapter.chapterUrls]
+                metadata["zchapterurls"] = [
+                    str(chapter["url"]) for chapter in adapter.get_chapters()
+                ]
         except Exception as exc:  # noqa: BLE001 — every failure is a reason (LIB-D25)
             reason = failure_message(exc, url)
             logger.debug("Metadata fetch failed for %s: %s", url, reason)
@@ -386,7 +388,8 @@ class FanFicFareLibraryGateway:
         config = self._configuration(url)
         adapter = adapters.getAdapter(config, url)
         adapter.getStoryMetadataOnly()
-        site_urls = [str(chapter["url"]) for chapter in adapter.chapterUrls]
+        # FanFicFare's public chapter list; the private list behind it was renamed in 4.63.
+        site_urls = [str(chapter["url"]) for chapter in adapter.get_chapters()]
         staged = work_dir / staged_filename if staged_filename else None
         before = 0
         if staged is not None and staged.is_file():
