@@ -1,3 +1,6 @@
+== 2.4.1 ==
+Updated to FanFicFare 4.63.0.
+
 == 2.4.0 ==
 A story's series shows its name without its number in brackets. Needs ebookerr 2.24.21 or later.
 
