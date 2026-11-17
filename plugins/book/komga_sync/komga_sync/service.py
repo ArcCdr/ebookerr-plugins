@@ -704,11 +704,10 @@ def _chapter_table(
             hrefs.append(href)
             title = locator.get("title")
             titles[href] = title if title else None
-        elif href and href in hrefs:
-            if href not in titles or not titles[href]:
-                title = locator.get("title")
-                if title:
-                    titles[href] = title
+        elif href and href in hrefs and (href not in titles or not titles[href]):
+            title = locator.get("title")
+            if title:
+                titles[href] = title
     return hrefs, [titles.get(h) for h in hrefs]
 
 
