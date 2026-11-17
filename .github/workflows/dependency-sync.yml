@@ -1,0 +1,94 @@
+name: dependency-sync
+
+# Every two hours, or by hand: each open Dependabot pull request that moves a tracked requirement pin
+# gets the manifests, plugin versions and changelogs moved by `scripts/requirement_pins.py sync`,
+# pushed with the App's token so CI runs on it, and the dependency-release label. It also deletes the
+# retired bot's deps/* branches that no open pull request uses. Never started by a Dependabot event:
+# those runs get no secrets. Needs the ebookerr-deps-bot GitHub App: the DEPS_BOT_APP_ID variable and
+# the DEPS_BOT_PRIVATE_KEY secret (the core's docs/RELEASE.md).
+
+on:
+  schedule:
+    - cron: "23 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the bot is configured
+        env:
+          APP_ID: ${{ vars.DEPS_BOT_APP_ID }}
+          HAS_KEY: ${{ secrets.DEPS_BOT_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$APP_ID" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Set the DEPS_BOT_APP_ID variable and the DEPS_BOT_PRIVATE_KEY secret (see docs/RELEASE.md in the core repository)."
+            exit 1
+          fi
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          app-id: ${{ vars.DEPS_BOT_APP_ID }}
+          private-key: ${{ secrets.DEPS_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version-file: uv.lock
+      - name: Sync the Dependabot pull requests that move a tracked pin
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          bot="${SLUG}[bot]"
+          bot_id="$(gh api "/users/${bot}" --jq .id)"
+          git config user.name "$bot"
+          git config user.email "${bot_id}+${bot}@users.noreply.github.com"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          gh label create dependency-release --color 0E8A16 \
+            --description "Merged and released by CI when the checks pass" --force
+          git fetch origin main
+          branches="$(gh pr list --author app/dependabot --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("dependabot/uv/")) | "\(.number) \(.headRefName)"')"
+          while read -r number branch; do
+            [ -n "$number" ] || continue
+            echo "Pull request #${number} (${branch})"
+            git fetch origin "$branch"
+            git switch -C "$branch" "origin/${branch}"
+            # The pull request's own packages are never installed where the token is.
+            env -u GH_TOKEN uv run --isolated --no-project --with "packaging>=24" --with "requests>=2.31" \
+              python scripts/requirement_pins.py sync
+            git add -A plugins
+            if ! git diff --cached --quiet; then
+              git commit -m "deps: move the plugins to this pull request's pin"
+              git push "$remote" "HEAD:${branch}"
+            fi
+            if ! git diff --quiet origin/main HEAD -- 'plugins/*/*/manifest.toml'; then
+              gh pr edit "$number" --add-label dependency-release
+            fi
+          done <<<"$branches"
+      - name: Delete the retired bot's deps/* branches without an open pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git ls-remote --heads origin 'deps/*' | sed 's|.*refs/heads/||' | while read -r branch; do
+            [ -n "$branch" ] || continue
+            open="$(gh pr list --head "$branch" --state open --json number --jq length)"
+            if [ "$open" = "0" ]; then
+              git push "$remote" --delete "$branch"
+              echo "Deleted ${branch}"
+            fi
+          done

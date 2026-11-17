@@ -1,7 +1,26 @@
-# Keeps the workflows' pinned actions current. The plugins' runtime requirements move through
-# dependency-watch.yml (exact pins, tested releases); the dev tools are ranges CI installs fresh.
+# Dependabot proposes every update as a pull request and CI judges it (the core's DPL-D5). The plugins'
+# exact runtime pins (PMG-D38) arrive one per pull request; dependency-sync.yml then moves the manifests,
+# plugin versions and changelogs on that same pull request and dependency-release.yml merges and tags it.
 version: 2
 updates:
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+      semver-patch-days: 0  # a CVE fix is nearly always a patch: propose it the day it is published
+    open-pull-requests-limit: 10
+    ignore:
+      # Moved in lockstep by the core's `poe release-plugins` once that SDK is on PyPI.
+      - dependency-name: ebookerr-sdk
+    groups:
+      tools:
+        patterns: ["*"]
+        # The tracked runtime pins (scripts/requirement_pins.py) arrive one per pull request.
+        exclude-patterns: ["fanficfare", "pymupdf", "python-docx", "striprtf"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -12,3 +31,4 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]

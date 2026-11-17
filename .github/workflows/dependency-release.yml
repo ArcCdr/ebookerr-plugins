@@ -1,8 +1,8 @@
 name: dependency-release
 
-# When CI passes on a bot pull request deps/<package>, merge exactly the commit CI tested, then tag
-# every plugin whose version the merge changed. The tags start release.yml. Tags pushed with the
-# App's token start workflows; tags pushed with GITHUB_TOKEN would not.
+# When CI passes on a Dependabot pull request that dependency-sync synced and labelled, merge exactly
+# the commit CI tested, then tag every plugin whose version the merge changed. The tags start
+# release.yml. Tags pushed with the App's token start workflows; tags pushed with GITHUB_TOKEN would not.
 
 on:
   workflow_run:
@@ -21,7 +21,8 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
-      startsWith(github.event.workflow_run.head_branch, 'deps/') &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/uv/') &&
+      github.event.workflow_run.actor.login != 'dependabot[bot]' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -46,7 +47,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          SLUG: ${{ steps.app.outputs.app-slug }}
         run: |
           set -euo pipefail
           pr="$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
@@ -56,8 +56,15 @@ jobs:
           author="$(jq -r .author.login <<<"$pr")"
           head="$(jq -r .headRefOid <<<"$pr")"
           labelled="$(jq -r '[.labels[].name] | index("dependency-release") != null' <<<"$pr")"
-          if [ "$author" != "app/${SLUG}" ] || [ "$labelled" != "true" ] || [ "$head" != "$HEAD_SHA" ]; then
+          if [ "$author" != "app/dependabot" ] || [ "$labelled" != "true" ] || [ "$head" != "$HEAD_SHA" ]; then
             echo "Pull request #${number} is not the bot's tested head (author ${author}, label ${labelled}, head ${head}): not merged"
+            exit 0
+          fi
+          unexpected="$(gh pr diff "$number" -R "$GITHUB_REPOSITORY" --name-only \
+            | grep -Ev '^(pyproject\.toml|uv\.lock|plugins/[^/]+/[^/]+/(manifest\.toml|CHANGELOG\.txt))$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Pull request #${number} changes files a dependency update never touches: not merged"
+            echo "$unexpected"
             exit 0
           fi
           gh pr merge "$number" -R "$GITHUB_REPOSITORY" --squash --match-head-commit "$HEAD_SHA" --delete-branch
