@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import tomllib
 from ast import Import, ImportFrom, parse, walk
@@ -165,8 +166,31 @@ def test_the_root_conftest_rule_flags_the_sdk(tmp_path: Path) -> None:
 
 
 def test_the_release_job_installs_what_ci_checks_with() -> None:
-    """release.yml installs the dev group as ci.yml does, so a tag is checked as main was."""
+    """release.yml installs uv.lock as ci.yml does, so a tag is checked as main was."""
     workflows = ROOT / ".github" / "workflows"
-    install = "python -m pip install --group dev"
+    install = "uv sync --frozen"
     assert install in (workflows / "ci.yml").read_text(encoding="utf-8")
     assert install in (workflows / "release.yml").read_text(encoding="utf-8")
+
+
+def test_ci_installs_the_tracked_lock() -> None:
+    """ci.yml resolves the tracked lock at the uv and Python versions the lock pins."""
+    # The lock is tracked, so CI resolves it rather than resolving fresh.
+    assert (
+        subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "uv.lock"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+        ).returncode == 0
+    )
+
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "uv lock --check" in ci
+    assert "uv sync --frozen" in ci
+    vuln_scan = ci.index("run: uv run --no-sync python scripts/vuln_scan.py --manifests uv.lock")
+    check = ci.index("run: uv run --no-sync python scripts/check.py")
+    assert vuln_scan > check
+
+    # .python-version is the single source of the Python the lock resolves for.
+    assert (ROOT / ".python-version").read_text(encoding="utf-8").strip() == "3.14"
