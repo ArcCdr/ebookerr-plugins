@@ -1,0 +1,14 @@
+# Pre-push hook of this checkout (the core's DPL-TR-12), installed by the core's `poe hooks-install`.
+# It needs no virtual environment: python3 and Trivy (`brew install trivy`). A finding blocks the
+# push; an unreachable vulnerability database only warns (CI is the gate that enforces).
+default_install_hook_types: [pre-push]
+repos:
+  - repo: local
+    hooks:
+      - id: vuln-scan
+        name: vulnerability scan (uv.lock and the manifests' requirements)
+        entry: python3 scripts/vuln_scan.py --warn-offline --manifests uv.lock
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
