@@ -121,6 +121,7 @@ def test_main_apply_prints_the_changed_plugins(
     root = _repo(tmp_path, ["fanficfare==4.62.0"])
     _plugin(root, "a", "2.0.1", ["fanficfare==4.62.0"])
     monkeypatch.setattr(PINS, "is_tagged", lambda repo, tag: True)
+    monkeypatch.setattr(PINS, "relock", lambda root, *, run: 0)
     assert PINS.main(["apply", "fanficfare", "4.63.0", "--display", "FanFicFare"], root=root) == 0
     assert capsys.readouterr().out == "a 2.0.2\n"
 
