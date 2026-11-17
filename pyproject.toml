@@ -1,7 +1,16 @@
 # ebookerr-plugins: the first-party ebookerr plugins and the default plugin registry.
-# Not an installable project: this file configures the checks CI runs on every plugin.
-# Install the tools with `python -m pip install --group dev` (pip 25.1 or later).
-# Run every check with `python scripts/check.py` (what CI runs).
+# Not an installable package (no [build-system]): this file configures the checks CI runs on every
+# plugin, and the tracked uv.lock pins every tool and requirement they run with.
+# Install them with `uv sync` (CI: `uv sync --frozen`); run every check with
+# `uv run python scripts/check.py` (what CI runs).
+
+[project]
+# The Python floor uv resolves the lock for: the core's own requires-python (the core's
+# tests/unit/test_toolchain_pins.py keeps the two equal).
+name = "ebookerr-plugins"
+version = "0"
+requires-python = ">=3.11.5"
+dependencies = []
 
 [dependency-groups]
 dev = [
@@ -22,6 +31,7 @@ dev = [
     "packaging>=24",  # scripts/requirement_pins.py parses requirements
     "types-requests",
     "types-defusedxml",
+    "uv>=0.12.18",  # the uv CI runs: setup-uv reads its version from uv.lock (Dependabot bumps it)
 ]
 
 [tool.pytest.ini_options]

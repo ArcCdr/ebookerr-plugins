@@ -182,7 +182,8 @@ def test_ci_installs_the_tracked_lock() -> None:
             cwd=ROOT,
             capture_output=True,
             check=False,
-        ).returncode == 0
+        ).returncode
+        == 0
     )
 
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
