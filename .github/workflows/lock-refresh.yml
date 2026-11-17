@@ -1,0 +1,86 @@
+name: lock-refresh
+
+# Weekly (Monday, after Dependabot's run) and by hand: re-locks uv.lock with releases at least 7 days
+# old (scripts/lock_refresh.py), checks the exact requirement pins did not move, and keeps one pull
+# request on the lock-refresh branch. Pushed and opened with the App's token so CI runs on it.
+# Needs the ebookerr-deps-bot GitHub App: the DEPS_BOT_APP_ID variable and the DEPS_BOT_PRIVATE_KEY
+# secret (the core's docs/RELEASE.md) (DPL-TR-11).
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lock-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the bot is configured
+        env:
+          APP_ID: ${{ vars.DEPS_BOT_APP_ID }}
+          HAS_KEY: ${{ secrets.DEPS_BOT_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$APP_ID" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Set the DEPS_BOT_APP_ID variable and the DEPS_BOT_PRIVATE_KEY secret (see docs/RELEASE.md in the core repository)."
+            exit 1
+          fi
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          app-id: ${{ vars.DEPS_BOT_APP_ID }}
+          private-key: ${{ secrets.DEPS_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app.outputs.token }}
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version-file: uv.lock
+      - name: Refresh the lock
+        run: python3 scripts/lock_refresh.py | tee ../refresh.txt
+      - name: The exact pins did not move
+        run: |
+          uv sync --frozen
+          uv run --no-sync python scripts/requirement_pins.py check
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head lock-refresh --state open \
+            --json number --jq '.[0].number // empty')"
+          if git diff --quiet -- uv.lock; then
+            if [ -n "$number" ]; then
+              gh pr close "$number" --repo "$GITHUB_REPOSITORY" \
+                --comment "The base branch is current: nothing to refresh." --delete-branch
+            fi
+            exit 0
+          fi
+          bot="${SLUG}[bot]"
+          bot_id="$(gh api "/users/${bot}" --jq .id)"
+          git config user.name "$bot"
+          git config user.email "${bot_id}+${bot}@users.noreply.github.com"
+          git switch -C lock-refresh
+          git commit -m "chore(deps): refresh the lock with releases at least 7 days old" -- uv.lock
+          git push --force origin lock-refresh
+          {
+            echo "Locks refreshed with releases at least 7 days old; the changes are listed below."
+            echo
+            echo '```'
+            cat ../refresh.txt
+            echo '```'
+          } > body.md
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --repo "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head lock-refresh \
+              --title "chore(deps): refresh the lock" --body-file body.md
+          fi
