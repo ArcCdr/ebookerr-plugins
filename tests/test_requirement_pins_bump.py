@@ -134,8 +134,10 @@ def test_sync_moves_the_manifests_to_the_dev_pin(tmp_path: Path) -> None:
     manifest = (folder / "manifest.toml").read_text(encoding="utf-8")
     assert 'version = "2.0.2"' in manifest
     assert 'requirements = ["fanficfare==4.64.0"]' in manifest
-    assert (folder / "CHANGELOG.txt").read_text(encoding="utf-8").startswith(
-        "== 2.0.2 ==\nUpdated to FanFicFare 4.64.0.\n\n== 2.0.1 =="
+    assert (
+        (folder / "CHANGELOG.txt")
+        .read_text(encoding="utf-8")
+        .startswith("== 2.0.2 ==\nUpdated to FanFicFare 4.64.0.\n\n== 2.0.1 ==")
     )
     assert (root / "pyproject.toml").read_bytes() == dev_before
 
@@ -146,8 +148,10 @@ def test_sync_keeps_a_pending_version(tmp_path: Path) -> None:
     changed = PINS.sync(root, display=lambda name: "FanFicFare", tagged=lambda tag: False)
     assert changed == ["a 2.0.1"]
     assert 'version = "2.0.1"' in (folder / "manifest.toml").read_text(encoding="utf-8")
-    assert (folder / "CHANGELOG.txt").read_text(encoding="utf-8").startswith(
-        "== 2.0.1 ==\nFirst release. Updated to FanFicFare 4.64.0.\n\n== 1.0.0 =="
+    assert (
+        (folder / "CHANGELOG.txt")
+        .read_text(encoding="utf-8")
+        .startswith("== 2.0.1 ==\nFirst release. Updated to FanFicFare 4.64.0.\n\n== 1.0.0 ==")
     )
 
 
