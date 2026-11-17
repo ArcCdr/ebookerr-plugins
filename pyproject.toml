@@ -28,6 +28,7 @@ dev = [
     "reportlab>=4.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "check-jsonschema>=0.39",  # scripts/check.py validates the workflows and dependabot.yml against SchemaStore's schemas
     "packaging>=24",  # scripts/requirement_pins.py parses requirements
     "types-requests",
     "types-defusedxml",

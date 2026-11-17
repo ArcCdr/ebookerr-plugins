@@ -7,7 +7,8 @@ Every step runs as ``sys.executable -m <tool>``: whichever environment runs this
 the tools and the SDK.
 
 The steps, in order: lint, format, types, the tracked requirement pins
-(``scripts/requirement_pins.py check``), then per plugin folder (``plugins/<type>/<id>/``) the
+(``scripts/requirement_pins.py check``), the workflows and the dependabot file validated against
+SchemaStore's bundled schemas, then per plugin folder (``plugins/<type>/<id>/``) the
 SDK's ``pack check`` and that plugin's own tests, then the repository's own ``tests/`` when there
 are any. Every step runs even after a failure, so one run reports every problem; the exit code
 is 1 when any step failed.
@@ -72,11 +73,36 @@ def steps(root: Path, python: str) -> list[Step]:
     Returns:
         The steps, in the order they run.
     """
+    workflows = sorted(
+        p.relative_to(root).as_posix() for p in (root / ".github" / "workflows").glob("*.yml")
+    )
     plan = [
         Step("lint", [python, "-m", "ruff", "check", "."]),
         Step("format", [python, "-m", "ruff", "format", "--check", "."]),
         Step("types", [python, "-m", "mypy"]),
         Step("requirement pins", [python, "scripts/requirement_pins.py", "check"]),
+        Step(
+            "workflows",
+            [
+                python,
+                "-m",
+                "check_jsonschema",
+                "--builtin-schema",
+                "vendor.github-workflows",
+                *workflows,
+            ],
+        ),
+        Step(
+            "dependabot",
+            [
+                python,
+                "-m",
+                "check_jsonschema",
+                "--builtin-schema",
+                "vendor.dependabot",
+                ".github/dependabot.yml",
+            ],
+        ),
     ]
     for folder in plugin_folders(root):
         rel = folder.relative_to(root).as_posix()
