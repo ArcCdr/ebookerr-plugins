@@ -210,9 +210,7 @@ def test_every_trivy_call_gets_the_db_fallback(
     assert fake.trivy()
     assert all(c.env is not None for c in fake.trivy())
     assert all(
-        c.env["TRIVY_DB_REPOSITORY"] == SCAN.DEFAULT_DB_REPOSITORY
-        for c in fake.trivy()
-        if c.env
+        c.env["TRIVY_DB_REPOSITORY"] == SCAN.DEFAULT_DB_REPOSITORY for c in fake.trivy() if c.env
     )
     scan = fake.trivy()[-1]
     out = scan.argv[scan.argv.index("--output") + 1]
@@ -235,7 +233,13 @@ def test_an_image_is_scanned_at_high_and_critical(
     assert _run(fake, "--root", str(tmp_path), "--image", ref) == 1
     argv = fake.trivy()[-1].argv
     assert argv[:7] == [
-        "trivy", "image", "--scanners", "vuln", "--severity", "HIGH,CRITICAL", "--ignore-unfixed",
+        "trivy",
+        "image",
+        "--scanners",
+        "vuln",
+        "--severity",
+        "HIGH,CRITICAL",
+        "--ignore-unfixed",
     ]
     assert argv[-1] == ref
     assert f"{ref}: soupsieve" in capsys.readouterr().out
@@ -290,6 +294,4 @@ def test_the_report_is_written_on_a_finding_and_removed_when_clean(tmp_path: Pat
     assert not report.exists()
     fake = FakeRun(report=ONE_VULN)
     assert _run(fake, "--root", str(root), "--report", str(report), "uv.lock") == 1
-    assert report.read_text(encoding="utf-8").startswith(
-        "## 1 fixable vulnerability finding(s)\n"
-    )
+    assert report.read_text(encoding="utf-8").startswith("## 1 fixable vulnerability finding(s)\n")
