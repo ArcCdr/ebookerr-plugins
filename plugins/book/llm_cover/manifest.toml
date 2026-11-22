@@ -2,7 +2,7 @@ id = "llm_cover"
 name = "Cover generator"
 version = "1.5.0"
 type = "book"
-spi_version = "3.11"
+spi_version = "3.12"
 description = "Creates candidate covers for a book with image models you run or subscribe to: a language model first writes an image prompt from the opening chapters. Candidates are never set as the cover automatically."
 priority = 510
 events = ["BookCreated", "BookImported"]
@@ -46,6 +46,8 @@ key = "model"
 type = "string"
 label = "Model"
 default = ""
+help = "Pick a model the server lists, or type its name."
+options_from = ["base_url"]
 group = "Text model"
 
 [[settings_schema.fields]]
@@ -116,7 +118,8 @@ key = "model"
 type = "string"
 label = "Model"
 default = ""
-help = "Leave empty on an AUTOMATIC1111-compatible server to use its loaded model."
+help = "Pick a model the server lists, or type its name. Leave empty on an AUTOMATIC1111-compatible server to use its loaded model."
+options_from = ["api", "base_url"]
 
 [[settings_schema.fields.fields]]
 key = "width"

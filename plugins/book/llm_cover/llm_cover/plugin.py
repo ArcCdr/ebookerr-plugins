@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ from ebookerr_sdk.generation.support import (
     guarded_call,
     hold_configuration,
     is_automatic_run,
+    model_options,
     prompt_values,
     report_generation_error,
 )
@@ -42,6 +44,7 @@ from ebookerr_sdk.spi import (
     BookView,
     CustomValueWrite,
     PluginContext,
+    SettingOptions,
     SettingsField,
     SettingsGroup,
     SettingsSchema,
@@ -99,7 +102,11 @@ IMAGE_MODEL_FIELDS: tuple[SettingsField, ...] = (
         type="string",
         label="Model",
         default="",
-        help="Leave empty on an AUTOMATIC1111-compatible server to use its loaded model.",
+        help=(
+            "Pick a model the server lists, or type its name. "
+            "Leave empty on an AUTOMATIC1111-compatible server to use its loaded model."
+        ),
+        options_from=("api", "base_url"),
     ),
     SettingsField(
         key="width",
@@ -158,6 +165,8 @@ _SCHEMA = SettingsSchema(
             type="string",
             label="Model",
             default="",
+            help="Pick a model the server lists, or type its name.",
+            options_from=("base_url",),
             group="Text model",
         ),
         SettingsField(
@@ -603,3 +612,23 @@ class LlmCoverPlugin:
                 lines.append(f"{row['label']}: {message}")
                 all_ok = all_ok and ok
             return (all_ok, " · ".join(lines))
+
+    def setting_options(
+        self, key: str, values: Mapping[str, Any], ctx: PluginContext
+    ) -> SettingOptions:
+        """List the models each endpoint serves, for the Model fields (SPI 3.12).
+
+        Args:
+            key: The field asked about ("model" or "image_models.model").
+            values: The current values of the fields each Model's options_from names.
+            ctx: The plugin's context, for the endpoint's credentials.
+
+        Returns:
+            The endpoint's models, or why none could be listed.
+        """
+        if key == "model":
+            return model_options("openai", str(values.get("base_url") or ""), ctx)
+        if key == "image_models.model":
+            api = str(values.get("api") or "")
+            return model_options(api, str(values.get("base_url") or ""), ctx)
+        return SettingOptions(problem="This field lists no choices.")

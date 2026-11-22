@@ -48,9 +48,7 @@ def test_the_model_fields_list_their_choices() -> None:
     assert image_model.options_from == ("api", "base_url")
 
     # The in-process _SCHEMA mirrors the manifest (plugin.py == manifest.toml).
-    code_text_model = next(
-        f for f in LlmCoverPlugin().settings_schema().fields if f.key == "model"
-    )
+    code_text_model = next(f for f in LlmCoverPlugin().settings_schema().fields if f.key == "model")
     assert code_text_model.options_from == ("base_url",)
     code_image_model = next(f for f in IMAGE_MODEL_FIELDS if f.key == "model")
     assert code_image_model.options_from == ("api", "base_url")
