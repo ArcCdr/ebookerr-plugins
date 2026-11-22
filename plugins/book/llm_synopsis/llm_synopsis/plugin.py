@@ -9,13 +9,16 @@ processed (``GEN-D7``).
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 from ebookerr_sdk.generation.client import endpoint_netloc, probe
 from ebookerr_sdk.generation.prompt_template import model_key
 from ebookerr_sdk.generation.support import (
     generate_text,
     hold_configuration,
+    model_options,
     report_generation_error,
 )
 from ebookerr_sdk.spi import (
@@ -24,6 +27,7 @@ from ebookerr_sdk.spi import (
     BookView,
     CustomValueWrite,
     PluginContext,
+    SettingOptions,
     SettingsField,
     SettingsGroup,
     SettingsSchema,
@@ -70,8 +74,9 @@ _SCHEMA = SettingsSchema(
             label="Model",
             default="",
             required=True,
+            options_from=("base_url",),
             group="Text model",
-            help="The model name exactly as the server lists it, for example qwen3:8b.",
+            help="Pick a model the server lists, or type its name, for example qwen3:8b.",
         ),
         SettingsField(
             key="timeout_s",
@@ -262,6 +267,23 @@ class LlmSynopsisPlugin:
             headers=dict(ctx.auth_headers(base_url)),
         )
         return (ok, f"Text model: {message}")
+
+    def setting_options(
+        self, key: str, values: Mapping[str, Any], ctx: PluginContext
+    ) -> SettingOptions:
+        """List the text models the endpoint serves, for the Model field (SPI 3.12).
+
+        Args:
+            key: The field asked about.
+            values: The current Base URL (``base_url``).
+            ctx: The plugin's context, for the endpoint's credentials.
+
+        Returns:
+            The endpoint's models, or why none could be listed.
+        """
+        if key != "model":
+            return SettingOptions(problem="This field lists no choices.")
+        return model_options("openai", str(values.get("base_url") or ""), ctx)
 
 
 def _skip(ctx: PluginContext, view: BookView, plugin_id: str, reason: str) -> None:

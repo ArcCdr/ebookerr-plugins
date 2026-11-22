@@ -22,9 +22,7 @@ def test_the_model_field_lists_the_endpoints_models(
         return SettingOptions(options=("m1",))
 
     monkeypatch.setattr(plugin, "model_options", fake_model_options)
-    result = LlmSynopsisPlugin().setting_options(
-        "model", {"base_url": "http://h.test/v1"}, ctx
-    )
+    result = LlmSynopsisPlugin().setting_options("model", {"base_url": "http://h.test/v1"}, ctx)
     assert result == SettingOptions(options=("m1",))
     assert recorder == [("openai", "http://h.test/v1", ctx)]
 
