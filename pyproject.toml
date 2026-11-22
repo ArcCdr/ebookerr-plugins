@@ -14,7 +14,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "ebookerr-sdk[text,generation]==3.12.0",  # the SDK every plugin runs on
+    "ebookerr-sdk[text,generation]==3.13.0",  # the SDK every plugin runs on
     # the plugins' own runtime requirements (each manifest.toml `requirements`); a `==` pin is
     # tracked by scripts/requirement_pins.py (plan/apply) and must equal every manifest's (its check)
     "fanficfare==4.63.0",
