@@ -639,8 +639,8 @@ def test_manifest_threshold_options_strict() -> None:
     )
 
 
-def test_manifest_spi_3_0() -> None:
-    """Real manifest → spi_version == '3.2', version == '2.5.0'."""
+def test_manifest_spi_3_13() -> None:
+    """Real manifest → spi_version == '3.13', version reads from the manifest."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest_data = tomllib.loads(manifest_path.read_text())
 
@@ -648,8 +648,10 @@ def test_manifest_spi_3_0() -> None:
 
     manifest = parse_manifest(manifest_data)
 
-    assert manifest.spi_version == "3.2"
-    assert manifest.version == "2.5.0"
+    assert manifest.spi_version == "3.13"
+    assert manifest.version == tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "manifest.toml").read_text(encoding="utf-8")
+    )["version"]
     assert manifest.ui_triggers[0].icon == "menu_book"
 
 
