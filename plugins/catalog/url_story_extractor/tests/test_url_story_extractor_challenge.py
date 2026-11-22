@@ -191,3 +191,32 @@ def test_the_default_metadata_fetcher_polls_once_more_after_the_probe_routes_the
 
     assert result == {"title": "T"}
     assert get_adapter.call_count == 2
+
+
+@pytest.mark.pins("FR-CHS-10")
+def test_a_clearance_fanficfare_is_refused_sends_the_third_listing_through_the_solver() -> None:
+    """Probe passes, the rerun still gets 403: the host goes every page and lists a third time."""
+    configs: list[Any] = []
+    outcomes: list[Any] = [_forbidden(), _forbidden(), {"urllist": ["https://www.example.org/s/2"]}]
+
+    def lister(url: str, configuration: Any, normalize: bool) -> dict[str, Any]:
+        """Fail twice with a 403, then list."""
+        configs.append(configuration)
+        result = outcomes.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    with FakeSolver() as fake:
+        ctx = FakeContext(app_settings={"challenge_solver_url": fake.url})
+        gateway = FanFicFarePagesGateway({}, lister=lister, router=_router(ctx))
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]),
+            mock.patch("ebookerr_sdk.challenge.router.SolverClient.health", return_value=True),
+        ):
+            urls = gateway.list_story_urls(_URL)
+
+    assert urls == ["https://www.example.org/s/2"]
+    assert len(configs) == 3
+    assert ctx.state_get("challenge.every_page:www.example.org") is True
+    assert configs[2].getConfig("use_flaresolverr_proxy") == "directimages"

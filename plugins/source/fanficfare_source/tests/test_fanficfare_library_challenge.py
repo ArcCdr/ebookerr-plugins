@@ -190,3 +190,32 @@ def test_a_download_that_fails_again_after_the_retry_keeps_its_reason(
     assert result.outcome == "failed"
     assert result.error == "the site answered HTTP 403"
     assert get_adapter.call_count == 2
+
+
+@pytest.mark.pins("FR-CHS-10")
+def test_a_clearance_fanficfare_is_refused_sends_the_third_run_through_the_solver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Probe passes, FanFicFare's rerun still gets 403: the host goes every page, a third run."""
+    configs: list[Any] = []
+    get_adapter = mock.Mock(side_effect=[_forbidden(), _forbidden(), _Adapter()])
+
+    def recording(config: Any, url: str) -> Any:
+        """Record each run's configuration."""
+        configs.append(config)
+        return get_adapter(config, url)
+
+    monkeypatch.setattr(library.adapters, "getAdapter", recording)
+    with FakeSolver() as fake:
+        ctx = FakeContext(app_settings={"challenge_solver_url": fake.url})
+        gateway = FanFicFareLibraryGateway({}, router=_router(ctx))
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]),
+            mock.patch("ebookerr_sdk.challenge.router.SolverClient.health", return_value=True),
+        ):
+            fetch = gateway.fetch_metadata(_URL)
+
+    assert fetch.meta is not None
+    assert get_adapter.call_count == 3
+    assert ctx.state_get("challenge.every_page:www.example.org") is True
+    assert configs[2].getConfig("use_flaresolverr_proxy") == "directimages"
