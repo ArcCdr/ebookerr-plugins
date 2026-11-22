@@ -1,3 +1,6 @@
+== 1.14.0 ==
+The Library id setting lists your Komga libraries by name. Needs ebookerr 2.26.1 or later.
+
 == 1.13.2 ==
 A book that has no file no longer makes Komga scan its library: the sync skips it and says why. Needs ebookerr 2.25.1 or later.
 
