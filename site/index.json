@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-11-22T21:25:13Z",
+  "generated_at": "2026-11-22T21:25:28Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -1987,6 +1987,29 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.6.0",
+          "published_at": "2026-11-22T21:25:17Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.6.0/llm_cover-1.6.0.zip",
+          "sha256": "d125e7f262d15f5a0d1d6d004fc0942a41423d93f3b1fc0fc616cc0beb7df9f0",
+          "size": 9068,
+          "spi_version": "3.12",
+          "min_app_version": "",
+          "changelog": "The text model's and each image model's Model setting list the models the server offers; you can still type any name. Needs ebookerr 2.26.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookImported"
+            ],
+            "deferred": true,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "1.4.0",
           "published_at": "2026-10-31T16:46:47Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/llm_cover-1.4.0/llm_cover-1.4.0.zip",
@@ -2320,6 +2343,30 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.5.0",
+          "published_at": "2026-11-22T21:25:22Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/my_literotica-1.5.0/my_literotica-1.5.0.zip",
+          "sha256": "42914ff8ad467216ad8f6b29dd6deaa39a195b3a30ebbb1f028f3f6329d57e95",
+          "size": 12758,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "Signing in and reading your activity wall pass Literotica's browser check through the challenge solver set in Settings → General. Needs ebookerr 2.27.0 or later.",
+          "sites": [
+            "literotica.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "literotica.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
+        {
           "version": "1.4.0",
           "published_at": "2026-10-13T21:43:52Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/my_literotica-1.4.0/my_literotica-1.4.0.zip",
@@ -2432,6 +2479,30 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.7.0",
+          "published_at": "2026-11-22T21:25:23Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/patreon_stories-2.7.0/patreon_stories-2.7.0.zip",
+          "sha256": "4d75783ed6c6e97979689454eac5ad9b686af8bace08a10ed89d5b1b939ae169",
+          "size": 14876,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "A browser check on Patreon is passed through the challenge solver set in Settings → General, and no longer reads as an expired session cookie. Needs ebookerr 2.27.0 or later.",
+          "sites": [
+            "patreon.com"
+          ],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "patreon.com"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.6.0",
           "published_at": "2026-10-21T17:22:36Z",
@@ -2569,6 +2640,34 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "1.6.0",
+          "published_at": "2026-11-22T21:25:25Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/pdf_download_source-1.6.0/pdf_download_source-1.6.0.zip",
+          "sha256": "c02446c81f0e9ee5839bc99f98000276d0ab90be43c721f0c03dfcefb7749a98",
+          "size": 8647,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "Update checks and downloads pass a site's browser check through the challenge solver set in Settings → General. Needs ebookerr 2.27.0 or later.",
+          "sites": [],
+          "formats": [
+            "pdf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "pymupdf==2.1"
+          ]
+        },
         {
           "version": "1.5.2",
           "published_at": "2026-11-19T01:57:01Z",
@@ -2805,6 +2904,35 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.6.0",
+          "published_at": "2026-11-22T21:25:24Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.6.0/rtf_download_source-1.6.0.zip",
+          "sha256": "4fd95e333dc209c6c1b0fe4cbfb50f16e9c6ac0c7340e0452417359408c5da80",
+          "size": 6132,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "Update checks and downloads pass a site's browser check through the challenge solver set in Settings → General. Needs ebookerr 2.27.0 or later.",
+          "sites": [],
+          "formats": [
+            "rtf"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "striprtf==0.0.35",
+            "charset-normalizer>=3.3"
+          ]
+        },
+        {
           "version": "1.5.1",
           "published_at": "2026-10-27T15:57:17Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/rtf_download_source-1.5.1/rtf_download_source-1.5.1.zip",
@@ -3019,6 +3147,34 @@
       "deprecated": null,
       "releases": [
         {
+          "version": "1.5.0",
+          "published_at": "2026-11-22T21:25:25Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.5.0/text_download_source-1.5.0.zip",
+          "sha256": "69dc209aa057369f9c61a23f92c3fa13a8877902753b19335a32605d8d823635",
+          "size": 4082,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "Update checks and downloads pass a site's browser check through the challenge solver set in Settings → General. Needs ebookerr 2.27.0 or later.",
+          "sites": [],
+          "formats": [
+            "txt"
+          ],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "converter"
+            ]
+          },
+          "requirements": [
+            "charset-normalizer>=3.3"
+          ]
+        },
+        {
           "version": "1.4.0",
           "published_at": "2026-10-21T17:22:49Z",
           "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/text_download_source-1.4.0/text_download_source-1.4.0.zip",
@@ -3141,6 +3297,32 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.5.0",
+          "published_at": "2026-11-22T21:25:28Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/url_story_extractor-2.5.0/url_story_extractor-2.5.0.zip",
+          "sha256": "c7e941f90587430bc44a7711548472e1f7217bd0c204b87a7bce74154ce5e528",
+          "size": 26317,
+          "spi_version": "3.14",
+          "min_app_version": "",
+          "changelog": "Lists and reads stories on sites that answer with a browser check, through the challenge solver set in Settings → General. A site that accepts the solver's pass for a quick check but refuses it to FanFicFare is then fetched through the solver page by page. Needs ebookerr 2.27.0 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [
+              "*"
+            ],
+            "writes_epub": false,
+            "events": [],
+            "deferred": false,
+            "roles": [
+              "story_extractor"
+            ]
+          },
+          "requirements": [
+            "fanficfare==4.63.0"
+          ]
+        },
         {
           "version": "2.4.0",
           "published_at": "2026-10-21T17:22:46Z",
