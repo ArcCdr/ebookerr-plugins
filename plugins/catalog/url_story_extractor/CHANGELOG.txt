@@ -1,3 +1,6 @@
+== 2.5.0 ==
+Lists and reads stories on sites that answer with a browser check, through the challenge solver set in Settings → General. Needs ebookerr 2.27.0 or later.
+
 == 2.4.1 ==
 Updated to FanFicFare 4.63.0.
 
