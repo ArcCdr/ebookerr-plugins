@@ -145,3 +145,49 @@ def test_a_challenged_metadata_poll_logs_the_sentence(
         "Could not fetch metadata for https://www.example.org/s/1: "
         "example.org asks for a browser check — set a challenge solver in Settings → General",
     ) in caplog.record_tuples
+
+
+@pytest.mark.pins("FR-CHS-10")
+def test_the_default_metadata_fetcher_lets_a_403_reach_the_challenge_route(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The default poll does not swallow FanFicFare's 403: no solver, the sentence on a WARNING."""
+    gateway = FanFicFarePagesGateway({}, router=_router(FakeContext()))
+    caplog.set_level(logging.WARNING)
+
+    with (
+        mock.patch.object(FanFicFarePagesGateway, "_configuration", return_value=mock.Mock()),
+        mock.patch("url_story_extractor.pages.adapters.getAdapter", side_effect=_forbidden()),
+        mock.patch("urllib.request.urlopen", side_effect=_check(_URL)),
+    ):
+        result = gateway.fetch_story_metadata(_URL)
+
+    assert result is None
+    assert (
+        "url_story_extractor.pages",
+        logging.WARNING,
+        "Could not fetch metadata for https://www.example.org/s/1: "
+        "example.org asks for a browser check — set a challenge solver in Settings → General",
+    ) in caplog.record_tuples
+
+
+@pytest.mark.pins("FR-CHS-10")
+def test_the_default_metadata_fetcher_polls_once_more_after_the_probe_routes_the_host() -> None:
+    """A 403 from the default poll is probed; the routed host is polled once more and answers."""
+    adapter = mock.Mock()
+    adapter.getStoryMetadataOnly.return_value.getAllMetadata.return_value = {"title": "T"}
+    get_adapter = mock.Mock(side_effect=[_forbidden(), adapter])
+
+    with FakeSolver() as fake:
+        gateway = FanFicFarePagesGateway(
+            {}, router=_router(FakeContext(app_settings={"challenge_solver_url": fake.url}))
+        )
+        with (
+            mock.patch.object(FanFicFarePagesGateway, "_configuration", return_value=mock.Mock()),
+            mock.patch("url_story_extractor.pages.adapters.getAdapter", get_adapter),
+            mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]),
+        ):
+            result = gateway.fetch_story_metadata(_URL)
+
+    assert result == {"title": "T"}
+    assert get_adapter.call_count == 2
