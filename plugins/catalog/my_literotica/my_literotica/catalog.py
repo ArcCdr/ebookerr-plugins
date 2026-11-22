@@ -32,6 +32,7 @@ import urllib.request
 from datetime import UTC, datetime
 from typing import Any
 
+from ebookerr_sdk.challenge import ChallengeRouter, open_url
 from ebookerr_sdk.spi import CircuitGuard, CircuitOpenError, PluginContext, SiteCredential
 
 
@@ -363,7 +364,11 @@ def _record(circuit: CircuitGuard, *, ok: bool) -> bool:
 
 
 def fetch_wall_page(
-    token: str, last_id: str | None, *, circuit: CircuitGuard
+    token: str,
+    last_id: str | None,
+    *,
+    circuit: CircuitGuard,
+    router: ChallengeRouter | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch one page of the activity wall, guarded by the host's circuit breaker.
 
@@ -377,6 +382,8 @@ def fetch_wall_page(
         token: The bearer token.
         last_id: The previous page's last activity ``id``, or ``None`` for the first page.
         circuit: The plugin context's circuit guard, which holds this host's breaker.
+        router: Passes a browser check through the user's challenge solver; ``None``
+            fetches directly.
 
     Returns:
         The page's ``data`` list (empty when the wall is exhausted).
@@ -387,6 +394,7 @@ def fetch_wall_page(
         urllib.error.URLError: If the wall could not be reached (transport error).
         TimeoutError: If the request times out.
         RuntimeError: If the response is unparseable JSON.
+        ChallengeBlocked: The wall asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -404,7 +412,7 @@ def fetch_wall_page(
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310
+        with open_url(request, timeout=_TIMEOUT_S, router=router) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError:
         # The server answered. Absence and misconfiguration are not an outage, so the
@@ -426,7 +434,10 @@ def fetch_wall_page(
 
 
 def fetch_activities(
-    token: str, *, circuit: CircuitGuard
+    token: str,
+    *,
+    circuit: CircuitGuard,
+    router: ChallengeRouter | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Drain the activity wall page by page until it is exhausted.
 
@@ -441,9 +452,14 @@ def fetch_activities(
     Args:
         token: The bearer token.
         circuit: The plugin context's circuit guard, which guards every page request.
+        router: Passes each page's browser check through the user's challenge solver;
+            ``None`` fetches directly.
 
     Returns:
         A tuple of (activities, log entries).
+
+    Raises:
+        ChallengeBlocked: The wall asked for a browser check that could not be passed.
     """
     logs: list[dict[str, Any]] = []
     activities: list[dict[str, Any]] = []
@@ -451,7 +467,7 @@ def fetch_activities(
     last_id: str | None = None
 
     for page in range(1, MAX_PAGES + 1):
-        items = fetch_wall_page(token, last_id, circuit=circuit)
+        items = fetch_wall_page(token, last_id, circuit=circuit, router=router)
         new_items = []
         for item in items:
             item_id = item.get("id")
@@ -503,7 +519,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def login(username: str, password: str) -> str:
+def login(username: str, password: str, *, router: ChallengeRouter | None = None) -> str:
     """Log in to auth.literotica.com and return the durable ``sessionid`` cookie value.
 
     A successful login answers ``200`` with the body ``OK`` and sets a one-year ``sessionid``
@@ -512,6 +528,8 @@ def login(username: str, password: str) -> str:
     Args:
         username: The Literotica account name.
         password: The Literotica account password.
+        router: Passes the login's browser check through the user's challenge solver;
+            ``None`` opens directly.
 
     Returns:
         The ``sessionid`` cookie value.
@@ -519,6 +537,7 @@ def login(username: str, password: str) -> str:
     Raises:
         RuntimeError: If the credentials are rejected, the response is unexpected, or no
             ``sessionid`` cookie is issued.
+        ChallengeBlocked: The login asked for a browser check that could not be passed.
     """
     body = urllib.parse.urlencode(
         {
@@ -536,7 +555,7 @@ def login(username: str, password: str) -> str:
         headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": _UA},
     )
     try:
-        with opener.open(request, timeout=_TIMEOUT_S) as response:
+        with open_url(request, timeout=_TIMEOUT_S, router=router, opener=opener) as response:
             status = response.status
             text = response.read().decode("utf-8", "replace").strip()
     except urllib.error.HTTPError as exc:
@@ -561,7 +580,9 @@ def login(username: str, password: str) -> str:
     raise RuntimeError(msg)
 
 
-def mint_token(sessionid: str, *, circuit: CircuitGuard) -> str:
+def mint_token(
+    sessionid: str, *, circuit: CircuitGuard, router: ChallengeRouter | None = None
+) -> str:
     """Exchange a Literotica ``sessionid`` cookie for a fresh one-hour bearer token.
 
     The auth service answers with the raw JWT as the response body (not JSON). The request is
@@ -570,6 +591,8 @@ def mint_token(sessionid: str, *, circuit: CircuitGuard) -> str:
     Args:
         sessionid: The ``sessionid`` cookie value obtained from :func:`login`.
         circuit: The plugin context's circuit guard, which holds this host's breaker.
+        router: Passes the token request's browser check through the user's challenge solver;
+            ``None`` opens directly.
 
     Returns:
         The bearer token, without the ``Bearer `` prefix.
@@ -580,6 +603,7 @@ def mint_token(sessionid: str, *, circuit: CircuitGuard) -> str:
         urllib.error.URLError: If the auth service could not be reached (transport error).
         TimeoutError: If the request times out.
         RuntimeError: If the response body is not a valid JWT.
+        ChallengeBlocked: The token request asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -594,7 +618,7 @@ def mint_token(sessionid: str, *, circuit: CircuitGuard) -> str:
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310
+        with open_url(request, timeout=_TIMEOUT_S, router=router) as response:
             token = response.read().decode("utf-8", "replace").strip()
     except urllib.error.HTTPError:
         # The server answered. Absence and misconfiguration are not an outage, so the
@@ -614,7 +638,12 @@ def mint_token(sessionid: str, *, circuit: CircuitGuard) -> str:
     return str(token)
 
 
-def resolve_token(credential: SiteCredential | None, *, circuit: CircuitGuard) -> tuple[str, bool]:
+def resolve_token(
+    credential: SiteCredential | None,
+    *,
+    circuit: CircuitGuard,
+    router: ChallengeRouter | None = None,
+) -> tuple[str, bool]:
     """Turn the stored literotica.com sign-in into a wall bearer token.
 
     Two sign-in shapes are supported: ``basic`` (username + password, which logs in and mints a
@@ -624,12 +653,15 @@ def resolve_token(credential: SiteCredential | None, *, circuit: CircuitGuard) -
     Args:
         credential: The stored literotica.com sign-in, or ``None`` when the core holds none.
         circuit: The plugin context's circuit guard, which guards the minting request.
+        router: Passes the login's browser check through the user's challenge solver;
+            ``None`` opens directly.
 
     Returns:
         A tuple of (bearer token, ``True`` when the token was freshly minted from credentials).
 
     Raises:
         RuntimeError: If no sign-in is stored or its shape is unsupported.
+        ChallengeBlocked: The login asked for a browser check that could not be passed.
     """
     if credential is None or not credential.value:
         msg = (
@@ -638,7 +670,8 @@ def resolve_token(credential: SiteCredential | None, *, circuit: CircuitGuard) -
         )
         raise RuntimeError(msg)
     if credential.kind == "basic":
-        return mint_token(login(credential.name, credential.value), circuit=circuit), True
+        sessionid = login(credential.name, credential.value, router=router)
+        return mint_token(sessionid, circuit=circuit, router=router), True
     if credential.kind == "cookie" and credential.name == "auth_token":
         return credential.value, False
     msg = (
@@ -709,7 +742,9 @@ def scan(
     """
     logs: list[dict[str, Any]] = []
 
-    token, minted = resolve_token(credential, circuit=ctx.circuit)
+    # One router per scan: it detects, solves and remembers the host's browser check.
+    router = ChallengeRouter(ctx)
+    token, minted = resolve_token(credential, circuit=ctx.circuit, router=router)
 
     logs.append(
         {
@@ -722,7 +757,7 @@ def scan(
         }
     )
 
-    activities, fetch_logs = fetch_activities(token, circuit=ctx.circuit)
+    activities, fetch_logs = fetch_activities(token, circuit=ctx.circuit, router=router)
     logs.extend(fetch_logs)
 
     ctx.report(50.0)

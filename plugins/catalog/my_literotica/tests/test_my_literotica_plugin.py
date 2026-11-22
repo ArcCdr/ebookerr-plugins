@@ -57,7 +57,7 @@ def test_manifest_declares_catalog_plugin_with_site_auth() -> None:
     assert manifest.name == "Literotica - My Home"
     assert manifest.plugin_type.value == "catalog"
     assert manifest.auth_sites == ("literotica.com",)
-    assert manifest.spi_version == "3.2"
+    assert manifest.spi_version == "3.13"
     assert manifest.settings_schema.fields == ()
     assert manifest.ui_triggers[0].icon == "bookmarks"
 
@@ -76,7 +76,9 @@ def test_my_literotica_runs_on_the_sdk_host(monkeypatch) -> None:
     """Served by the SDK host, a scan answers the stories, logs and progress the script wrote."""
     expected = json.loads(_SCAN_TERMINAL_PATH.read_text(encoding="utf-8"))
 
-    def fake_wall_page(token: str, last_id: str | None, *, circuit: object) -> list[dict]:
+    def fake_wall_page(
+        token: str, last_id: str | None, *, circuit: object, router: object = None
+    ) -> list[dict]:
         return _FIXTURE_DATA["data"]
 
     monkeypatch.setattr(_MODULE, "fetch_wall_page", fake_wall_page)
@@ -109,7 +111,9 @@ def test_the_scan_signs_in_through_a_credentials_frame(monkeypatch) -> None:
     """The scan asks the core for the literotica.com sign-in and uses its value as the token."""
     tokens: list[str] = []
 
-    def fake_wall_page(token: str, last_id: str | None, *, circuit: object) -> list[dict]:
+    def fake_wall_page(
+        token: str, last_id: str | None, *, circuit: object, router: object = None
+    ) -> list[dict]:
         tokens.append(token)
         return []
 
@@ -535,14 +539,16 @@ def test_resolve_token_basic_logs_in_and_mints(monkeypatch) -> None:
     circuit = FakeCircuit()
     minted_with: list[object] = []
 
-    def fake_mint(sessionid: str, *, circuit: object) -> str:
+    def fake_mint(sessionid: str, *, circuit: object, router: object = None) -> str:
         minted_with.append(circuit)
         return "tok" if sessionid == "SID" else pytest.fail("wrong sessionid")
 
     monkeypatch.setattr(
         _MODULE,
         "login",
-        lambda u, p: "SID" if (u, p) == ("bob", "pw") else pytest.fail("wrong credentials"),
+        lambda u, p, *, router=None: (
+            "SID" if (u, p) == ("bob", "pw") else pytest.fail("wrong credentials")
+        ),
     )
     monkeypatch.setattr(_MODULE, "mint_token", fake_mint)
 
@@ -998,7 +1004,7 @@ def test_fetch_activities_stops_on_a_short_page(monkeypatch) -> None:
     """fetch_activities stops when a page has fewer than PAGE_SIZE items."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             # First page: 50 items
@@ -1021,7 +1027,7 @@ def test_fetch_activities_stops_on_an_empty_page(monkeypatch) -> None:
     """fetch_activities stops when a page is empty."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             return [{"id": f"a{i}"} for i in range(50)]
@@ -1038,7 +1044,7 @@ def test_fetch_activities_logs_one_debug_line_per_page(monkeypatch) -> None:
     """fetch_activities logs one debug line per page."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             return [{"id": f"a{i}"} for i in range(50)]
@@ -1059,7 +1065,7 @@ def test_fetch_activities_warns_at_the_page_cap(monkeypatch) -> None:
     """fetch_activities warns when page cap is reached."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         # Always return 50 items (a full page)
         return [{"id": f"{call_count[0]}-{i}"} for i in range(50)]
@@ -1078,7 +1084,7 @@ def test_fetch_activities_warns_when_the_cursor_is_missing(monkeypatch) -> None:
     """fetch_activities warns when last activity has no id."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             # 50 items, but last one has no id
@@ -1100,7 +1106,7 @@ def test_fetch_activities_single_page_makes_one_call(monkeypatch) -> None:
     """fetch_activities stops after one call if first page has fewer than PAGE_SIZE items."""
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             return [{"id": f"a{i}"} for i in range(4)]
@@ -1126,7 +1132,7 @@ def test_fetch_activities_dedupes_a_boundary_inclusive_cursor(monkeypatch) -> No
     """
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             # Full page; last item is "a49".
@@ -1151,7 +1157,7 @@ def test_fetch_activities_dedupes_a_repeat_within_one_page(monkeypatch) -> None:
     single page response, not just across a page boundary.
     """
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         items = [{"id": f"a{i}"} for i in range(48)]
         items.insert(10, {"id": "a3"})  # "a3" now appears twice in this one page
         return items
@@ -1172,7 +1178,7 @@ def test_fetch_activities_still_paginates_past_a_fully_duplicate_page(monkeypatc
     """
     call_count = [0]
 
-    def fake_fetch_wall_page(token, last_id, *, circuit):
+    def fake_fetch_wall_page(token, last_id, *, circuit, router=None):
         call_count[0] += 1
         if call_count[0] == 1:
             return [{"id": f"a{i}"} for i in range(50)]
@@ -1194,7 +1200,7 @@ def test_scan_maps_the_fixture_wall(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (
+        lambda token, *, circuit, router=None: (
             _FIXTURE_DATA["data"],
             [{"level": "debug", "message": "page"}],
         ),
@@ -1211,7 +1217,7 @@ def test_scan_dedupes_by_story_id(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (data, []),
+        lambda token, *, circuit, router=None: (data, []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1250,7 +1256,7 @@ def test_scan_keeps_the_first_occurrence(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([activity1, activity2], []),
+        lambda token, *, circuit, router=None: ([activity1, activity2], []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1263,7 +1269,7 @@ def test_scan_logs_the_summary(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (_FIXTURE_DATA["data"], []),
+        lambda token, *, circuit, router=None: (_FIXTURE_DATA["data"], []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1283,7 +1289,7 @@ def test_scan_logs_the_credential_path_for_a_token(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], []),
+        lambda token, *, circuit, router=None: ([], []),
     )
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
     info_logs = [log for log in logs if log["level"] == "info"]
@@ -1306,12 +1312,12 @@ def test_scan_logs_the_credential_path_for_a_login(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "resolve_token",
-        lambda credential, *, circuit: ("tok", True),
+        lambda credential, *, circuit, router=None: ("tok", True),
     )
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], []),
+        lambda token, *, circuit, router=None: ([], []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1335,7 +1341,7 @@ def test_scan_raises_when_no_credential_is_stored() -> None:
 def test_scan_raises_on_a_fetch_failure(monkeypatch) -> None:
     """scan raises RuntimeError when fetch_activities fails."""
 
-    def raise_error(token, *, circuit):
+    def raise_error(token, *, circuit, router=None):
         raise RuntimeError("Literotica activity wall failed: HTTP 500")
 
     monkeypatch.setattr(
@@ -1363,7 +1369,7 @@ def test_scan_warns_when_the_wall_holds_no_stories(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([_FIXTURE_DATA["data"][3]], []),
+        lambda token, *, circuit, router=None: ([_FIXTURE_DATA["data"][3]], []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1379,7 +1385,7 @@ def test_scan_forwards_the_fetch_logs(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], [fetch_log]),
+        lambda token, *, circuit, router=None: ([], [fetch_log]),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1392,7 +1398,7 @@ def test_scan_never_logs_the_token(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], []),
+        lambda token, *, circuit, router=None: ([], []),
     )
 
     result, logs = _MODULE.scan(secret_credential, FakeContext())
@@ -1404,7 +1410,7 @@ def test_scan_passes_the_resolved_token_to_fetch(monkeypatch) -> None:
     """scan passes the resolved token to fetch_activities."""
     captured_token = []
 
-    def fake_fetch(token, *, circuit):
+    def fake_fetch(token, *, circuit, router=None):
         captured_token.append(token)
         return ([], [])
 
@@ -1419,12 +1425,12 @@ def test_my_literotica_scan_reports_two_stages(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "resolve_token",
-        lambda credential, *, circuit: ("tok", False),
+        lambda credential, *, circuit, router=None: ("tok", False),
     )
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], []),
+        lambda token, *, circuit, router=None: ([], []),
     )
     ctx = FakeContext()
 
@@ -1439,7 +1445,7 @@ def test_my_literotica_scan_reports_nothing_when_token_fails(monkeypatch) -> Non
     monkeypatch.setattr(
         _MODULE,
         "resolve_token",
-        lambda credential, *, circuit: (_ for _ in ()).throw(RuntimeError("no creds")),
+        lambda credential, *, circuit, router=None: (_ for _ in ()).throw(RuntimeError("no creds")),
     )
     ctx = FakeContext()
 
@@ -1454,12 +1460,12 @@ def test_my_literotica_scan_reports_nothing_when_fetch_fails(monkeypatch) -> Non
     monkeypatch.setattr(
         _MODULE,
         "resolve_token",
-        lambda credential, *, circuit: ("tok", False),
+        lambda credential, *, circuit, router=None: ("tok", False),
     )
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (_ for _ in ()).throw(RuntimeError("boom")),
+        lambda token, *, circuit, router=None: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     ctx = FakeContext()
 
@@ -1576,7 +1582,7 @@ def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (activities, []),
+        lambda token, *, circuit, router=None: (activities, []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1622,7 +1628,7 @@ def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (activities, []),
+        lambda token, *, circuit, router=None: (activities, []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1669,7 +1675,7 @@ def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (activities, []),
+        lambda token, *, circuit, router=None: (activities, []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1698,7 +1704,7 @@ def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: (activities, []),
+        lambda token, *, circuit, router=None: (activities, []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
@@ -1715,7 +1721,7 @@ def test_scan_still_warns_on_an_empty_wall(monkeypatch) -> None:
     monkeypatch.setattr(
         _MODULE,
         "fetch_activities",
-        lambda token, *, circuit: ([], []),
+        lambda token, *, circuit, router=None: ([], []),
     )
 
     result, logs = _MODULE.scan(_CREDENTIAL, FakeContext())
