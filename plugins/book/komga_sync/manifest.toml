@@ -2,7 +2,7 @@ id = "komga_sync"
 name = "Komga Sync"
 version = "1.13.2"
 type = "book"
-spi_version = "3.9"
+spi_version = "3.12"
 description = "Publishes your books to a Komga server and reads your reading progress back. Only one library server can be enabled at a time."
 priority = 900
 accepts_list = true
@@ -61,7 +61,8 @@ key = "library_id"
 type = "string"
 label = "Library id"
 required = true
-help = "the Komga library your books are in (shown in its address in Komga); ebookerr asks Komga to scan it when a book is added or changed"
+options_from = ["server", "api_key"]
+help = "Pick the library Komga lists, or paste its id."
 
 [[settings_schema.fields]]
 key = "scan_retry_max"

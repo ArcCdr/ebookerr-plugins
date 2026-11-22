@@ -15,6 +15,7 @@ RDG-D4).
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -32,6 +33,7 @@ from ebookerr_sdk.spi import (
     ReadPosition,
     ReadStateChanges,
     ReadStateWrite,
+    SettingOptions,
     SettingsField,
     SettingsSchema,
 )
@@ -74,10 +76,8 @@ _SCHEMA = SettingsSchema(
             type="string",
             label="Library id",
             required=True,
-            help=(
-                "the Komga library your books are in (shown in its address in Komga); "
-                "ebookerr asks Komga to scan it when a book is added or changed"
-            ),
+            options_from=("server", "api_key"),
+            help="Pick the library Komga lists, or paste its id.",
         ),
         SettingsField(
             key="scan_retry_max",
@@ -387,8 +387,9 @@ class KomgaSyncPlugin:
 
     Responsibility: This plugin is the Komga ``BookPlugin`` entry point. It declares
     the connection settings (``settings_schema``), probes the Komga server
-    (``test_connection``), enriches a book's metadata and links (``enrich``), and
-    exposes the read-state hooks (``read_state_changes``, ``refresh_read_state``,
+    (``test_connection``), lists the Library id field's choices (``setting_options``,
+    ``SPI 3.12``), enriches a book's metadata and links (``enrich``), and exposes
+    the read-state hooks (``read_state_changes``, ``refresh_read_state``,
     ``write_read_state``).
 
     Collaborators: The plugin delegates all sync mechanics to ``KomgaService``, which
@@ -415,6 +416,39 @@ class KomgaSyncPlugin:
     def settings_schema(self) -> SettingsSchema:
         """Return the Komga connection settings schema (server, key, library, retries)."""
         return _SCHEMA
+
+    def setting_options(
+        self, key: str, values: Mapping[str, Any], ctx: PluginContext
+    ) -> SettingOptions:
+        """List the server's libraries for the Library id field (SPI 3.12).
+
+        Args:
+            key: The field asked about.
+            values: The current server URL and API key (``server`` and ``api_key``).
+            ctx: The plugin's context; unused here.
+
+        Returns:
+            The libraries as ``(id, name)`` pairs, or a ``problem`` saying why none could be
+            listed (missing settings, an unreachable server, or a refused API key).
+        """
+        if key != "library_id":
+            return SettingOptions(problem="This field lists no choices.")
+        server = str(values.get("server") or "").strip()
+        api_key = str(values.get("api_key") or "")
+        if not server or not api_key:
+            return SettingOptions(problem="Enter the server URL and the API key first.")
+        try:
+            libraries = RequestsKomgaClient(server, api_key, "", timeout=10.0).list_libraries()
+        except ProviderUnreachable:
+            return SettingOptions(problem="Komga is not reachable.")
+        if libraries is None:
+            return SettingOptions(problem="Komga refused the API key.")
+        if not libraries:
+            return SettingOptions(problem="Komga lists no library.")
+        return SettingOptions(
+            options=tuple(lib_id for lib_id, _ in libraries),
+            labels=tuple(name for _, name in libraries),
+        )
 
     def test_connection(self, ctx: PluginContext) -> tuple[bool, str]:
         """Test the configured Komga connection, distinguishing why a failure happened.

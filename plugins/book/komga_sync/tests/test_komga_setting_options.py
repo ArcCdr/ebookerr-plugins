@@ -37,9 +37,7 @@ def test_a_refused_key_says_so() -> None:
 @responses.activate
 def test_an_unreachable_server_says_so() -> None:
     """A connection error on the library listing says Komga is not reachable."""
-    responses.add(
-        responses.GET, "http://k.test/api/v1/libraries", body=requests.ConnectionError()
-    )
+    responses.add(responses.GET, "http://k.test/api/v1/libraries", body=requests.ConnectionError())
     result = KomgaSyncPlugin().setting_options(
         "library_id", {"server": "http://k.test", "api_key": "k"}, object()
     )
@@ -49,7 +47,5 @@ def test_an_unreachable_server_says_so() -> None:
 @responses.activate
 def test_missing_settings_say_what_to_enter() -> None:
     """Without an API key the field says to enter the server URL and the API key first."""
-    result = KomgaSyncPlugin().setting_options(
-        "library_id", {"server": "http://k.test"}, object()
-    )
+    result = KomgaSyncPlugin().setting_options("library_id", {"server": "http://k.test"}, object())
     assert result.problem == "Enter the server URL and the API key first."

@@ -79,7 +79,7 @@ class RequestsKomgaClient:
     ``get_progression``, ``get_positions``), progress and metadata writes
     (``put_progression``, ``patch_book_metadata``, ``patch_series_metadata``),
     library operations (``trigger_analyze``, ``trigger_library_scan``,
-    ``scan_library``), deletion (``delete_book_file``, ``empty_trash``,
+    ``scan_library``, ``list_libraries``), deletion (``delete_book_file``, ``empty_trash``,
     ``empty_trash_for``), and bulk listing (``list_library_books``).
 
     Initialized with a Komga server ``base_url`` (trailing slash stripped),
@@ -204,6 +204,31 @@ class RequestsKomgaClient:
         if lib_response.status_code != 200:
             return answered_result("Komga", lib_response.status_code)
         return ConnectionTestResult("ok", "Connected.")
+
+    def list_libraries(self) -> list[tuple[str, str]] | None:
+        """Return the server's libraries as ``(id, name)`` pairs, by name (SPI 3.12).
+
+        ``GET /api/v1/libraries``. ``None`` when Komga refuses the API key (HTTP 401 or 403);
+        ``[]`` for any other answer that is not a list of libraries.
+
+        Raises:
+            ProviderUnreachable: No answer, or HTTP 502, 503 or 504.
+        """
+        response = self._request("GET", "/api/v1/libraries")
+        if response.status_code in (401, 403):
+            return None
+        try:
+            data = response.json() if response.status_code == 200 else None
+        except ValueError:
+            data = None
+        if not isinstance(data, list):
+            return []
+        pairs = [
+            (str(lib["id"]), str(lib.get("name") or lib["id"]))
+            for lib in data
+            if isinstance(lib, dict) and lib.get("id")
+        ]
+        return sorted(pairs, key=lambda pair: pair[1].casefold())
 
     def find_book_id(self, title: str, author: str | None) -> str | None:
         """Look up a book's Komga id by exact title (and optional author).
