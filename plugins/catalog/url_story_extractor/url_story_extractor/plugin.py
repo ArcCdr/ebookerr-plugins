@@ -19,6 +19,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
+from ebookerr_sdk.challenge import ChallengeRouter
 from ebookerr_sdk.domain.chapter_number import extract_chapter_info
 from ebookerr_sdk.domain.dates import parse_datetime
 from ebookerr_sdk.domain.ids import normalise_url, site_key
@@ -453,10 +454,13 @@ class UrlStoryExtractorPlugin:
             ctx: Runtime services for this call.
 
         Returns:
-            The injected gateway, or one configured from ``ctx.settings`` and ``ctx.credentials``.
+            The injected gateway, or one configured from ``ctx.settings``, ``ctx.credentials`` and a
+            ``ChallengeRouter`` built from ``ctx`` (``FR-CHS-10``).
         """
         if self._pages is None:
-            self._pages = FanFicFarePagesGateway(ctx.settings, credentials=ctx.credentials)
+            self._pages = FanFicFarePagesGateway(
+                ctx.settings, credentials=ctx.credentials, router=ChallengeRouter(ctx)
+            )
         return self._pages
 
     def _patches_for_listing(self, url: str, ctx: PluginContext) -> list[StoryPatch]:

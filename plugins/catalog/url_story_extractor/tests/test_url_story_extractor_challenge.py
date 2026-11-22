@@ -84,9 +84,11 @@ def test_a_challenged_listing_without_a_solver_reads_the_sentence(
     lister = mock.Mock(side_effect=_forbidden())
     gateway = FanFicFarePagesGateway({}, lister=lister, router=_router(FakeContext()))
 
-    with mock.patch("urllib.request.urlopen", side_effect=_check(_URL)):
-        with pytest.raises(ListingError) as info:
-            gateway.list_story_urls(_URL)
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=_check(_URL)),
+        pytest.raises(ListingError) as info,
+    ):
+        gateway.list_story_urls(_URL)
 
     assert str(info.value) == (
         "could not list stories at https://www.example.org/s/1: "
