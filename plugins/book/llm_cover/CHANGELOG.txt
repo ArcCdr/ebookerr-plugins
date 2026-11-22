@@ -1,3 +1,6 @@
+== 1.6.0 ==
+The text model's and each image model's Model setting list the models the server offers; you can still type any name. Needs ebookerr 2.26.1 or later.
+
 == 1.5.0 ==
 Automatic image generation now skips a book that got a cover while its images were queued; generating covers by hand still draws them. Needs ebookerr 2.25.1 or later.
 
