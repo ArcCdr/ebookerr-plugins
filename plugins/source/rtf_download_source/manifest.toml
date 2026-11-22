@@ -1,6 +1,6 @@
 id = "rtf_download_source"
 name = "RTF download"
-version = "1.5.1"
+version = "1.6.0"
 type = "source"
 spi_version = "3.13"
 description = "Downloads an RTF and converts it to EPUB in the library."
