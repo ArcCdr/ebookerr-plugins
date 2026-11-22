@@ -54,6 +54,7 @@ for a manual retry — it does not retry itself.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -69,6 +70,7 @@ from ebookerr_sdk.spi import (
     ReadPosition,
     ReadStateChanges,
     ReadStateWrite,
+    SettingOptions,
     SettingsField,
     SettingsSchema,
 )
@@ -109,8 +111,9 @@ _SCHEMA = SettingsSchema(
             key="library_path",
             type="string",
             label="Library folder",
-            help="optional; the folder Kavita sees your library at, e.g. /books — "
-            "needed for the folder scan that makes a newly downloaded book visible",
+            options_from=("server", "api_key"),
+            help="The folder Kavita sees the library at. Pick one Kavita lists, or type it, "
+            "for example /books.",
         ),
         SettingsField(
             key="scan_retry_max",
@@ -468,6 +471,39 @@ class KavitaSyncPlugin:
     def settings_schema(self) -> SettingsSchema:
         """Return this plugin's schema-driven settings fields (server/api_key/etc.)."""
         return _SCHEMA
+
+    def setting_options(
+        self, key: str, values: Mapping[str, Any], ctx: PluginContext
+    ) -> SettingOptions:
+        """List the server's library folders for the Library folder field (SPI 3.12).
+
+        Args:
+            key: The field asked about.
+            values: The current server URL and API key (``server`` and ``api_key``).
+            ctx: The plugin's context; unused here.
+
+        Returns:
+            The folders as ``(folder, label)`` pairs, or a ``problem`` saying why none could be
+            listed (missing settings, an unreachable server, or a refused API key).
+        """
+        if key != "library_path":
+            return SettingOptions(problem="This field lists no choices.")
+        server = str(values.get("server") or "").strip()
+        api_key = str(values.get("api_key") or "")
+        if not server or not api_key:
+            return SettingOptions(problem="Enter the server URL and the API key first.")
+        try:
+            folders = RequestsKavitaClient(server, api_key).list_library_folders()
+        except ProviderUnreachable:
+            return SettingOptions(problem="Kavita is not reachable.")
+        if folders is None:
+            return SettingOptions(problem="Kavita refused the API key.")
+        if not folders:
+            return SettingOptions(problem="Kavita lists no library folder.")
+        return SettingOptions(
+            options=tuple(folder for folder, _ in folders),
+            labels=tuple(label for _, label in folders),
+        )
 
     def test_connection(self, ctx: PluginContext) -> tuple[bool, str]:
         """Test connection to Kavita server using provided context settings."""

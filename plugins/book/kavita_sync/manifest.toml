@@ -2,7 +2,7 @@ id = "kavita_sync"
 name = "Kavita Sync"
 version = "1.12.1"
 type = "book"
-spi_version = "3.9"
+spi_version = "3.12"
 description = "Publishes your books to a Kavita server and reads your reading progress back. Only one library server can be enabled at a time."
 priority = 900
 accepts_list = true
@@ -60,7 +60,8 @@ help = "optional; the address you open Kavita at in your browser (defaults to th
 key = "library_path"
 type = "string"
 label = "Library folder"
-help = "optional; the folder Kavita sees your library at, e.g. /books — needed for the folder scan that makes a newly downloaded book visible"
+options_from = ["server", "api_key"]
+help = "The folder Kavita sees the library at. Pick one Kavita lists, or type it, for example /books."
 
 [[settings_schema.fields]]
 key = "scan_retry_max"

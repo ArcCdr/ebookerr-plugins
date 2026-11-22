@@ -218,6 +218,45 @@ class RequestsKavitaClient:
             return {"Authorization": f"Bearer {token}"}
         return {}
 
+    def list_library_folders(self) -> list[tuple[str, str]] | None:
+        """Return the server's libraries' folders as ``(folder, label)`` pairs, by label (SPI 3.12).
+
+        ``GET /api/Library/libraries``. ``None`` when Kavita refuses the API key (no token, or
+        HTTP 401 or 403); ``[]`` for any other answer that is not a list of libraries. Each folder
+        appears once, under the first library that lists it, labelled ``"<library> — <folder>"``
+        (or just ``<folder>`` when the library has no name).
+
+        Raises:
+            ProviderUnreachable: No answer, or HTTP 502, 503 or 504.
+        """
+        headers = self._headers()
+        if not headers:
+            return None
+        response = self._send("GET", "/api/Library/libraries", headers=headers)
+        if response.status_code in (401, 403):
+            return None
+        try:
+            data = response.json() if response.status_code == 200 else None
+        except ValueError:
+            data = None
+        if not isinstance(data, list):
+            return []
+        labels: dict[str, str] = {}
+        for lib in data:
+            if not isinstance(lib, dict):
+                continue
+            name = str(lib.get("name") or "")
+            for folder in lib.get("folders") or []:
+                if not isinstance(folder, str) or not folder:
+                    continue
+                if folder in labels:
+                    continue
+                labels[folder] = f"{name} — {folder}" if name else folder
+        return sorted(
+            ((folder, label) for folder, label in labels.items()),
+            key=lambda pair: pair[1].casefold(),
+        )
+
     def test_connection(self) -> ConnectionTestResult:
         """Probe reachability and token authentication (``DFT-D50``).
 
