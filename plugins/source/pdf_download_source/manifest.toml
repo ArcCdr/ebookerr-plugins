@@ -1,6 +1,6 @@
 id = "pdf_download_source"
 name = "PDF download"
-version = "1.5.2"
+version = "1.6.0"
 type = "source"
 spi_version = "3.13"
 description = "Downloads a PDF and converts it to EPUB in the library."
