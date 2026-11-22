@@ -31,7 +31,7 @@ def test_the_synopsis_shares_a_turn_with_text_work_on_its_model() -> None:
     """Verify the text stage names its model for turn-sharing (GEN-D30)."""
     m = LlmSynopsisPlugin.manifest
     assert m.affinity == (("", ("base_url", "model")),)
-    assert m.spi_version == "3.11"
+    assert m.spi_version == "3.12"
 
 
 def test_trigger() -> None:
@@ -74,6 +74,17 @@ def test_settings_fields_and_groups() -> None:
     assert base_url.credential is True
     # No field is secret
     assert not any(f.secret for f in schema.fields)
+
+
+def test_the_model_field_lists_its_choices_from_the_base_url() -> None:
+    """The Model field lists its choices from the Base URL (SPI 3.12)."""
+    schema = LlmSynopsisPlugin().settings_schema()
+    model_field = next(f for f in schema.fields if f.key == "model")
+    assert model_field.options_from == ("base_url",)
+    manifest_model = next(
+        f for f in LlmSynopsisPlugin.manifest.settings_schema.fields if f.key == "model"
+    )
+    assert manifest_model.options_from == ("base_url",)
 
 
 def test_default_template_uses_only_known_placeholders() -> None:
