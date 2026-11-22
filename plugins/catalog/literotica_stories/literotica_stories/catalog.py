@@ -14,6 +14,9 @@ strings). ``apply_thresholds`` filters stories by thresholds. ``unknown_params``
 sorted list of query parameter keys not recognized. ``scan`` scans multiple search URLs for
 stories with pagination and thresholds, reporting progress once per search URL.
 
+Every request passes Literotica's browser check through ``ebookerr_sdk.challenge`` (the user's
+challenge solver).
+
 The breaker is the core's, reached through the context's ``CircuitGuard`` (EXP-269) and keyed by
 the host (``CIRCUIT_KEY``). When it is open, ``fetch_json`` raises ``CatalogHostUnreachable``
 before any request is made; ``scan`` catches it, logs a warning and stops paging that search URL,
@@ -33,6 +36,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, cast
 
+from ebookerr_sdk.challenge import ChallengeRouter, open_url
 from ebookerr_sdk.spi import CircuitGuard, CircuitOpenError, PluginContext
 
 
@@ -445,7 +449,9 @@ def _record(circuit: CircuitGuard, *, ok: bool) -> bool:
     return circuit.is_open(CIRCUIT_KEY)
 
 
-def fetch_json(url: str, *, circuit: CircuitGuard) -> dict[str, object]:
+def fetch_json(
+    url: str, *, circuit: CircuitGuard, router: ChallengeRouter | None = None
+) -> dict[str, object]:
     """Fetch and parse JSON from a URL, guarded by the host's circuit breaker.
 
     Asks the core once before spending a request budget: a host the app has already found
@@ -457,12 +463,15 @@ def fetch_json(url: str, *, circuit: CircuitGuard) -> dict[str, object]:
     Args:
         url: The absolute URL to fetch.
         circuit: The plugin context's circuit guard, which holds this host's breaker.
+        router: Passes a browser check through the user's challenge solver; ``None``
+            fetches directly.
 
     Returns:
         The parsed JSON body.
 
     Raises:
         CatalogHostUnreachable: When the breaker is open, before any request is made.
+        ChallengeBlocked: The API asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -471,7 +480,7 @@ def fetch_json(url: str, *, circuit: CircuitGuard) -> dict[str, object]:
             request = urllib.request.Request(  # noqa: S310
                 url, headers={"User-Agent": _UA, "Accept": "application/json"}
             )
-            with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310
+            with open_url(request, timeout=_TIMEOUT_S, router=router) as response:
                 body = cast(dict[str, object], json.loads(response.read().decode("utf-8")))
             _record(circuit, ok=True)
             return body
@@ -565,6 +574,9 @@ def scan(  # noqa: C901
     first_request = True
     total = len(urls)
 
+    # One router per scan: it detects, solves and remembers the host's browser check.
+    router = ChallengeRouter(ctx)
+
     for index, url in enumerate(urls):
         # Warn on unknown params
         unknown = unknown_params(url)
@@ -591,7 +603,7 @@ def scan(  # noqa: C901
 
             try:
                 api_url = build_api_url(params, page)
-                data = fetch_json(api_url, circuit=ctx.circuit)
+                data = fetch_json(api_url, circuit=ctx.circuit, router=router)
                 items = cast(list[Any], data.get("data") or [])
 
                 # Map stories, dropping None results

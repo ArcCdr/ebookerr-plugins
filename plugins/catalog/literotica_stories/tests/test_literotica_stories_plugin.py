@@ -189,7 +189,7 @@ def test_apply_thresholds_empty_keeps_all() -> None:
 def test_scan_fetches_and_maps(monkeypatch) -> None:
     """scan fetches and maps stories, returns result and logs."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -217,7 +217,7 @@ def test_scan_paginates_until_short_page(monkeypatch) -> None:
     """scan stops paging when a page has fewer than PAGE_SIZE stories."""
     call_list = []
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         call_list.append(url)
         if len(call_list) == 1:
             # First page: 50 stories
@@ -256,7 +256,7 @@ def test_scan_respects_max_pages(monkeypatch) -> None:
     """scan stops after max_pages even if all pages are full."""
     call_list = []
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         call_list.append(url)
         # Always return a full 50-story page
         return {
@@ -285,7 +285,7 @@ def test_scan_start_page_from_url(monkeypatch) -> None:
     """scan starts paging from URL's page parameter."""
     call_list = []
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         call_list.append(url)
         # Always return a full page to prevent short-circuit
         return {
@@ -316,7 +316,7 @@ def test_scan_start_page_from_url(monkeypatch) -> None:
 def test_scan_thresholds_filter(monkeypatch) -> None:
     """scan applies thresholds and logs kept count."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -340,7 +340,7 @@ def test_scan_thresholds_filter(monkeypatch) -> None:
 def test_scan_dedupes_across_urls(monkeypatch) -> None:
     """scan deduplicates stories by URL across multiple search URLs."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -369,7 +369,7 @@ def test_scan_raises_when_the_first_page_fails(monkeypatch) -> None:
     """scan raises RuntimeError when the first page fetch fails."""
     import urllib.error
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         raise urllib.error.URLError("down")
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -391,7 +391,7 @@ def test_scan_raises_on_a_mid_paging_failure(monkeypatch) -> None:
     """scan raises RuntimeError when a mid-paging fetch fails."""
     call_count = [0]
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         call_count[0] += 1
         if call_count[0] == 1:
             # First page: full page (50 stories)
@@ -425,7 +425,7 @@ def test_scan_raises_when_one_of_two_urls_fails(monkeypatch) -> None:
     """scan raises RuntimeError when one of multiple URLs fails (not short listing)."""
     call_count = [0]
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         call_count[0] += 1
         if call_count[0] == 1:
             # First URL succeeds
@@ -452,7 +452,7 @@ def test_scan_raises_when_one_of_two_urls_fails(monkeypatch) -> None:
 def test_scan_with_an_empty_listing_is_a_successful_empty_scan(monkeypatch) -> None:
     """scan returns empty result when page 1 has no data, without raising."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {"data": []}
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -473,7 +473,7 @@ def test_scan_with_an_empty_listing_is_a_successful_empty_scan(monkeypatch) -> N
 def test_scan_warns_on_unknown_params(monkeypatch) -> None:
     """scan warns when URL has unknown search parameters."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -524,7 +524,7 @@ def test_literotica_stories_runs_on_the_sdk_host(monkeypatch) -> None:
     """Served by the SDK host, a scan answers the stories, logs and progress the script wrote."""
     expected = json.loads(_SCAN_TERMINAL_PATH.read_text(encoding="utf-8"))
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return _FIXTURE_DATA
 
     monkeypatch.setattr(_MODULE, "fetch_json", fake_fetch)
@@ -558,7 +558,7 @@ def test_an_unsupported_op_is_refused() -> None:
 def test_a_scan_failure_is_reported_verbatim(monkeypatch) -> None:
     """A failed fetch answers ok=false with the scan's own message, without a type prefix."""
 
-    def failing_fetch(url: str, *, circuit: object) -> dict:
+    def failing_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         raise RuntimeError("boom")
 
     monkeypatch.setattr(_MODULE, "fetch_json", failing_fetch)
@@ -649,16 +649,19 @@ def test_manifest_spi_3_13() -> None:
     manifest = parse_manifest(manifest_data)
 
     assert manifest.spi_version == "3.13"
-    assert manifest.version == tomllib.loads(
-        (Path(__file__).resolve().parents[1] / "manifest.toml").read_text(encoding="utf-8")
-    )["version"]
+    assert (
+        manifest.version
+        == tomllib.loads(
+            (Path(__file__).resolve().parents[1] / "manifest.toml").read_text(encoding="utf-8")
+        )["version"]
+    )
     assert manifest.ui_triggers[0].icon == "menu_book"
 
 
 def test_literotica_scan_reports_once_per_search_url(monkeypatch) -> None:
     """scan reports progress once per search URL with increasing percents."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         # Return a single short page (fewer items than PAGE_SIZE)
         return {
             "data": [
@@ -776,7 +779,7 @@ def test_category_table_values_are_non_empty_strings() -> None:
 def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
     """scan emits exactly one aggregated warning for an unmapped category."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {
             "data": [
                 {
@@ -816,7 +819,7 @@ def test_scan_warns_once_for_an_unmapped_category(monkeypatch) -> None:
 def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
     """scan lists all unique (id, slug) pairs in a single warning."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {
             "data": [
                 {
@@ -862,7 +865,7 @@ def test_scan_lists_every_unmapped_pair(monkeypatch) -> None:
 def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
     """scan emits no warning when all categories are mapped."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {
             "data": [
                 {
@@ -900,7 +903,7 @@ def test_scan_does_not_warn_when_every_category_maps(monkeypatch) -> None:
 def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
     """scan does not warn when unmapped category has no slug to report."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {
             "data": [
                 {
@@ -932,7 +935,7 @@ def test_scan_does_not_warn_without_a_slug(monkeypatch) -> None:
 def test_scan_complete_line_is_still_last(monkeypatch) -> None:
     """scan keeps final 'Scan complete' line as the last info entry."""
 
-    def fake_fetch(url: str, *, circuit: object) -> dict:
+    def fake_fetch(url: str, *, circuit: object, router: object = None) -> dict:
         return {
             "data": [
                 {
