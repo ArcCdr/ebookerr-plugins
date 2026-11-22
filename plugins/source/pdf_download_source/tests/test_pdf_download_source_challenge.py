@@ -10,8 +10,8 @@ import requests
 import responses
 from ebookerr_sdk.domain.ids import make_book_id
 from ebookerr_sdk.spi import BookView, CustomValueView
-from pdf_download_source.plugin import PdfDownloadSourcePlugin
 from ebookerr_sdk.testing import FakeContext
+from pdf_download_source.plugin import PdfDownloadSourcePlugin
 
 
 @responses.activate

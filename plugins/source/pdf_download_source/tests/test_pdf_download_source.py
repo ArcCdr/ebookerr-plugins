@@ -66,12 +66,14 @@ class FakeContext:
     mode = InvocationMode.HEADLESS
     settings: dict[str, Any] = {}
     ui_context: dict[str, str] = {}
+    app_settings: dict[str, str] = {}
     logger = logging.getLogger("test")
     circuit = FakeCircuit()
 
     def __init__(self, auth_by_host: dict[str, dict[str, str]] | None = None) -> None:
         """Initialize with optional auth headers by host."""
         self.auth_by_host = auth_by_host or {}
+        self.state: dict[str, Any] = {}
 
     def report(self, percent: float) -> None:
         """No-op progress reporting."""
@@ -85,6 +87,47 @@ class FakeContext:
 
         host = urlsplit(url).hostname or ""
         return self.auth_by_host.get(host, {})
+
+    def app_setting(self, key: str, default: str | None = None) -> str | None:
+        """Read one app-level setting, so the challenge router can find the solver.
+
+        Args:
+            key: The app-level setting name.
+            default: Returned when the key is not set.
+
+        Returns:
+            The setting's value, or ``default``.
+        """
+        return self.app_settings.get(key, default)
+
+    def state_get(self, key: str) -> Any | None:
+        """Return the stored value for *key*, or None when absent.
+
+        Args:
+            key: The state key.
+
+        Returns:
+            The stored value, or None.
+        """
+        return self.state.get(key)
+
+    def state_set(self, key: str, value: Any, *, ttl_s: int | None = None) -> None:
+        """Store *value* under *key*.
+
+        Args:
+            key: The state key.
+            value: The value to store.
+            ttl_s: Optional time-to-live, held here and not expired.
+        """
+        self.state[key] = value
+
+    def state_delete(self, key: str) -> None:
+        """Drop the stored value for *key*.
+
+        Args:
+            key: The state key.
+        """
+        self.state.pop(key, None)
 
 
 class TestManifest:

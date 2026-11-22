@@ -108,7 +108,8 @@ class PdfDownloadSourcePlugin:
         Args:
             url: The book's source URL.
             prior: The book's current snapshot, or ``None`` when unknown.
-            ctx: The call's plugin context (unused by this check).
+            ctx: The call's plugin context: a browser check on the HEAD passes through the
+                user's challenge solver.
 
         Returns:
             The validator comparison's verdict.
@@ -119,6 +120,7 @@ class PdfDownloadSourcePlugin:
             auth_headers={},
             prior=prior,
             namespace=self.manifest.id,
+            ctx=ctx,
         )
 
     def pull(
