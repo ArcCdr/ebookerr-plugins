@@ -43,7 +43,7 @@ def test_the_manifest_declares_the_library_server_role() -> None:
     assert "reader_url_template" not in data or data.get("reader_url_template") is None
 
     # Verify SPI version
-    assert data["spi_version"] == "3.9"
+    assert data["spi_version"] == "3.12"
 
 
 def test_the_manifest_declares_the_read_state_write_through() -> None:
@@ -52,7 +52,19 @@ def test_the_manifest_declares_the_read_state_write_through() -> None:
     role = manifest.roles.library_server
     assert role is not None
     assert role.write_read_state is True
-    assert manifest.spi_version == "3.9"
+    assert manifest.spi_version == "3.12"
+
+
+def test_the_library_id_lists_its_choices() -> None:
+    """The Library id field declares its choices depend on server and api_key (SPI 3.12)."""
+    manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
+    data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    library_field = next(f for f in data["settings_schema"]["fields"] if f["key"] == "library_id")
+    assert library_field["options_from"] == ("server", "api_key")
+
+    manifest = KomgaSyncPlugin.manifest
+    library = next(f for f in manifest.settings_schema.fields if f.key == "library_id")
+    assert library.options_from == ("server", "api_key")
 
 
 def test_the_sync_action_shows_the_plugin_glyph() -> None:
