@@ -12,5 +12,5 @@ def test_the_plugin_glyph_is_globe_book() -> None:
     manifest = load_manifest(Path(__file__).resolve().parents[1] / "manifest.toml")
     assert manifest.icon == "globe_book"
     assert manifest.version == "1.5.0"
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
     assert manifest.defer_to_listing == ("title", "author", "author_url")

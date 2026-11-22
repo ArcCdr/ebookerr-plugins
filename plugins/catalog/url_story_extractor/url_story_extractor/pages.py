@@ -16,23 +16,24 @@ from collections.abc import Callable, Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter
+from ebookerr_sdk.challenge import ChallengeRouter
 from ebookerr_sdk.spi import SiteCredential
 from fanficfare import adapters
 from fanficfare.geturls import GetURLs
 
 from url_story_extractor.fff_support import (
+    ChallengeRefusedError,
     apply_sign_in,
     build_configuration,
     can_sign_in,
     captured_stdout,
-    challenge_outcome,
     challenge_route,
     config_sections,
     failure_message,
     masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
+    run_routed,
     seed_clearance,
     settings_options,
 )
@@ -163,35 +164,22 @@ class FanFicFarePagesGateway:
                     deduped.append(item)
             return deduped
 
-        try:
-            deduped = run()
-        except ChallengeBlocked as exc:
-            raise ListingError(f"could not list stories at {url}: {exc}") from exc
-        except Exception as exc:  # noqa: BLE001
-            outcome = challenge_outcome(exc, url, self._router)
-            if isinstance(outcome, str):
-                raise ListingError(f"could not list stories at {url}: {outcome}") from exc
-            if outcome is False:
-                logger.warning(
-                    "Listing failed at %s: %s: %s", url, type(exc).__name__, masked_text(exc)
-                )
-                raise ListingError(
-                    f"could not list stories at {url}: {failure_message(exc, url)}"
-                ) from exc
+        def rerun() -> None:
+            """Drop the host's cached configuration and log the rerun."""
             self._forget_host(host)
             logger.info("Listing %s once more: its site's browser check is now routed", url)
-            try:
-                deduped = run()
-            except Exception as retry_exc:  # noqa: BLE001 — a second failure is today's path
-                logger.warning(
-                    "Listing failed at %s: %s: %s",
-                    url,
-                    type(retry_exc).__name__,
-                    masked_text(retry_exc),
-                )
-                raise ListingError(
-                    f"could not list stories at {url}: {failure_message(retry_exc, url)}"
-                ) from retry_exc
+
+        try:
+            deduped = run_routed(run, url, self._router, on_rerun=rerun)
+        except ChallengeRefusedError as exc:
+            raise ListingError(f"could not list stories at {url}: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 — every failure is a listing error
+            logger.warning(
+                "Listing failed at %s: %s: %s", url, type(exc).__name__, masked_text(exc)
+            )
+            raise ListingError(
+                f"could not list stories at {url}: {failure_message(exc, url)}"
+            ) from exc
 
         elapsed = time.monotonic() - start
         logger.info("Listed %d story URL(s) at %s in %.1fs", len(deduped), url, elapsed)
@@ -216,29 +204,22 @@ class FanFicFarePagesGateway:
             with captured_stdout():
                 return self._metadata_fetcher(url, configuration)
 
-        try:
-            result = run()
-        except ChallengeBlocked as exc:
-            logger.warning("Could not fetch metadata for %s: %s", url, str(exc))
-            return None
-        except Exception as exc:  # noqa: BLE001
-            outcome = challenge_outcome(exc, url, self._router)
-            if isinstance(outcome, str):
-                logger.warning("Could not fetch metadata for %s: %s", url, outcome)
-                return None
-            if outcome is False:
-                logger.warning("Could not fetch metadata for %s: %s", url, masked_text(exc))
-                return None
+        def rerun() -> None:
+            """Drop the host's cached configuration and log the rerun."""
             self._forget_host(host)
             logger.info(
                 "Fetching metadata for %s once more: its site's browser check is now routed",
                 url,
             )
-            try:
-                result = run()
-            except Exception as retry_exc:  # noqa: BLE001 — a second failure is today's path
-                logger.warning("Could not fetch metadata for %s: %s", url, masked_text(retry_exc))
-                return None
+
+        try:
+            result = run_routed(run, url, self._router, on_rerun=rerun)
+        except ChallengeRefusedError as exc:
+            logger.warning("Could not fetch metadata for %s: %s", url, str(exc))
+            return None
+        except Exception as exc:  # noqa: BLE001 — a failed poll answers None
+            logger.warning("Could not fetch metadata for %s: %s", url, masked_text(exc))
+            return None
 
         elapsed = time.monotonic() - start
         logger.debug("Fetched metadata for %s in %.1fs", url, elapsed)
@@ -254,9 +235,9 @@ class FanFicFarePagesGateway:
 
         The host's browser-check route (``FR-CHS-10``) is applied first: a host marked every page
         gets FanFicFare's solver options, and a host that keeps a clearance gets its User-Agent
-        set and its cookies seeded into the configuration's own cookie jar. A ``ChallengeBlocked``
-        from the route (a marked host with no solver) is not caught here: it ends the listing or
-        the poll.
+        set and its cookies seeded into the configuration's own cookie jar. A
+        ``ChallengeBlockedError`` from the route (a marked host with no solver) is not caught here:
+        it ends the listing or the poll.
 
         Configurations are cached on ``self`` keyed by the resolved section tuple and the host: a
         scan that enriches many stories from one site would otherwise rebuild the configuration

@@ -783,7 +783,7 @@ def test_manifest_parses_with_auth_sites() -> None:
     manifest = parse_manifest(manifest_data)
 
     assert manifest.auth_sites == ("patreon.com",)
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
     assert manifest.ui_triggers[0].icon == "volunteer_activism"
 
     # Check settings_schema has recent_weeks field

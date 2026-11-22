@@ -1,5 +1,5 @@
 == 2.4.0 ==
-Pulls and update checks pass the browser check some sites answer with, through the challenge solver set in Settings → General; without one, the failure says so instead of "HTTP 403". Needs ebookerr 2.27.0 or later.
+Pulls and update checks pass the browser check some sites answer with, through the challenge solver set in Settings → General; without one, the failure says so instead of "HTTP 403". A site that accepts the solver's pass for a quick check but refuses it to FanFicFare is then fetched through the solver page by page. Needs ebookerr 2.27.0 or later.
 
 == 2.3.1 ==
 Updated to FanFicFare 4.63.0.

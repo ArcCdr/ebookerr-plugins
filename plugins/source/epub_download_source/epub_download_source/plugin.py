@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 import requests
-from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter, challenge_session
+from ebookerr_sdk.challenge import ChallengeBlockedError, ChallengeRouter, challenge_session
 from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.epub_hash import epub_content_hash
 from ebookerr_sdk.domain.epub_metadata import epub_book_fields
@@ -401,7 +401,7 @@ class EpubDownloadSourcePlugin:
             SourcePullError: The browser check was refused, or the GET failed.
             CircuitOpenError: The host breaker was open.
         """
-        blocked: ChallengeBlocked | None = None
+        blocked: ChallengeBlockedError | None = None
         try:
             with _guard(guard, circuit_key, host):
                 try:
@@ -412,7 +412,7 @@ class EpubDownloadSourcePlugin:
                         stream=True,
                         allow_redirects=True,
                     )
-                except ChallengeBlocked as exc:
+                except ChallengeBlockedError as exc:
                     # Caught inside the breaker: the refusal is not the host's outage.
                     blocked = exc
         except CircuitOpenError:

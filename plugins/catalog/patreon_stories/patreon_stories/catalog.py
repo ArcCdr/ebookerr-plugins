@@ -115,7 +115,7 @@ def _get_json(
 ) -> dict[str, object]:
     """Fetch and parse JSON from Patreon API with auth cookie.
 
-    Every request is read through ``open_url`` (``SPI 3.13``): a Cloudflare browser check is
+    Every request is read through ``open_url`` (``SPI 3.14``): a Cloudflare browser check is
     solved by the user's challenge solver, or the scan fails with the solver sentence. A 403 that
     is not such a check still answers "Patreon session cookie missing or expired".
 
@@ -134,7 +134,7 @@ def _get_json(
     Raises:
         RuntimeError: On HTTP 401/403 (auth error) or other HTTP errors
         CatalogHostUnreachable: When the host circuit breaker is open or a transport error occurs
-        ChallengeBlocked: When the host answers a browser check the solver cannot pass
+        ChallengeBlockedError: When the host answers a browser check the solver cannot pass
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -807,7 +807,8 @@ def scan(
             does not accept it, or when any memberships/posts fetch fails — an empty result
             always means "the source really has nothing" (EXP-073, EXP-227). A signed-in account
             with no memberships is such an empty result, not a failure (EXP-245).
-        ChallengeBlocked: When Patreon answers a browser check the challenge solver cannot pass.
+        ChallengeBlockedError: When Patreon answers a browser check the challenge solver cannot
+            pass.
     """
     logs: list[dict[str, object]] = []
     stories: list[dict[str, object]] = []

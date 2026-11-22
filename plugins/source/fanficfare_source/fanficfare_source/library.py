@@ -23,7 +23,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
-from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter
+from ebookerr_sdk.challenge import ChallengeRouter
 from ebookerr_sdk.epub import EpubDocument, EpubError
 from ebookerr_sdk.spi import CircuitOpenError
 from fanficfare import adapters, exceptions, writers
@@ -31,11 +31,11 @@ from fanficfare.configurable import Configuration
 from fanficfare.epubutils import get_update_data
 
 from fanficfare_source.fff_support import (
+    ChallengeRefusedError,
     apply_sign_in,
     build_configuration,
     can_sign_in,
     captured_stdout,
-    challenge_outcome,
     challenge_route,
     config_sections,
     failure_message,
@@ -43,6 +43,7 @@ from fanficfare_source.fff_support import (
     masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
+    run_routed,
     seed_clearance,
     settings_options,
 )
@@ -89,10 +90,6 @@ chapters a site removed (``LIB-D50``), with their own titles.
 
 class _RunFailedError(Exception):
     """Internal marker reporting a failed run to the breaker."""
-
-
-class _ChallengeRefusedError(RuntimeError):
-    """A site's browser check ended the run; its message is the user-facing sentence."""
 
 
 T = TypeVar("T")
@@ -324,7 +321,7 @@ class FanFicFareLibraryGateway:
         return config
 
     def _run(self, url: str, run: Callable[[], T]) -> T:
-        """Run FanFicFare through *run*, once more when a browser check is found and routed.
+        """Run FanFicFare through *run*, again while its site's browser check gets routed.
 
         Args:
             url: The story address.
@@ -334,25 +331,16 @@ class FanFicFareLibraryGateway:
             What *run* returns.
 
         Raises:
-            _ChallengeRefusedError: The site's browser check ended the run; carries the sentence.
+            ChallengeRefusedError: The site's browser check ended the run; carries the sentence.
         """
-        try:
-            return run()
-        except ChallengeBlocked as exc:
-            raise _ChallengeRefusedError(str(exc)) from exc
-        except Exception as exc:
-            outcome = challenge_outcome(exc, url, self._router)
-            if outcome is False:
-                raise
-            if isinstance(outcome, str):
-                raise _ChallengeRefusedError(outcome) from exc
-        logger.info(
-            "Running FanFicFare once more for %s: its site's browser check is now routed", url
-        )
-        try:
-            return run()
-        except ChallengeBlocked as exc:
-            raise _ChallengeRefusedError(str(exc)) from exc
+
+        def rerun() -> None:
+            """Log the rerun; each run builds its configuration from the host's route afresh."""
+            logger.info(
+                "Running FanFicFare once more for %s: its site's browser check is now routed", url
+            )
+
+        return run_routed(run, url, self._router, on_rerun=rerun)
 
     def fetch_metadata(self, url: str) -> MetadataFetch:
         """Return the story's metadata without fetching any chapter, or why there is none.
@@ -383,7 +371,7 @@ class FanFicFareLibraryGateway:
         try:
             with captured_stdout():
                 metadata = self._run(url, fetch)
-        except _ChallengeRefusedError as exc:
+        except ChallengeRefusedError as exc:
             logger.warning("FanFicFare failed for %s: %s", url, exc)
             return MetadataFetch(None, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — every failure is a reason (LIB-D25)
@@ -427,7 +415,7 @@ class FanFicFareLibraryGateway:
                 result = self._run(
                     url, lambda: self._write(url, work_dir, staged_filename, on_chapter)
                 )
-        except _ChallengeRefusedError as exc:
+        except ChallengeRefusedError as exc:
             logger.warning("FanFicFare failed for %s: %s", url, exc)
             return DownloadResult("failed", error=str(exc))
         except Exception as exc:  # noqa: BLE001 — every failure is a result (LIB-D25)

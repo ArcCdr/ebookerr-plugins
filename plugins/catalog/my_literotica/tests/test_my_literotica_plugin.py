@@ -57,7 +57,7 @@ def test_manifest_declares_catalog_plugin_with_site_auth() -> None:
     assert manifest.name == "Literotica - My Home"
     assert manifest.plugin_type.value == "catalog"
     assert manifest.auth_sites == ("literotica.com",)
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
     assert manifest.settings_schema.fields == ()
     assert manifest.ui_triggers[0].icon == "bookmarks"
 

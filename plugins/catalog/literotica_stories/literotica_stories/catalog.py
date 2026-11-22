@@ -471,7 +471,7 @@ def fetch_json(
 
     Raises:
         CatalogHostUnreachable: When the breaker is open, before any request is made.
-        ChallengeBlocked: The API asked for a browser check that could not be passed.
+        ChallengeBlockedError: The API asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)

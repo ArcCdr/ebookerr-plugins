@@ -640,7 +640,7 @@ def test_manifest_threshold_options_strict() -> None:
 
 
 def test_manifest_spi_3_13() -> None:
-    """Real manifest → spi_version == '3.13', version reads from the manifest."""
+    """Real manifest → spi_version == '3.14', version reads from the manifest."""
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     manifest_data = tomllib.loads(manifest_path.read_text())
 
@@ -648,7 +648,7 @@ def test_manifest_spi_3_13() -> None:
 
     manifest = parse_manifest(manifest_data)
 
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
     assert (
         manifest.version
         == tomllib.loads(

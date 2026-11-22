@@ -178,18 +178,24 @@ def test_a_host_checked_on_every_page_with_a_silent_solver_reads_did_not_answer(
 def test_a_download_that_fails_again_after_the_retry_keeps_its_reason(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A second 403 after the retry is the plain HTTP 403 failure, with exactly two runs."""
-    get_adapter = mock.Mock(side_effect=[_forbidden(), _forbidden()])
+    """403 on every run: three runs (the last through the solver), then could-not-pass."""
+    get_adapter = mock.Mock(side_effect=[_forbidden(), _forbidden(), _forbidden()])
     monkeypatch.setattr(library.adapters, "getAdapter", get_adapter)
     with FakeSolver() as fake:
         ctx = FakeContext(app_settings={"challenge_solver_url": fake.url})
         gateway = FanFicFareLibraryGateway({}, router=_router(ctx))
-        with mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]):
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]),
+            mock.patch("ebookerr_sdk.challenge.router.SolverClient.health", return_value=True),
+        ):
             result = gateway.download(_URL, work_dir=tmp_path, staged_filename=None)
 
     assert result.outcome == "failed"
-    assert result.error == "the site answered HTTP 403"
-    assert get_adapter.call_count == 2
+    assert (
+        result.error
+        == "example.org asks for a browser check that the challenge solver could not pass"
+    )
+    assert get_adapter.call_count == 3
 
 
 @pytest.mark.pins("FR-CHS-10")

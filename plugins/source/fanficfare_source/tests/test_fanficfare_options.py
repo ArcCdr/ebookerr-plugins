@@ -276,7 +276,7 @@ def test_the_manifest_declares_the_save_check() -> None:
     """The manifest declares its validator and SPI 3.10, the interface carrying it (FR-CFG-4)."""
     manifest = FanFicFareSourcePlugin.manifest
     assert manifest.settings_schema.validator is True
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
 
 
 def test_an_option_the_card_sets_is_a_warning_at_save() -> None:

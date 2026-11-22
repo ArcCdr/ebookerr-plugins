@@ -15,11 +15,11 @@ def test_the_manifest_opts_into_update_checks_and_its_format() -> None:
 
 
 def test_the_manifest_declares_the_converter_role() -> None:
-    """The Source converts uploaded txt files: [roles.converter], formats unchanged, SPI 3.13."""
+    """The Source converts uploaded txt files: [roles.converter], formats unchanged, SPI 3.14."""
     manifest = TextDownloadSourcePlugin.manifest
     assert manifest.roles.converter is True
     assert manifest.formats == ("txt",)
-    assert manifest.spi_version == "3.13"
+    assert manifest.spi_version == "3.14"
     assert manifest.defer_to_listing == ("title", "author", "author_url")
     assert isinstance(TextDownloadSourcePlugin(), Converting)
 

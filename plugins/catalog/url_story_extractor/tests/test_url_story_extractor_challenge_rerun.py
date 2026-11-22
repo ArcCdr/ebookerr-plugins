@@ -1,4 +1,4 @@
-"""The rerun rule of FanFicFare's browser-check route, from URL Story Extractor's copy (FR-CHS-10)."""
+"""The rerun rule of the browser-check route, from URL Story Extractor's copy (FR-CHS-10)."""
 
 from __future__ import annotations
 

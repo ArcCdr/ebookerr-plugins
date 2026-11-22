@@ -23,9 +23,9 @@ plugin seven things:
 * :func:`check_extra_options` — the plugin's save check of its advanced options (``LIB-D47``);
 * :func:`can_sign_in` — whether FanFicFare can sign in on a story's site at all (``LIB-D53``).
 
-The route helpers (:func:`challenge_route`, :func:`seed_clearance`, :func:`challenge_outcome`) apply
-a host's browser-check route through FanFicFare's own documented options (``FR-CHS-10`` is written
-when both plugins use them).
+The route helpers (:func:`challenge_route`, :func:`seed_clearance`, :func:`challenge_outcome`,
+:func:`run_routed`) apply a host's browser-check route through FanFicFare's own documented options
+(``FR-CHS-10``).
 """
 
 from __future__ import annotations
@@ -37,17 +37,17 @@ import inspect
 import io
 import logging
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import urlsplit
 
 import fanficfare
 import requests
 from ebookerr_sdk.challenge import (
     BlockReason,
-    ChallengeBlocked,
+    ChallengeBlockedError,
     ChallengeRouter,
     Clearance,
     probe,
@@ -58,6 +58,8 @@ from fanficfare.adapters.base_adapter import BaseSiteAdapter
 from fanficfare.configurable import Configuration
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 FANFICFARE_LOGGER = "fanficfare"
 """The logger every FanFicFare module logs under."""
@@ -434,7 +436,8 @@ def challenge_route(
     rendered by _ini_value>}, clearance). Otherwise ({}, None).
 
     Raises:
-        ChallengeBlocked: The host is marked every page and the solver is unset or does not answer.
+        ChallengeBlockedError: The host is marked every page and the solver is unset or does not
+            answer.
     """
     if router is None:
         return {}, None
@@ -483,15 +486,27 @@ def seed_clearance(config: Configuration, clearance: Clearance, url: str) -> Non
         )
 
 
-def challenge_outcome(exc: BaseException, url: str, router: ChallengeRouter | None) -> bool | str:
+def challenge_outcome(
+    exc: BaseException, url: str, router: ChallengeRouter | None, *, retried: bool = False
+) -> bool | str:
     """What a FanFicFare failure on *url* means for its route (FR-CHS-10).
 
+    Only an HTTPErrorFFF is looked at. On a host marked every page a 403 or a 428 (FanFicFare's
+    code for a solver that answered without passing) is the could-not-pass sentence. On the first
+    run a 403 on any other host is probed, a ChallengeBlockedError from the probe becoming its
+    sentence. On the rerun (*retried*) a 403 on a host holding a kept clearance means the site
+    refused that clearance to FanFicFare's own client: the host is marked every page, so the next
+    run goes through the solver. Anything else is False.
+
+    Args:
+        exc: What FanFicFare raised.
+        url: The address FanFicFare was given.
+        router: The plugin call's router; None when the plugin passes no browser check.
+        retried: Whether *exc* comes from the run after a routed one.
+
     Returns:
-        True to run FanFicFare once more (a probe found a browser check and routed the host); a
-        sentence (FR-CHS-5) to fail with; False to keep the failure as it is. Only an HTTPErrorFFF
-        is looked at: on a host marked every page a 403 or a 428 (FanFicFare's code for a solver
-        that answered without passing) is the could-not-pass sentence; on any other host a 403 is
-        probed, a ChallengeBlocked from the probe becoming its sentence; anything else is False.
+        True to run FanFicFare once more, a sentence (FR-CHS-5) to fail with, or False to keep
+        the failure as it is.
     """
     if router is None or not isinstance(exc, exceptions.HTTPErrorFFF):
         return False
@@ -499,14 +514,66 @@ def challenge_outcome(exc: BaseException, url: str, router: ChallengeRouter | No
     host = (urlsplit(url).hostname or "").lower()
     if router.every_page(host):
         if code in (403, 428):
-            return str(ChallengeBlocked(host, BlockReason.NOT_PASSED))
+            return str(ChallengeBlockedError(host, BlockReason.NOT_PASSED))
         return False
     if code != 403:
         return False
+    if retried:
+        if router.clearance(host) is None:
+            return False
+        router.mark_every_page(host)
+        return True
     try:
         return probe(url, router)
-    except ChallengeBlocked as blocked:
+    except ChallengeBlockedError as blocked:
         return str(blocked)
+
+
+class ChallengeRefusedError(RuntimeError):
+    """A site's browser check ended FanFicFare's runs; its message is the sentence (FR-CHS-5)."""
+
+
+MAX_RERUNS = 2
+"""Reruns after FanFicFare's first run: once the probe routed the host, once through the solver."""
+
+
+def run_routed(
+    run: Callable[[], T], url: str, router: ChallengeRouter | None, *, on_rerun: Callable[[], None]
+) -> T:
+    """Run FanFicFare through *run*, and again while its site's browser check gets routed.
+
+    A failure :func:`challenge_outcome` answers True for runs *run* again after *on_rerun* (which
+    drops what the plugin cached for the host and logs the rerun), at most MAX_RERUNS times: once
+    the probe routed the host, and once through the solver when the site refused the clearance to
+    FanFicFare's own client (FR-CHS-10).
+
+    Args:
+        run: One whole FanFicFare run (it builds its own configuration).
+        url: The address FanFicFare is given.
+        router: The plugin call's router; None runs *run* once.
+        on_rerun: Called before each rerun.
+
+    Returns:
+        What *run* returns.
+
+    Raises:
+        ChallengeRefusedError: The browser check could not be passed; carries the sentence.
+        Exception: The last run's own failure, when it is not a browser check.
+    """
+    reruns = 0
+    while True:
+        try:
+            return run()
+        except ChallengeBlockedError as blocked:
+            raise ChallengeRefusedError(str(blocked)) from blocked
+        except Exception as exc:
+            outcome = challenge_outcome(exc, url, router, retried=reruns > 0)
+            if isinstance(outcome, str):
+                raise ChallengeRefusedError(outcome) from exc
+            if outcome is False or reruns == MAX_RERUNS:
+                raise
+        reruns += 1
+        on_rerun()
 
 
 def build_configuration(

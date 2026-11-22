@@ -12,7 +12,7 @@ import urllib.error
 from unittest import mock
 
 import pytest
-from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter
+from ebookerr_sdk.challenge import ChallengeBlockedError, ChallengeRouter
 from ebookerr_sdk.challenge.solver import Clearance, ClearanceCookie, Solution
 from ebookerr_sdk.testing import FakeCircuit, FakeContext
 
@@ -100,7 +100,7 @@ def test_a_challenged_wall_without_a_solver_reads_the_sentence() -> None:
     """A wall read that gets a browser check and no solver reads the solver sentence."""
     with (
         mock.patch("urllib.request.urlopen", side_effect=_check(_MODULE.WALL_URL)),
-        pytest.raises(ChallengeBlocked) as caught,
+        pytest.raises(ChallengeBlockedError) as caught,
     ):
         _MODULE.fetch_wall_page(
             "t", None, circuit=FakeCircuit(), router=ChallengeRouter(FakeContext())

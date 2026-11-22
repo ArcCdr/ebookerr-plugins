@@ -394,7 +394,7 @@ def fetch_wall_page(
         urllib.error.URLError: If the wall could not be reached (transport error).
         TimeoutError: If the request times out.
         RuntimeError: If the response is unparseable JSON.
-        ChallengeBlocked: The wall asked for a browser check that could not be passed.
+        ChallengeBlockedError: The wall asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -459,7 +459,7 @@ def fetch_activities(
         A tuple of (activities, log entries).
 
     Raises:
-        ChallengeBlocked: The wall asked for a browser check that could not be passed.
+        ChallengeBlockedError: The wall asked for a browser check that could not be passed.
     """
     logs: list[dict[str, Any]] = []
     activities: list[dict[str, Any]] = []
@@ -537,7 +537,7 @@ def login(username: str, password: str, *, router: ChallengeRouter | None = None
     Raises:
         RuntimeError: If the credentials are rejected, the response is unexpected, or no
             ``sessionid`` cookie is issued.
-        ChallengeBlocked: The login asked for a browser check that could not be passed.
+        ChallengeBlockedError: The login asked for a browser check that could not be passed.
     """
     body = urllib.parse.urlencode(
         {
@@ -603,7 +603,7 @@ def mint_token(
         urllib.error.URLError: If the auth service could not be reached (transport error).
         TimeoutError: If the request times out.
         RuntimeError: If the response body is not a valid JWT.
-        ChallengeBlocked: The token request asked for a browser check that could not be passed.
+        ChallengeBlockedError: The token request asked for a browser check that could not be passed.
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -661,7 +661,7 @@ def resolve_token(
 
     Raises:
         RuntimeError: If no sign-in is stored or its shape is unsupported.
-        ChallengeBlocked: The login asked for a browser check that could not be passed.
+        ChallengeBlockedError: The login asked for a browser check that could not be passed.
     """
     if credential is None or not credential.value:
         msg = (
