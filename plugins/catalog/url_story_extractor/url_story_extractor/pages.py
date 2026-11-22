@@ -331,12 +331,14 @@ class FanFicFarePagesGateway:
             configuration: FanFicFare Configuration object.
 
         Returns:
-            Metadata dict or None.
+            Metadata dict, or None when FanFicFare's answer is not a mapping.
+
+        Raises:
+            Exception: Whatever FanFicFare raises, untouched: ``fetch_story_metadata`` turns it
+                into ``None`` after the browser-check route (``FR-CHS-10``) has looked at it and
+                the reason has been logged.
         """
-        try:
-            adapter = adapters.getAdapter(configuration, url)
-            metadata = adapter.getStoryMetadataOnly()
-            result = metadata.getAllMetadata()
-            return result if isinstance(result, dict) else None
-        except Exception:  # noqa: BLE001
-            return None
+        adapter = adapters.getAdapter(configuration, url)
+        metadata = adapter.getStoryMetadataOnly()
+        result = metadata.getAllMetadata()
+        return result if isinstance(result, dict) else None
