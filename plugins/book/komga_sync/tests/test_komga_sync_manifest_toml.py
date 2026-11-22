@@ -60,11 +60,12 @@ def test_the_library_id_lists_its_choices() -> None:
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
     data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     library_field = next(f for f in data["settings_schema"]["fields"] if f["key"] == "library_id")
-    assert library_field["options_from"] == ("server", "api_key")
+    assert library_field["options_from"] == ["server", "api_key"]
 
     manifest = KomgaSyncPlugin.manifest
     library = next(f for f in manifest.settings_schema.fields if f.key == "library_id")
     assert library.options_from == ("server", "api_key")
+    assert library.options_from == tuple(library_field["options_from"])
 
 
 def test_the_sync_action_shows_the_plugin_glyph() -> None:
