@@ -9,14 +9,12 @@ from __future__ import annotations
 import email.message
 import importlib
 import json
-from typing import Any
+import urllib.error
 from unittest import mock
 
 import pytest
-import urllib.error
 from ebookerr_sdk.challenge.solver import Clearance, ClearanceCookie, Solution
 from ebookerr_sdk.testing import FakeContext
-from literotica_stories.plugin import LiteroticaStoriesPlugin
 
 _MODULE = importlib.import_module("literotica_stories.catalog")
 
@@ -54,7 +52,7 @@ def _fake_solution() -> Solution:
     return Solution(
         url=_SEARCH_URL,
         status=200,
-        body="<pre>{\"data\": []}</pre>",
+        body='<pre>{"data": []}</pre>',
         clearance=Clearance(
             user_agent="Mozilla/5.0 (FakeSolver) Chrome/152.0",
             cookies=(
@@ -98,9 +96,9 @@ def test_a_challenged_search_without_a_solver_fails_the_scan_with_the_sentence()
     with (
         mock.patch("urllib.request.urlopen", side_effect=_check(_SEARCH_URL)),
         mock.patch("literotica_stories.catalog.time.sleep"),
+        pytest.raises(RuntimeError) as caught,
     ):
-        with pytest.raises(RuntimeError) as caught:
-            _MODULE.scan(settings, FakeContext())
+        _MODULE.scan(settings, FakeContext())
 
     message = str(caught.value)
     assert (
