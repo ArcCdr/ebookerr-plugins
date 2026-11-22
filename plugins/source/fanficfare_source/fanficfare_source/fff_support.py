@@ -22,12 +22,17 @@ plugin seven things:
   keys, a stored sign-in and its packaged base options, as FanFicFare options;
 * :func:`check_extra_options` — the plugin's save check of its advanced options (``LIB-D47``);
 * :func:`can_sign_in` — whether FanFicFare can sign in on a story's site at all (``LIB-D53``).
+
+The route helpers (:func:`challenge_route`, :func:`seed_clearance`, :func:`challenge_outcome`) apply
+a host's browser-check route through FanFicFare's own documented options (``FR-CHS-10`` is written
+when both plugins use them).
 """
 
 from __future__ import annotations
 
 import configparser
 import contextlib
+import http.cookiejar
 import inspect
 import io
 import logging
@@ -40,6 +45,13 @@ from urllib.parse import urlsplit
 
 import fanficfare
 import requests
+from ebookerr_sdk.challenge import (
+    BlockReason,
+    ChallengeBlocked,
+    ChallengeRouter,
+    Clearance,
+    probe,
+)
 from ebookerr_sdk.spi import SettingsProblem, SiteCredential
 from fanficfare import adapters, exceptions
 from fanficfare.adapters.base_adapter import BaseSiteAdapter
@@ -383,6 +395,118 @@ def config_sections(url: str, *, unknown_site_ok: bool) -> list[str]:
         if not unknown_site_ok:
             raise
         return ["unknown"]
+
+
+SOLVER_TIMEOUT_OPTION = "60000"
+"""FanFicFare's flaresolverr_proxy_timeout in milliseconds: the SDK's solve budget."""
+
+
+def solver_options(solver_url: str) -> dict[str, str]:
+    """FanFicFare's options that send a site's pages through the solver at *solver_url* (FR-CHS-10).
+
+    use_flaresolverr_proxy is "directimages" (images go direct); flaresolverr_proxy_protocol is the
+    address's scheme; flaresolverr_proxy_address its host (an IPv6 host in brackets);
+    flaresolverr_proxy_port its port, 443 for https and 80 for http when it names none;
+    flaresolverr_proxy_timeout is SOLVER_TIMEOUT_OPTION. A path in the address is not used:
+    FanFicFare asks <protocol>://<address>:<port>/v1.
+    """
+    parts = urlsplit(solver_url)
+    host = parts.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    return {
+        "use_flaresolverr_proxy": "directimages",
+        "flaresolverr_proxy_protocol": parts.scheme,
+        "flaresolverr_proxy_address": host,
+        "flaresolverr_proxy_port": str(port),
+        "flaresolverr_proxy_timeout": SOLVER_TIMEOUT_OPTION,
+    }
+
+
+def challenge_route(
+    router: ChallengeRouter | None, host: str
+) -> tuple[dict[str, str], Clearance | None]:
+    """The FanFicFare options and the clearance a configuration for *host* takes from its route.
+
+    No router: ({}, None). A host marked every page: router.require_solver(host), then
+    (solver_options(router.solver_url), None). A kept clearance: ({"user_agent": <its User-Agent,
+    rendered by _ini_value>}, clearance). Otherwise ({}, None).
+
+    Raises:
+        ChallengeBlocked: The host is marked every page and the solver is unset or does not answer.
+    """
+    if router is None:
+        return {}, None
+    if router.every_page(host):
+        router.require_solver(host)
+        # require_solver passed, so the address is set
+        return solver_options(router.solver_url or ""), None
+    clearance = router.clearance(host)
+    if clearance is not None:
+        return {"user_agent": _ini_value(clearance.user_agent)}, clearance
+    return {}, None
+
+
+def seed_clearance(config: Configuration, clearance: Clearance, url: str) -> None:
+    """Put the clearance's cookies for *url*'s host into the configuration's own cookie jar.
+
+    Call it on a complete configuration: Configuration.get_cookiejar() creates FanFicFare's
+    fetcher from the options set so far. A cookie is secure when *url* is https.
+    """
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    secure = parts.scheme == "https"
+    jar = config.get_cookiejar()
+    for c in clearance.cookies:
+        if not c.matches(host):
+            continue
+        jar.set_cookie(
+            http.cookiejar.Cookie(
+                version=0,
+                name=c.name,
+                value=c.value,
+                port=None,
+                port_specified=False,
+                domain=c.domain,
+                domain_specified=True,
+                domain_initial_dot=c.domain.startswith("."),
+                path=c.path,
+                path_specified=True,
+                secure=secure,
+                expires=None,
+                discard=False,
+                comment=None,
+                comment_url=None,
+                rest={},
+            )
+        )
+
+
+def challenge_outcome(exc: BaseException, url: str, router: ChallengeRouter | None) -> bool | str:
+    """What a FanFicFare failure on *url* means for its route (FR-CHS-10).
+
+    Returns:
+        True to run FanFicFare once more (a probe found a browser check and routed the host); a
+        sentence (FR-CHS-5) to fail with; False to keep the failure as it is. Only an HTTPErrorFFF
+        is looked at: on a host marked every page a 403 or a 428 (FanFicFare's code for a solver
+        that answered without passing) is the could-not-pass sentence; on any other host a 403 is
+        probed, a ChallengeBlocked from the probe becoming its sentence; anything else is False.
+    """
+    if router is None or not isinstance(exc, exceptions.HTTPErrorFFF):
+        return False
+    code = exc.status_code if isinstance(exc.status_code, int) else 0
+    host = (urlsplit(url).hostname or "").lower()
+    if router.every_page(host):
+        if code in (403, 428):
+            return str(ChallengeBlocked(host, BlockReason.NOT_PASSED))
+        return False
+    if code != 403:
+        return False
+    try:
+        return probe(url, router)
+    except ChallengeBlocked as blocked:
+        return str(blocked)
 
 
 def build_configuration(

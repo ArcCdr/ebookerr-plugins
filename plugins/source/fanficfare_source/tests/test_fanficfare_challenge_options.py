@@ -142,7 +142,10 @@ def test_a_403_is_probed_and_retried_once_the_host_is_routed() -> None:
     with FakeSolver() as fake:
         router = ChallengeRouter(FakeContext(app_settings={"challenge_solver_url": fake.url}))
         with mock.patch("urllib.request.urlopen", side_effect=[_check(URL), ok]):
-            assert challenge_outcome(exceptions.HTTPErrorFFF(URL, 403, "Forbidden"), URL, router) is True
+            assert (
+                challenge_outcome(exceptions.HTTPErrorFFF(URL, 403, "Forbidden"), URL, router)
+                is True
+            )
 
 
 def test_a_403_without_a_solver_reads_the_no_solver_sentence() -> None:
@@ -150,7 +153,10 @@ def test_a_403_without_a_solver_reads_the_no_solver_sentence() -> None:
     router = ChallengeRouter(FakeContext())
     with mock.patch("urllib.request.urlopen", side_effect=_check(URL)):
         outcome = challenge_outcome(exceptions.HTTPErrorFFF(URL, 403, "Forbidden"), URL, router)
-    assert outcome == "example.org asks for a browser check — set a challenge solver in Settings → General"
+    assert (
+        outcome
+        == "example.org asks for a browser check — set a challenge solver in Settings → General"
+    )
 
 
 def test_a_host_checked_on_every_page_that_still_fails_reads_could_not_pass() -> None:
@@ -161,7 +167,9 @@ def test_a_host_checked_on_every_page_that_still_fails_reads_could_not_pass() ->
         outcome = challenge_outcome(
             exceptions.HTTPErrorFFF(URL, 428, "Precondition Required"), URL, ChallengeRouter(ctx)
         )
-    assert outcome == "example.org asks for a browser check that the challenge solver could not pass"
+    assert (
+        outcome == "example.org asks for a browser check that the challenge solver could not pass"
+    )
 
 
 @pytest.mark.parametrize(
