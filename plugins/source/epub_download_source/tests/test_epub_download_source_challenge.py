@@ -127,9 +127,7 @@ def test_a_download_refused_by_a_check_fails_with_the_sentence(
 
 
 @responses.activate
-def test_a_download_passes_a_check_through_the_solver(
-    tmp_path: Path, build_epub: Any
-) -> None:
+def test_a_download_passes_a_check_through_the_solver(tmp_path: Path, build_epub: Any) -> None:
     """A challenged GET solved through the solver returns the EPUB with the clearance cookie."""
     epub_bytes = build_epub([("Chapter 1", "http://example.com/ch1")]).read_bytes()
 
@@ -142,10 +140,13 @@ def test_a_download_passes_a_check_through_the_solver(
         headers={"Content-Type": "application/epub+zip"},
     )
 
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+
     with FakeSolver() as fake:
         responses.add_passthru(fake.url)
         ctx = FakeContext(app_settings={"challenge_solver_url": fake.url})
-        patch = _make_plugin().pull(_URL, tmp_path / "work", None, ctx)
+        patch = _make_plugin().pull(_URL, work_dir, None, ctx)
 
     assert patch.upsert is True
     get_calls = [call for call in responses.calls if call.request.method == "GET"]

@@ -34,8 +34,12 @@ def _epub_metadata() -> EpubMetadata:
 
 @pytest.fixture
 def fake_session() -> MagicMock:
-    """Create a fake requests.Session that tracks calls."""
-    return MagicMock(spec=requests.Session)
+    """Create a fake requests.Session that tracks calls.
+
+    ``adapters`` is present so :func:`~ebookerr_sdk.challenge.challenge_session` — pulled on
+    every request — can mount its browser-check adapter without the spec raising.
+    """
+    return MagicMock(spec=requests.Session, adapters={})
 
 
 def _make_fake_response(

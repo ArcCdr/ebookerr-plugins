@@ -50,12 +50,22 @@ class FakeContext:
     def __init__(self, auth_by_host: dict[str, dict[str, str]] | None = None) -> None:
         """Initialize with optional auth headers by host."""
         self.auth_by_host = auth_by_host or {}
+        self.app_settings: dict[str, Any] = {}
+        self.state: dict[str, Any] = {}
 
     def report(self, percent: float) -> None:
         """No-op progress reporting."""
 
     def check_cancelled(self) -> None:
         """No-op cancellation check."""
+
+    def app_setting(self, key: str, default: str | None = None) -> str | None:
+        """No app-level setting unless a test sets one."""
+        return self.app_settings.get(key, default)
+
+    def state_get(self, key: str) -> Any | None:
+        """No stored browser-check state unless a test sets one."""
+        return self.state.get(key)
 
     def auth_headers(self, url: str) -> dict[str, str]:
         """Return auth headers for the URL's host."""

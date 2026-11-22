@@ -15,6 +15,11 @@ finalization step that renames on a collision.
 gives the Auto-Pull scan a cheap pre-download signal from HTTP validators (ETag /
 Last-Modified / Content-Length); ``pull()`` itself adds a second, authoritative layer
 after the bytes are actually in hand — see its docstring for the content-hash skip.
+
+**Browser checks**: the update check and the download both send their request through the
+call's challenge solver (:func:`~ebookerr_sdk.challenge.challenge_session`); a site's
+Cloudflare browser check is solved, or the check fails with the solver's sentence (FR-CHS-9),
+never a bare ``HTTP 403``, and a refused check counts as no outage for the host breaker.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 
 import requests
+from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter, challenge_session
 from ebookerr_sdk.domain.authors import split_authors
 from ebookerr_sdk.domain.epub_hash import epub_content_hash
 from ebookerr_sdk.domain.epub_metadata import epub_book_fields
@@ -128,10 +134,14 @@ class EpubDownloadSourcePlugin:
 
     Lifecycle and invariants:
         The ``pull()`` method returns a ``BookPatch`` on success; on failure it raises
-        ``SourcePullError`` (download failure, too-large file or invalid EPUB) or
-        ``ContentTypeMismatchError``. The patch carries real fields (title, author,
-        output_filename) and custom values (validators and content hash). The instance
-        stores the HTTP session and timeout in ``__init__``.
+        ``SourcePullError`` (download failure, too-large file, invalid EPUB, or a browser
+        check the solver could not pass) or ``ContentTypeMismatchError``. The patch carries
+        real fields (title, author, output_filename) and custom values (validators and
+        content hash). The instance stores the HTTP session and timeout in ``__init__``.
+
+    The update check and the download both send their request through the call's challenge
+    solver (:func:`~ebookerr_sdk.challenge.challenge_session`): a site's browser check is
+    solved, or the check fails with the solver's sentence (FR-CHS-9).
     """
 
     manifest = package_manifest(__file__)
@@ -172,12 +182,14 @@ class EpubDownloadSourcePlugin:
     ) -> UpdateCheck:
         """Check for update via HEAD request and validator comparison.
 
-        The HEAD request carries no site credentials.
+        The HEAD request carries no site credentials. A browser check on the HEAD goes
+        through the call's challenge solver, so a refused check fails with the solver's
+        sentence (FR-CHS-9).
 
         Args:
             url: The book's source URL.
             prior: The book's current snapshot, or ``None`` when unknown.
-            ctx: The call's plugin context (unused by this check).
+            ctx: The call's plugin context, routed through the challenge solver.
 
         Returns:
             The validator comparison's verdict.
@@ -188,6 +200,7 @@ class EpubDownloadSourcePlugin:
             auth_headers={},
             prior=prior,
             namespace=self.manifest.id,
+            ctx=ctx,
         )
 
     def pull(  # noqa: C901 — sequential checks: HEAD skip, circuit guard, status/content-type/hash
@@ -216,10 +229,14 @@ class EpubDownloadSourcePlugin:
         URL is the download URL itself — a one-file download is one chapter at one address.
 
         Raises:
-            SourcePullError: On download failure, invalid EPUB, or too-large file.
+            SourcePullError: On download failure, invalid EPUB, too-large file, or a browser
+                check the solver could not pass.
             ContentTypeMismatchError: When the server's Content-Type contradicts the claimed format.
         """
         from ebookerr_sdk.download.routing import response_format_mismatch
+
+        # Pass a browser check on the download through the call's challenge solver (FR-CHS-9)
+        challenge_session(self._session, ChallengeRouter(ctx))
 
         # HEAD-first check: if prior exists, try a HEAD request to detect unchanged content
         if prior is not None:
@@ -229,6 +246,7 @@ class EpubDownloadSourcePlugin:
                 auth_headers=ctx.auth_headers(url),
                 prior=prior,
                 namespace=self.manifest.id,
+                ctx=ctx,
             )
             if check.error is None and not check.needs_update:
                 logger.info(
@@ -267,21 +285,8 @@ class EpubDownloadSourcePlugin:
             logger.info("Download skipped: %s is in a failure back-off (url=%s)", host, url)
             raise SourcePullError(f"{host} is not reachable; retrying automatically")
 
-        # Download
-        try:
-            with _guard(guard, circuit_key, host):
-                resp = self._session.get(
-                    url,
-                    headers=headers,
-                    timeout=(10, self._timeout_s),
-                    stream=True,
-                    allow_redirects=True,
-                )
-        except CircuitOpenError:
-            raise SourcePullError(f"{host} is not reachable; retrying automatically") from None
-        except requests.RequestException as exc:
-            logger.warning("Download failed for %s: %s — retrying", url, exc)
-            raise SourcePullError(f"Download failed: {exc}") from exc
+        # Download, passing a browser check through the call's challenge solver
+        resp = self._get(url, headers, guard=guard, circuit_key=circuit_key, host=host)
 
         if resp.status_code != 200:
             raise SourcePullError(download_failure_message(resp.status_code))
@@ -365,6 +370,61 @@ class EpubDownloadSourcePlugin:
             upsert=True,
             chapters=(ChapterLink(url=url, title=title),),
         )
+
+    def _get(
+        self,
+        url: str,
+        headers: dict[str, str],
+        *,
+        guard: CircuitGuard | None,
+        circuit_key: str,
+        host: str,
+    ) -> requests.Response:
+        """GET *url* under the host breaker, passing a browser check through the solver.
+
+        The GET runs under the host breaker. A Cloudflare browser check answered by the site is
+        solved through the call's challenge solver; when the check is refused the breaker records
+        no outage and this raises :class:`SourcePullError` with the solver's sentence, not a status
+        code. A circuit-open or network error is raised as before.
+
+        Args:
+            url: The download URL.
+            headers: The request headers (User-Agent and site auth).
+            guard: The app's shared circuit breakers, or ``None``.
+            circuit_key: The host breaker key (e.g. ``"host:files.example.org"``).
+            host: The hostname for the breaker label, or ``""``.
+
+        Returns:
+            The download response.
+
+        Raises:
+            SourcePullError: The browser check was refused, or the GET failed.
+            CircuitOpenError: The host breaker was open.
+        """
+        blocked: ChallengeBlocked | None = None
+        try:
+            with _guard(guard, circuit_key, host):
+                try:
+                    resp = self._session.get(
+                        url,
+                        headers=headers,
+                        timeout=(10, self._timeout_s),
+                        stream=True,
+                        allow_redirects=True,
+                    )
+                except ChallengeBlocked as exc:
+                    # Caught inside the breaker: the refusal is not the host's outage.
+                    blocked = exc
+        except CircuitOpenError:
+            raise SourcePullError(f"{host} is not reachable; retrying automatically") from None
+        except requests.RequestException as exc:
+            logger.warning("Download failed for %s: %s — retrying", url, exc)
+            raise SourcePullError(f"Download failed: {exc}") from exc
+
+        if blocked is not None:
+            logger.debug("Download refused for %s: %s", url, blocked)
+            raise SourcePullError(str(blocked))
+        return resp
 
     def _download_to_file(self, resp: requests.Response, work_dir: Path) -> int:
         """Download response stream to file with size cap. Returns bytes written."""
