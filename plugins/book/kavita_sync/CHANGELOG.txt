@@ -1,3 +1,6 @@
+== 1.13.0 ==
+The Library folder setting lists the folders of your Kavita libraries. Needs ebookerr 2.26.1 or later.
+
 == 1.12.1 ==
 The Sync to Kavita action now says it syncs the book's data and read progress.
 
