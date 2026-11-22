@@ -318,7 +318,12 @@ def test_scan_applies_recent_weeks_cutoff() -> None:
     fetch_log: list[str] = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         fetch_log.append(url)
         if "api/current_user" in url:
@@ -400,7 +405,12 @@ def test_scan_skips_locked_and_counts() -> None:
     }
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -479,7 +489,12 @@ def test_scan_skips_posts_without_files() -> None:
     }
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -520,7 +535,12 @@ def test_scan_dedupes_by_url() -> None:
     )
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return memberships_2camps
@@ -588,7 +608,12 @@ def test_scan_pagination_follows_cursor() -> None:
     fetch_calls = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         fetch_calls.append(url)
         if "api/current_user" in url:
@@ -649,7 +674,12 @@ def test_scan_uses_configured_cookie_name() -> None:
     captured_names: list[str] = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         captured_names.append(cookie_name)
         if "api/current_user" in url:
@@ -676,7 +706,12 @@ def test_scan_defaults_cookie_name_when_profile_has_no_name() -> None:
     captured_names: list[str] = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         captured_names.append(cookie_name)
         if "api/current_user" in url:
@@ -705,7 +740,12 @@ def test_patreon_stories_runs_on_the_sdk_host(monkeypatch) -> None:
     cookies_sent: list[tuple[str, str]] = []
 
     def fake_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         cookies_sent.append((cookie_name, session_cookie))
         return _MEMBERSHIPS_FIXTURE_DATA if url == _MODULE.MEMBERSHIPS_URL else last_page
@@ -743,7 +783,7 @@ def test_manifest_parses_with_auth_sites() -> None:
     manifest = parse_manifest(manifest_data)
 
     assert manifest.auth_sites == ("patreon.com",)
-    assert manifest.spi_version == "3.10"
+    assert manifest.spi_version == "3.13"
     assert manifest.ui_triggers[0].icon == "volunteer_activism"
 
     # Check settings_schema has recent_weeks field
@@ -773,15 +813,16 @@ def test_the_manifest_declares_a_complete_listing() -> None:
 
 
 def test_manifest_loads_via_loader() -> None:
-    """The staged manifest parses to the catalog patreon_stories, version 2.6.0."""
+    """The staged manifest parses to the catalog patreon_stories, matching manifest.toml."""
     import tomllib
 
     from ebookerr_sdk.spi.manifest import parse_manifest
 
     manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
-    manifest = parse_manifest(tomllib.loads(manifest_path.read_text(encoding="utf-8")))
+    manifest_data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = parse_manifest(manifest_data)
     assert manifest.id == "patreon_stories"
-    assert manifest.version == "2.6.0"
+    assert manifest.version == manifest_data["version"]
 
 
 def test_build_story_includes_source_filename() -> None:
@@ -1247,7 +1288,12 @@ def test_scan_reports_once_per_campaign() -> None:
     )
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return memberships_4camps
@@ -1284,7 +1330,12 @@ def test_scan_reports_a_failed_campaign() -> None:
     call_count = 0
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         nonlocal call_count
         if "api/current_user" in url:
@@ -1324,7 +1375,12 @@ def test_scan_returns_empty_when_the_account_has_no_memberships() -> None:
     memberships_none = _memberships_payload([])
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return memberships_none
@@ -1362,7 +1418,12 @@ def test_scan_reports_progress_to_completion_on_an_empty_account() -> None:
     memberships_none = _memberships_payload([])
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return memberships_none
@@ -1392,7 +1453,12 @@ def test_scan_raises_when_patreon_does_not_accept_the_cookie() -> None:
     rejected_payload = {"data": None, "included": []}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return rejected_payload
@@ -1424,7 +1490,12 @@ def test_scan_raises_when_the_pledges_payload_has_no_user_object() -> None:
     no_data_payload = {"included": []}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return no_data_payload
@@ -1456,7 +1527,12 @@ def test_scan_raises_when_the_user_object_has_a_blank_id() -> None:
     blank_id_payload = {"data": {"id": "", "type": "user"}, "included": []}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return blank_id_payload
@@ -1512,7 +1588,12 @@ def test_scan_emits_no_progress_when_pledges_fetch_fails() -> None:
     settings = {}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         raise RuntimeError("boom")
 
@@ -1556,7 +1637,12 @@ def test_scan_raises_on_a_fetch_failure_instead_of_reporting_empty() -> None:
     settings = {}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         raise RuntimeError("HTTP 500")
 
@@ -1583,7 +1669,12 @@ def test_scan_raises_on_an_auth_failure() -> None:
     settings = {}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         raise RuntimeError("HTTP 401")
 
@@ -1624,7 +1715,12 @@ def test_scan_raises_when_a_single_campaign_fails() -> None:
     call_count = 0
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         nonlocal call_count
         if "api/current_user" in url:
@@ -1664,7 +1760,12 @@ def test_scan_with_zero_recent_posts_returns_empty_successfully() -> None:
     empty_posts = {"data": [], "included": [], "meta": {"pagination": {"cursors": {}}}}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -1803,7 +1904,12 @@ def test_scan_discovers_campaigns_through_active_memberships() -> None:
     requested: list[str] = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         requested.append(url)
         if "api/current_user" in url:
@@ -1824,7 +1930,12 @@ def test_scan_routes_a_skipped_campaign_warning_into_the_scan_log() -> None:
     """A campaign parse_campaigns skips is reported in the logs scan() returns."""
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         return _campaign_without_url_payload()
 
@@ -1876,7 +1987,12 @@ def test_scan_labels_stories_with_their_membership() -> None:
     last_page = {**_POSTS_FIXTURE_DATA, "meta": {"pagination": {"cursors": {}}}}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -1952,7 +2068,12 @@ def test_scan_logs_one_membership_summary_and_one_line_per_campaign() -> None:
     empty_page = {"data": [], "included": [], "meta": {"pagination": {"cursors": {}}}}
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _three_memberships_payload()
@@ -1999,7 +2120,12 @@ def test_scan_warns_when_a_campaign_hits_the_page_limit() -> None:
     posts_calls: list[str] = []
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -2021,7 +2147,12 @@ def test_scan_failure_names_the_campaign_in_double_quotes() -> None:
     """A failing campaign's error names it in double quotes with its id."""
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return _MEMBERSHIPS_FIXTURE_DATA
@@ -2148,7 +2279,12 @@ def test_scan_logs_how_many_stories_belong_to_a_collection() -> None:
     memberships = _memberships_payload([("camp1", "Campaign 1", "Creator 1")])
 
     def mock_get_json(
-        url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: object
+        url: str,
+        session_cookie: str,
+        cookie_name: str = "session_id",
+        *,
+        circuit: object,
+        router: object | None = None,
     ) -> dict:
         if "api/current_user" in url:
             return memberships

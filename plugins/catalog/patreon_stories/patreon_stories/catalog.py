@@ -37,6 +37,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from ebookerr_sdk.challenge import ChallengeRouter, open_url
 from ebookerr_sdk.spi import CircuitGuard, CircuitOpenError, PluginContext, SiteCredential
 
 API_BASE = "https://www.patreon.com/api"
@@ -105,9 +106,18 @@ def _record(circuit: CircuitGuard, *, ok: bool) -> bool:
 
 
 def _get_json(
-    url: str, session_cookie: str, cookie_name: str = "session_id", *, circuit: CircuitGuard
+    url: str,
+    session_cookie: str,
+    cookie_name: str = "session_id",
+    *,
+    circuit: CircuitGuard,
+    router: ChallengeRouter | None = None,
 ) -> dict[str, object]:
     """Fetch and parse JSON from Patreon API with auth cookie.
+
+    Every request is read through ``open_url`` (``SPI 3.13``): a Cloudflare browser check is
+    solved by the user's challenge solver, or the scan fails with the solver sentence. A 403 that
+    is not such a check still answers "Patreon session cookie missing or expired".
 
     Args:
         url: The API endpoint URL
@@ -115,6 +125,8 @@ def _get_json(
         cookie_name: Name of the session cookie, as stored in the sign-in (defaults to
             "session_id" — the documented convention — when the sign-in omits it)
         circuit: The plugin context's circuit guard, which holds this host's breaker.
+        router: The plugin context's challenge router, which passes a browser check through the
+            user's solver; None to read without passing a check.
 
     Returns:
         Parsed JSON dict
@@ -122,6 +134,7 @@ def _get_json(
     Raises:
         RuntimeError: On HTTP 401/403 (auth error) or other HTTP errors
         CatalogHostUnreachable: When the host circuit breaker is open or a transport error occurs
+        ChallengeBlocked: When the host answers a browser check the solver cannot pass
     """
     if circuit.is_open(CIRCUIT_KEY):
         raise CatalogHostUnreachable(CIRCUIT_LABEL)
@@ -135,7 +148,7 @@ def _get_json(
                 "Accept": "application/json",
             },
         )
-        with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310
+        with open_url(request, timeout=_TIMEOUT_S, router=router) as response:  # noqa: S310
             _record(circuit, ok=True)
             return cast(dict[str, object], json.loads(response.read().decode("utf-8")))
     except urllib.error.HTTPError as e:
@@ -655,10 +668,12 @@ def _scan_campaign(
     cookie_name: str = "session_id",
     *,
     circuit: CircuitGuard,
+    router: ChallengeRouter | None = None,
 ) -> tuple[list[dict[str, object]], int, int, int, bool]:
     """Scan a single campaign for stories.
 
-    Every posts page is fetched through ``_get_json`` with *circuit*, the plugin context's guard.
+    Every posts page is fetched through ``_get_json`` with *circuit*, the plugin context's guard,
+    and *router*, which passes a browser check through the user's solver.
 
     Returns: (stories, kept_count, skipped_locked_count, skipped_no_file_count, truncated) —
     ``truncated`` is True when the scan stopped at ``_MAX_POSTS_PAGES`` pages before reaching
@@ -685,7 +700,9 @@ def _scan_campaign(
         else:
             posts_url = posts_url_template
 
-        posts_data = _get_json(posts_url, session_cookie, cookie_name, circuit=circuit)
+        posts_data = _get_json(
+            posts_url, session_cookie, cookie_name, circuit=circuit, router=router
+        )
         posts, next_cursor = parse_posts_page(posts_data)
 
         cutoff_hit = False
@@ -790,6 +807,7 @@ def scan(
             does not accept it, or when any memberships/posts fetch fails — an empty result
             always means "the source really has nothing" (EXP-073, EXP-227). A signed-in account
             with no memberships is such an empty result, not a failure (EXP-245).
+        ChallengeBlocked: When Patreon answers a browser check the challenge solver cannot pass.
     """
     logs: list[dict[str, object]] = []
     stories: list[dict[str, object]] = []
@@ -815,6 +833,8 @@ def scan(
     # The sign-in's own cookie name — the core builds the same Cookie header from it when a
     # download Source later fetches the story's file.
     cookie_name = credential.name or "session_id"
+    # One router for the whole scan, passing any browser check through the user's solver.
+    router = ChallengeRouter(ctx)
 
     # Calculate cutoff time based on recent_weeks
     recent_weeks_val: Any = settings.get("recent_weeks")
@@ -823,7 +843,9 @@ def scan(
     cutoff = now - timedelta(weeks=recent_weeks)
 
     # Fetch every membership and parse its campaign
-    memberships_data = _get_json(MEMBERSHIPS_URL, session_cookie, cookie_name, circuit=ctx.circuit)
+    memberships_data = _get_json(
+        MEMBERSHIPS_URL, session_cookie, cookie_name, circuit=ctx.circuit, router=router
+    )
     campaigns = parse_campaigns(memberships_data, logs)
 
     if not campaigns:
@@ -860,7 +882,13 @@ def scan(
 
         try:
             camp_stories, kept, skipped_locked, skipped_no_file, truncated = _scan_campaign(
-                campaign, session_cookie, cutoff, seen_urls, cookie_name, circuit=ctx.circuit
+                campaign,
+                session_cookie,
+                cutoff,
+                seen_urls,
+                cookie_name,
+                circuit=ctx.circuit,
+                router=router,
             )
             stories.extend(camp_stories)
 
