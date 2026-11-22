@@ -43,6 +43,7 @@ class FakeContext:
     ui_context: dict[str, str] = {}
     logger = logging.getLogger("test")
     circuit = FakeCircuit()
+    state: dict[str, tuple[Any, float | None]] = {}
 
     def __init__(self, auth_by_host: dict[str, dict[str, str]] | None = None) -> None:
         """Initialize with optional auth headers by host."""
@@ -64,6 +65,32 @@ class FakeContext:
     def app_setting(self, key: str, default: Any = None) -> Any:
         """Return an app setting value or default."""
         return default
+
+    def state_get(self, key: str) -> Any | None:
+        """Return the stored value for the key, or None when absent or expired."""
+        entry = self.state.get(key)
+        if entry is None:
+            return None
+        value, expires_at = entry
+        if expires_at is not None and self.clock() >= expires_at:
+            self.state.pop(key, None)
+            return None
+        return value
+
+    def state_set(self, key: str, value: Any, *, ttl_s: int | None = None) -> None:
+        """Store a value under the key, optionally expiring after ``ttl_s`` seconds."""
+        expires_at = self.clock() + ttl_s if ttl_s else None
+        self.state[key] = (value, expires_at)
+
+    def state_delete(self, key: str) -> None:
+        """Forget the stored value for the key."""
+        self.state.pop(key, None)
+
+    def clock(self) -> float:
+        """The monotonic clock, for state expiry."""
+        import time
+
+        return time.monotonic()
 
 
 class TestClaimsRtfSuffix:
