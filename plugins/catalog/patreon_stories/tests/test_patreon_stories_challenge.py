@@ -55,9 +55,7 @@ def _fake_solution() -> Solution:
         body="<pre>OK</pre>",
         clearance=Clearance(
             user_agent="Mozilla/5.0 (FakeSolver) Chrome/152.0",
-            cookies=(
-                ClearanceCookie("clearance", "fake-clearance-value", domain="patreon.com"),
-            ),
+            cookies=(ClearanceCookie("clearance", "fake-clearance-value", domain="patreon.com"),),
         ),
         expires_at=None,
     )
@@ -129,7 +127,7 @@ def test_a_challenged_api_without_a_solver_reads_the_sentence() -> None:
 
 @pytest.mark.pins("TR-CHS-4")
 def test_a_plain_refusal_still_reads_the_expired_cookie_sentence() -> None:
-    """A 403 without a browser check, with a solver present, still reads the expired-cookie sentence."""
+    """A 403 without a browser check, with a solver, still reads the expired-cookie sentence."""
     with (
         mock.patch("urllib.request.urlopen", side_effect=_plain_403(_MODULE.MEMBERSHIPS_URL)),
         pytest.raises(RuntimeError) as caught,
@@ -155,15 +153,14 @@ def test_a_challenged_api_passes_through_the_solver() -> None:
             raise _check(_MODULE.MEMBERSHIPS_URL)
         return _FakeResponse(b'{"data": []}')
 
-    with mock.patch("urllib.request.urlopen", fake_urlopen):
-        with FakeSolver() as fake:
-            router = ChallengeRouter(FakeContext(app_settings={"challenge_solver_url": fake.url}))
-            result = _MODULE._get_json(
-                _MODULE.MEMBERSHIPS_URL,
-                "s",
-                circuit=FakeCircuit(),
-                router=router,
-            )
+    with mock.patch("urllib.request.urlopen", fake_urlopen), FakeSolver() as fake:
+        router = ChallengeRouter(FakeContext(app_settings={"challenge_solver_url": fake.url}))
+        result = _MODULE._get_json(
+            _MODULE.MEMBERSHIPS_URL,
+            "s",
+            circuit=FakeCircuit(),
+            router=router,
+        )
 
     assert result == {"data": []}
     second_request = captured[1]
