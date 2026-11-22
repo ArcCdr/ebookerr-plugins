@@ -1,3 +1,6 @@
+== 2.7.0 ==
+A browser check on Patreon is passed through the challenge solver set in Settings → General, and no longer reads as an expired session cookie. Needs ebookerr 2.27.0 or later.
+
 == 2.6.0 ==
 A post in one of the creator's collections shows that collection as its series, with a link to it. Needs ebookerr 2.24.21 or later.
 
