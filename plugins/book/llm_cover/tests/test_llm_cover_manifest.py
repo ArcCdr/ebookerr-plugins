@@ -34,7 +34,26 @@ def test_the_image_prompt_shares_a_turn_with_text_work_on_its_model() -> None:
     m = LlmCoverPlugin.manifest
     assert m.affinity == (("", ("base_url", "model")),)
     assert [s for s, _ in m.affinity] == [""]
-    assert m.spi_version == "3.11"
+    assert m.spi_version == "3.12"
+
+
+def test_the_model_fields_list_their_choices() -> None:
+    """The text and image Model fields declare their options_from (SPI 3.12)."""
+    manifest = LlmCoverPlugin.manifest
+    manifest_schema = manifest.settings_schema
+    text_model = next(f for f in manifest_schema.fields if f.key == "model")
+    assert text_model.options_from == ("base_url",)
+    image_models = next(f for f in manifest_schema.fields if f.key == "image_models")
+    image_model = next(f for f in image_models.fields if f.key == "model")
+    assert image_model.options_from == ("api", "base_url")
+
+    # The in-process _SCHEMA mirrors the manifest (plugin.py == manifest.toml).
+    code_text_model = next(
+        f for f in LlmCoverPlugin().settings_schema().fields if f.key == "model"
+    )
+    assert code_text_model.options_from == ("base_url",)
+    code_image_model = next(f for f in IMAGE_MODEL_FIELDS if f.key == "model")
+    assert code_image_model.options_from == ("api", "base_url")
 
 
 def test_trigger() -> None:
