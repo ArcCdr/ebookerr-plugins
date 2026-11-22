@@ -1,3 +1,6 @@
+== 1.5.0 ==
+The Model setting lists the models your server offers; you can still type any name. Needs ebookerr 2.26.1 or later.
+
 == 1.4.0 ==
 Synopses now run together with other text work that uses the same model, book by book, so the model stays loaded between books. Needs ebookerr 2.24.29 or later.
 
