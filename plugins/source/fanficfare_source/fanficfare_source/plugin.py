@@ -86,8 +86,9 @@ class FanFicFareSourcePlugin:
     def _engine(self, ctx: PluginContext | None) -> FanFicFarePull:
         """Return the pull engine: injected at construction, or built on first use.
 
-        A built engine runs FanFicFare on the call's own settings, stored sign-ins and circuit
-        breakers; with no context it runs on FanFicFare's defaults, with no sign-in and no breaker.
+        A built engine runs FanFicFare on the call's own settings, stored sign-ins, circuit
+        breakers and challenge router (a site's browser check goes through the user's solver);
+        with no context it runs on FanFicFare's defaults, with no sign-in and no breaker.
 
         Args:
             ctx: Runtime context (out of process): its settings, sign-ins and circuit breakers.
@@ -98,13 +99,20 @@ class FanFicFareSourcePlugin:
         remove_leftover_personal_ini()
         if self._pull is not None:
             return self._pull
+        from ebookerr_sdk.challenge import ChallengeRouter
+
         from fanficfare_source.library import FanFicFareLibraryGateway
         from fanficfare_source.pull import FanFicFarePull
 
         if ctx is None:
             return FanFicFarePull(FanFicFareLibraryGateway({}))
         return FanFicFarePull(
-            FanFicFareLibraryGateway(ctx.settings, credentials=ctx.credentials, circuit=ctx.circuit)
+            FanFicFareLibraryGateway(
+                ctx.settings,
+                credentials=ctx.credentials,
+                circuit=ctx.circuit,
+                router=ChallengeRouter(ctx),
+            )
         )
 
     def settings_schema(self) -> SettingsSchema:

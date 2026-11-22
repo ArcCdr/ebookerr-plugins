@@ -84,6 +84,12 @@ class _Adapter:
         return []
 
 
+@pytest.fixture(autouse=True)
+def _example_site_has_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give the example host the ``unknown`` section, as FanFicFare supports no such site."""
+    monkeypatch.setattr(library.adapters, "getConfigSectionsFor", lambda url: ["unknown"])
+
+
 def _forbidden() -> exceptions.HTTPErrorFFF:
     """FanFicFare's own 403."""
     return exceptions.HTTPErrorFFF(_URL, 403, "Forbidden")
@@ -181,6 +187,6 @@ def test_a_download_that_fails_again_after_the_retry_keeps_its_reason(
         with mock.patch("urllib.request.urlopen", side_effect=[_check(_URL), _ok_response()]):
             result = gateway.download(_URL, work_dir=tmp_path, staged_filename=None)
 
-    assert result.status == "failed"
+    assert result.outcome == "failed"
     assert result.error == "the site answered HTTP 403"
     assert get_adapter.call_count == 2

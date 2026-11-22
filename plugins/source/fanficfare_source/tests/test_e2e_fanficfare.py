@@ -1,23 +1,36 @@
 """Opt-in E2E: a real FanFicFare download through the library gateway (network, LIB-D25).
 
 Deselected by default (``-m 'not e2e'``); run with ``python -m pytest -m e2e`` from the plugins
-repository. Writes the EPUB to a temp dir.
+repository. Writes the EPUB to a temp dir. The live sites answer a browser check: set
+``EBOOKERR_E2E_CHALLENGE_SOLVER_URL`` to a challenge solver's address.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
+from ebookerr_sdk.challenge import ChallengeRouter
+from ebookerr_sdk.testing import FakeContext
 from fanficfare_source.library import FanFicFareLibraryGateway
 
 pytestmark = pytest.mark.e2e
 
 
+def _gateway() -> FanFicFareLibraryGateway:
+    """A gateway routed through the solver named by ``EBOOKERR_E2E_CHALLENGE_SOLVER_URL``."""
+    solver = os.environ.get("EBOOKERR_E2E_CHALLENGE_SOLVER_URL", "")
+    return FanFicFareLibraryGateway(
+        {"is_adult": True},
+        router=ChallengeRouter(FakeContext(app_settings={"challenge_solver_url": solver})),
+    )
+
+
 def test_real_fanficfare_download(tmp_path: Path) -> None:
     """A real story downloads into a fresh EPUB with its metadata."""
     url = "https://literotica.com/s/the-12th-key"
-    gateway = FanFicFareLibraryGateway({"is_adult": True})
+    gateway = _gateway()
     result = gateway.download(url, work_dir=tmp_path, staged_filename=None)
     assert result.outcome == "created", result.error
     assert result.output_filename
@@ -30,7 +43,7 @@ def test_fetch_metadata_writes_no_epub(tmp_path: Path, monkeypatch: pytest.Monke
     """fetch_metadata returns the story's metadata and writes no EPUB."""
     url = "https://literotica.com/s/the-12th-key"
     monkeypatch.chdir(tmp_path)
-    meta = FanFicFareLibraryGateway({"is_adult": True}).fetch_metadata(url).meta
+    meta = _gateway().fetch_metadata(url).meta
     assert meta is not None
     assert meta["numChapters"]
     assert list(tmp_path.glob("**/*.epub")) == []
@@ -39,7 +52,7 @@ def test_fetch_metadata_writes_no_epub(tmp_path: Path, monkeypatch: pytest.Monke
 def test_a_real_update_fetches_nothing_new(tmp_path: Path) -> None:
     """Updating a story just downloaded adds no chapter and keeps every one (LIB-D27)."""
     url = "https://literotica.com/s/the-12th-key"
-    gateway = FanFicFareLibraryGateway({"is_adult": True})
+    gateway = _gateway()
     first = gateway.download(url, work_dir=tmp_path, staged_filename=None)
     assert first.outcome == "created", first.error
     again = gateway.download(url, work_dir=tmp_path, staged_filename=first.output_filename)

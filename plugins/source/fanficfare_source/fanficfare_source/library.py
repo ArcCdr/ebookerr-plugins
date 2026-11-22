@@ -20,9 +20,10 @@ import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlsplit
 
+from ebookerr_sdk.challenge import ChallengeBlocked, ChallengeRouter
 from ebookerr_sdk.epub import EpubDocument, EpubError
 from ebookerr_sdk.spi import CircuitOpenError
 from fanficfare import adapters, exceptions, writers
@@ -34,12 +35,15 @@ from fanficfare_source.fff_support import (
     build_configuration,
     can_sign_in,
     captured_stdout,
+    challenge_outcome,
+    challenge_route,
     config_sections,
     failure_message,
     is_outage,
     masked_text,
     packaged_base_ini,
     quiet_fanficfare_logging,
+    seed_clearance,
     settings_options,
 )
 from fanficfare_source.protocol import (
@@ -85,6 +89,13 @@ chapters a site removed (``LIB-D50``), with their own titles.
 
 class _RunFailedError(Exception):
     """Internal marker reporting a failed run to the breaker."""
+
+
+class _ChallengeRefusedError(RuntimeError):
+    """A site's browser check ended the run; its message is the user-facing sentence."""
+
+
+T = TypeVar("T")
 
 
 _FFF_CHAPTER_NAME = re.compile(r".*/(file|chapter)\d+(_u\d+)?\.x?html$")
@@ -195,6 +206,11 @@ class FanFicFareLibraryGateway:
     the host key and label, ``_blocked()`` to check if a call should be refused,
     and ``_record()`` to report an outage as a failure.
 
+    With a ``router`` the gateway passes a site's browser check through the user's challenge
+    solver: a kept clearance or an every-page route goes into the configuration, and a run that
+    fails with a 403 is probed and, when its site answers a browser check, run exactly once more
+    (``_run``). A refusal by the check is a failure sentence and never a breaker failure.
+
     Lifecycle and invariants:
         When the host's circuit is open (``_blocked()`` returns its label), a call is
         refused without making any request: ``fetch_metadata`` returns a
@@ -211,6 +227,7 @@ class FanFicFareLibraryGateway:
         *,
         credentials: Callable[[str], SiteCredential | None] | None = None,
         circuit: CircuitGuard | None = None,
+        router: ChallengeRouter | None = None,
     ) -> None:
         """Remember the settings, the sign-in lookup and the breakers; quiet FanFicFare's logging.
 
@@ -219,10 +236,13 @@ class FanFicFareLibraryGateway:
             credentials: Returns the stored sign-in of a URL's site (ctx.credentials); None signs
                 in nowhere.
             circuit: The app's shared circuit breakers (``SPI 2.21``); ``None`` records nothing.
+            router: Passes a site's browser check through the user's challenge solver; ``None``
+                routes nothing.
         """
         self._settings = settings
         self._credentials = credentials
         self._circuit = circuit
+        self._router = router
         quiet_fanficfare_logging()
 
     def _circuit_key(self, url: str) -> tuple[str, str]:
@@ -282,15 +302,16 @@ class FanFicFareLibraryGateway:
         Returns:
             The FanFicFare configuration for *url*.
         """
+        host = (urlsplit(url).hostname or "").lower()
+        options, clearance = challenge_route(self._router, host)
         config = build_configuration(
             config_sections(url, unknown_site_ok=False),
             fileform="epub",
             base_ini=packaged_base_ini(),
             options=settings_options(self._settings),
             extra_options=str(self._settings.get("extra_options") or ""),
-            overrides=UPDATE_OVERRIDES,
+            overrides={**UPDATE_OVERRIDES, **options},
         )
-        host = (urlsplit(url).hostname or "").lower()
         credential = None
         if self._credentials is not None:
             if can_sign_in(url):
@@ -298,7 +319,40 @@ class FanFicFareLibraryGateway:
             else:
                 logger.debug("No sign-in asked for %s: FanFicFare cannot sign in there", host)
         apply_sign_in(config, credential, host)
+        if clearance is not None:
+            seed_clearance(config, clearance, url)
         return config
+
+    def _run(self, url: str, run: Callable[[], T]) -> T:
+        """Run FanFicFare through *run*, once more when a browser check is found and routed.
+
+        Args:
+            url: The story address.
+            run: One whole FanFicFare run (it builds its own configuration).
+
+        Returns:
+            What *run* returns.
+
+        Raises:
+            _ChallengeRefusedError: The site's browser check ended the run; carries the sentence.
+        """
+        try:
+            return run()
+        except ChallengeBlocked as exc:
+            raise _ChallengeRefusedError(str(exc)) from exc
+        except Exception as exc:
+            outcome = challenge_outcome(exc, url, self._router)
+            if outcome is False:
+                raise
+            if isinstance(outcome, str):
+                raise _ChallengeRefusedError(outcome) from exc
+        logger.info(
+            "Running FanFicFare once more for %s: its site's browser check is now routed", url
+        )
+        try:
+            return run()
+        except ChallengeBlocked as exc:
+            raise _ChallengeRefusedError(str(exc)) from exc
 
     def fetch_metadata(self, url: str) -> MetadataFetch:
         """Return the story's metadata without fetching any chapter, or why there is none.
@@ -311,18 +365,27 @@ class FanFicFareLibraryGateway:
         Returns:
             FanFicFare's ``getAllMetadata()`` mapping plus ``zchapterurls``, the site's chapter
             addresses in order (``LIB-D54``), or ``None`` with the user-facing reason; ``gone``
-            is set when FanFicFare reports that the story no longer exists (``LIB-D51``).
+            is set when FanFicFare reports that the story no longer exists (``LIB-D51``). A site's
+            browser check is passed through the challenge solver (one more run after a 403 that
+            proves to be one) or ends in its sentence, never in a breaker failure.
         """
         label = self._blocked(url)
         if label is not None:
             return MetadataFetch(None, error=f"{label} is not reachable; retrying automatically")
+
+        def fetch() -> dict[str, Any]:
+            """One metadata run: the adapter's metadata plus the chapter addresses."""
+            adapter = adapters.getAdapter(self._configuration(url), url)
+            found = dict(adapter.getStoryMetadataOnly().getAllMetadata())
+            found["zchapterurls"] = [str(chapter["url"]) for chapter in adapter.get_chapters()]
+            return found
+
         try:
             with captured_stdout():
-                adapter = adapters.getAdapter(self._configuration(url), url)
-                metadata = dict(adapter.getStoryMetadataOnly().getAllMetadata())
-                metadata["zchapterurls"] = [
-                    str(chapter["url"]) for chapter in adapter.get_chapters()
-                ]
+                metadata = self._run(url, fetch)
+        except _ChallengeRefusedError as exc:
+            logger.warning("FanFicFare failed for %s: %s", url, exc)
+            return MetadataFetch(None, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — every failure is a reason (LIB-D25)
             reason = failure_message(exc, url)
             logger.debug("Metadata fetch failed for %s: %s", url, reason)
@@ -351,7 +414,8 @@ class FanFicFareLibraryGateway:
             on_chapter: Called after each chapter FanFicFare assembles.
 
         Returns:
-            The run's result.
+            The run's result. A site's browser check is passed through the challenge solver (one
+            more run after a 403 that proves to be one) or fails with its sentence.
         """
         label = self._blocked(url)
         if label is not None:
@@ -360,7 +424,12 @@ class FanFicFareLibraryGateway:
             )
         try:
             with captured_stdout():
-                result = self._write(url, work_dir, staged_filename, on_chapter)
+                result = self._run(
+                    url, lambda: self._write(url, work_dir, staged_filename, on_chapter)
+                )
+        except _ChallengeRefusedError as exc:
+            logger.warning("FanFicFare failed for %s: %s", url, exc)
+            return DownloadResult("failed", error=str(exc))
         except Exception as exc:  # noqa: BLE001 — every failure is a result (LIB-D25)
             message = failure_message(exc, url)
             logger.warning(
