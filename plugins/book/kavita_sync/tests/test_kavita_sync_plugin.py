@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -133,9 +134,12 @@ class TestManifest:
         )
 
     def test_manifest_version_and_group(self) -> None:
-        """Manifest version is 1.12.0 with correct exclusive library_server role and events."""
+        """Manifest version matches manifest.toml, with the role and events."""
         plugin = KavitaSyncPlugin()
-        assert plugin.manifest.version == "1.12.1"
+        expected_version = tomllib.loads(
+            (Path(__file__).resolve().parents[1] / "manifest.toml").read_text(encoding="utf-8")
+        )["version"]
+        assert plugin.manifest.version == expected_version
         assert plugin.manifest.roles.exclusive() == "library_server"
         assert plugin.manifest.events == (
             api.PluginEventType.BOOK_CREATED,
@@ -247,6 +251,19 @@ class TestSettingsSchema:
             "scan_retry_delay",
         }
         assert "library_id" not in schema_field_keys
+
+
+def test_the_library_path_lists_its_choices() -> None:
+    """The Library folder field declares its choices depend on server and api_key (SPI 3.12)."""
+    manifest_path = Path(__file__).resolve().parents[1] / "manifest.toml"
+    data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    library_field = next(f for f in data["settings_schema"]["fields"] if f["key"] == "library_path")
+    assert library_field["options_from"] == ["server", "api_key"]
+
+    manifest = KavitaSyncPlugin.manifest
+    library = next(f for f in manifest.settings_schema.fields if f.key == "library_path")
+    assert library.options_from == ("server", "api_key")
+    assert library.options_from == tuple(library_field["options_from"])
 
 
 def test_schema_has_scan_retry_settings() -> None:
