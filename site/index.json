@@ -6,7 +6,7 @@
     "maintainer": "ArcCdr",
     "homepage": "https://github.com/ArcCdr/ebookerr-plugins"
   },
-  "generated_at": "2026-11-22T21:25:28Z",
+  "generated_at": "2026-11-23T20:18:24Z",
   "plugins": [
     {
       "id": "docx_download_source",
@@ -1149,6 +1149,33 @@
       "official": true,
       "deprecated": null,
       "releases": [
+        {
+          "version": "2.4.0",
+          "published_at": "2026-11-23T20:18:24Z",
+          "url": "https://github.com/ArcCdr/ebookerr-plugins/releases/download/file_meta_sync-2.4.0/file_meta_sync-2.4.0.zip",
+          "sha256": "8f1c9aa9a66c04356ecd504856cdcfe7d6cb513b230063e400e151a17d924947",
+          "size": 12030,
+          "spi_version": "3.9",
+          "min_app_version": "",
+          "changelog": "Deleting a book whose EPUB stays in the library folder — because another book uses the same file, or you chose to keep it — now keeps its synopsis, cover and cover-candidate files too. Needs ebookerr 2.27.1 or later.",
+          "sites": [],
+          "formats": [],
+          "capabilities": {
+            "auth_sites": [],
+            "writes_epub": false,
+            "events": [
+              "BookCreated",
+              "BookUpdated",
+              "BookImported",
+              "BookDeleted",
+              "EpubCreated",
+              "EpubModified"
+            ],
+            "deferred": false,
+            "roles": []
+          },
+          "requirements": []
+        },
         {
           "version": "2.3.1",
           "published_at": "2026-10-30T09:06:18Z",
