@@ -1,3 +1,6 @@
+== 2.4.0 ==
+Deleting a book whose EPUB stays in the library folder — because another book uses the same file, or you chose to keep it — now keeps its synopsis, cover and cover-candidate files too. Needs ebookerr 2.27.1 or later.
+
 == 2.3.1 ==
 The Sync metadata file action describes what it does more clearly.
 
