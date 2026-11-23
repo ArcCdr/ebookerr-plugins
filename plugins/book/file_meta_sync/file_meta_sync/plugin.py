@@ -987,7 +987,18 @@ def _process_books(  # noqa: C901
             report((index + 1) / total * 100.0 if total else 100.0)
 
     if event == "BookDeleted":
-        if settings.get("delete_on_book_delete", True):
+        if ui.get("epub_kept") == "1":
+            # The core kept this EPUB in the library folder (SCS-D27): another live book names it,
+            # or the user unticked deleting it. Its sidecars stay with it (DUP-D5).
+            for index, _book in enumerate(books):
+                logs.append(
+                    {
+                        "level": "info",
+                        "message": "the EPUB stays in the library folder: its sidecar files kept",
+                    }
+                )
+                progress(index)
+        elif settings.get("delete_on_book_delete", True):
             for index, book in enumerate(books):
                 handle_delete(book, library_root, logs)
                 progress(index)
@@ -1110,8 +1121,9 @@ class FileMetaSyncPlugin:
     def enrich(self, books: tuple[BookView, ...], ctx: PluginContext) -> list[BookPatch]:
         """Sync, clean up or purge the sidecar files of *books*, as the call asks.
 
-        ``BookDeleted`` unlinks each book's sidecars (when ``delete_on_book_delete`` is on); the
-        ``purge_cover_candidates``/``purge_assets`` actions unlink the purged candidates' files;
+        ``BookDeleted`` unlinks each book's sidecars (when ``delete_on_book_delete`` is on and the
+        core did not keep the EPUB, ``SCS-D27``); the ``purge_cover_candidates``/``purge_assets``
+        actions unlink the purged candidates' files;
         any other call runs the 3-way sync of the synopsis, the cover and the cover candidates.
         Progress is reported per book, a conflict settled unattended leaves a durable notice,
         and an abandoned prompt stops the run with no patch (EXP-233).

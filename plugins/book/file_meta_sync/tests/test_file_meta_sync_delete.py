@@ -70,4 +70,28 @@ def test_book_deleted_with_the_epub_kept_keeps_the_sidecars(tmp_path: Path) -> N
 
     assert (folder / "Example Title.back_cover.txt").exists()
     assert (folder / "Example Title.cover.png").exists()
-    assert {"level": "info", "message": "the EPUB stays in the library folder: its sidecar files kept"} in logs
+    assert {
+        "level": "info",
+        "message": "the EPUB stays in the library folder: its sidecar files kept",
+    } in logs
+
+
+def test_book_deleted_with_the_epub_removed_still_unlinks(tmp_path: Path) -> None:
+    """The EPUB was removed: its sidecars go with it, as any delete does."""
+    root = tmp_path / "library"
+    folder = root / "Jane Doe"
+    folder.mkdir(parents=True)
+    (folder / "Example Title.back_cover.txt").write_text("s")
+    (folder / "Example Title.cover.png").write_bytes(b"")
+
+    logs: list[dict[str, object]] = []
+    _process_books(
+        [{"output_filename": "Jane Doe/Example Title.epub", "assets": []}],
+        root,
+        logs,
+        event="BookDeleted",
+        ui_context={"epub_kept": "0"},
+    )
+
+    assert not (folder / "Example Title.back_cover.txt").exists()
+    assert not (folder / "Example Title.cover.png").exists()
