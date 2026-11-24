@@ -6,23 +6,29 @@ maintainer = "ArcCdr"
 homepage = "https://github.com/ArcCdr/ebookerr-plugins"
 base_url = "https://github.com/ArcCdr/ebookerr-plugins/releases/download"
 
+# starter = true: offered pre-selected on a fresh install's first run (CAP-D19).
+
 [plugins.docx_download_source]
 official = true
 
 [plugins.epub_chapter_reorder]
 official = true
+starter = true
 
 [plugins.epub_download_source]
 official = true
+starter = true
 
 [plugins.epub_merge]
 official = true
 
 [plugins.epub_normalize]
 official = true
+starter = true
 
 [plugins.fanficfare_source]
 official = true
+starter = true
 
 [plugins.file_meta_sync]
 official = true
