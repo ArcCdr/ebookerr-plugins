@@ -74,8 +74,9 @@ def plugin_test_import_offences(root: Path) -> list[str]:
     return sorted(offences)
 
 
-def test_the_registry_lists_every_plugin_folder_as_official() -> None:
-    """Registry lists every plugin folder as official."""
+def test_the_registry_lists_every_plugin_folder_as_official_with_the_starter_set() -> None:
+    """Registry lists every plugin folder as official, and the four
+    first-run starter plugins (CAP-D19)."""
     registry_path = ROOT / "registry" / "registry.toml"
     data = tomllib.loads(registry_path.read_text(encoding="utf-8"))
 
@@ -91,11 +92,24 @@ def test_the_registry_lists_every_plugin_folder_as_official() -> None:
     registry_names = sorted(data.get("plugins", {}).keys())
     assert registry_names == folder_names
 
-    # Check that every plugin has official = true
+    # Check that every plugin is official, and the starter set matches
     for plugin_id, plugin_data in data.get("plugins", {}).items():
-        assert plugin_data == {"official": True}, (
-            f"Plugin {plugin_id} does not have official = true"
+        assert set(plugin_data) <= {"official", "starter"}, (
+            f"Plugin {plugin_id} has unexpected keys: {set(plugin_data) - {'official', 'starter'}}"
         )
+        assert plugin_data.get("official") is True
+
+    starter = sorted(
+        plugin_id
+        for plugin_id, plugin_data in data.get("plugins", {}).items()
+        if plugin_data.get("starter") is True
+    )
+    assert starter == [
+        "epub_chapter_reorder",
+        "epub_download_source",
+        "epub_normalize",
+        "fanficfare_source",
+    ]
 
 
 def test_every_plugin_folder_sits_in_its_type_folder() -> None:
