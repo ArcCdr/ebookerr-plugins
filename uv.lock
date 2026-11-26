@@ -569,7 +569,7 @@ dev = [
 dev = [
     { name = "charset-normalizer", specifier = ">=3.3" },
     { name = "check-jsonschema", specifier = ">=0.39" },
-    { name = "ebookerr-sdk", extras = ["text", "generation"], specifier = "==3.14.0" },
+    { name = "ebookerr-sdk", extras = ["text", "generation"], specifier = "==3.15.0" },
     { name = "fanficfare", specifier = "==4.63.0" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "packaging", specifier = ">=24" },
@@ -587,7 +587,7 @@ dev = [
 
 [[package]]
 name = "ebookerr-sdk"
-version = "3.14.0"
+version = "3.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
@@ -596,9 +596,9 @@ dependencies = [
     { name = "requests" },
     { name = "tinycss2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/9b/8ccc2b6a5ae6a0238787f888916ef9a0b260783fa1db1bb15fe13bfa1e72/ebookerr_sdk-3.14.0.tar.gz", hash = "sha256:046d7334ff126cfb750db5e8cdb52b0fae9a8d6f3732635daec16b90ad1b5e12", size = 363847, upload-time = "2026-11-22T20:48:43.948Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/e6/056e3f6d105d276185d816e7ac1036e3aa6a74c4e2ae1f33990a1db552e5/ebookerr_sdk-3.15.0.tar.gz", hash = "sha256:d9dc4a594e875032875190fd0384ff1c05c7cced2002f5c54bb9ad0cd46fe273", size = 364523, upload-time = "2026-11-26T21:18:10.715Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/73/a80f7ac5757c703b94a0a8e96c95286b696f1cddd4041c48ec8be0da128d/ebookerr_sdk-3.14.0-py3-none-any.whl", hash = "sha256:60ea74ba428d059a738bde78ff688e5a0ab992e2c2b5ec5ab8fc6697cad97fb1", size = 412895, upload-time = "2026-11-22T20:48:42.399Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/1f/02b6c311290d6cd9348107751920af85467ced7428d3c7621283f0013659/ebookerr_sdk-3.15.0-py3-none-any.whl", hash = "sha256:afe7350ad31b150136b944765f8cca872bc234e1f2926f796912d6625a385339", size = 413507, upload-time = "2026-11-26T21:18:09.085Z" },
 ]
 
 [package.optional-dependencies]
